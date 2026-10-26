@@ -332,8 +332,11 @@ public class PropertyMapRenderer {
         return String.format("#%02x%02x%02x", color.getRed(), color.getGreen(), color.getBlue());
     }
 
-    /** PNG at maximum compression: the image travels inside the execution context JSON. */
-    static byte[] png(BufferedImage image) {
+    /**
+     * PNG at maximum compression: the image travels inside the execution context JSON. Shared with
+     * the other Blocks that draw images (charts).
+     */
+    public static byte[] png(BufferedImage image) {
         ImageWriter writer = ImageIO.getImageWritersByFormatName("png").next();
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (ImageOutputStream stream = ImageIO.createImageOutputStream(out)) {
@@ -345,7 +348,7 @@ public class PropertyMapRenderer {
             }
             writer.write(null, new IIOImage(image, null, null), param);
         } catch (IOException e) {
-            throw new IllegalStateException("could not encode the map PNG", e);
+            throw new IllegalStateException("could not encode the PNG", e);
         } finally {
             writer.dispose();
         }
