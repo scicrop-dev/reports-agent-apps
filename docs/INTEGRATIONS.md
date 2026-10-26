@@ -8,7 +8,8 @@ back oferece em 2026-10-26.
 | Integração | Estado | Onde |
 |---|---|---|
 | Satellite Hub, **leitura** do que ele já publicou (séries de índices por área) | **feito** | `sathub-index-series` ([BLOCKS.md](BLOCKS.md) §4) e o pronto `sathub-vegetation-monitoring` |
-| Satellite Hub, **pedir processamento** para uma área nova (ex.: um imóvel CAR que não está cadastrado nele) | desenhado (§1.2) | precisa de uma rota no Satellite Hub; a porta plugin-a-plugin do back já existe |
+| **Última imagem Sentinel-2** de qualquer área (ex.: um imóvel CAR), na hora, com as fórmulas de índice do Satellite Hub | **feito** (§1.2) | `sathub-latest-image` ([BLOCKS.md](BLOCKS.md) §4) e o pronto `car-latest-satellite-image` |
+| Satellite Hub, **pedir processamento** (cadastrar a área e calcular a série) para uma área nova | desenhado (§1.3) | precisa de uma rota no Satellite Hub; a porta plugin-a-plugin do back já existe |
 | Script Python do Skills Lab como Block | desenhado (§2) | precisa de uma porta interna nova no back |
 
 ---
@@ -34,9 +35,22 @@ mesmo gate dos outros Blocks: dados no catálogo e liberação por um admin.
 talhão cadastrado devolve uma série vazia (o relatório diz isso). No dev, as áreas são de teste e
 ficam na França.
 
-### 1.2 O que falta: pedir processamento a partir do REPORTS
+### 1.2 O que já funciona: última imagem, direto da fonte
 
-Para um imóvel que não está no Satellite Hub, o REPORTS teria de pedir: "cadastre esta geometria e
+Para "mande um CAR e receba a imagem de satélite mais recente com os índices", não é preciso o
+Satellite Hub processar nada. O `sathub-latest-image` vai à **mesma fonte** que ele usa (STAC Earth
+Search + COGs Sentinel-2 L2A na AWS), lê só a janela da área por HTTP Range e aplica as fórmulas,
+limites e máscara de nuvem de `gold.satellite_hub_analytics_indices`, com a mesma metodologia
+(reflectância = DN × 0,0001 sem offset; SCL 4 a 7 = limpo). Devolve PNGs (cor verdadeira e um mapa
+por índice) e as estatísticas da imagem, dentro do limite de 120 s da execução.
+
+Do Satellite Hub ele só lê as definições dos índices (é o gate do catálogo). Não grava nada nele e
+não gera série: é uma imagem, não um histórico. Exige saída HTTPS do host para
+`earth-search.aws.element84.com` e `sentinel-cogs.s3.us-west-2.amazonaws.com`.
+
+### 1.3 O que falta: pedir processamento a partir do REPORTS
+
+Para ter a **série** de um imóvel que não está no Satellite Hub, o REPORTS teria de pedir: "cadastre esta geometria e
 calcule o NDVI dos últimos 12 meses". O caminho:
 
 1. **Porta plugin-a-plugin do back (já existe).** `PluginInternalCallController` expõe
