@@ -1,0 +1,20 @@
+{
+  "plugin_id": "reports",
+  "name": "Reports",
+  "version": "0.1.0",
+  "description": "Relatórios dinâmicos: Blocks liberados pelo catálogo de dados, Flows, templates HTML e preview.",
+  "entrypoint": "com.infinitestack.reports.Application",
+  "base_path": "/api/plugins/reports",
+  "supported_destination_databases": ["postgres"],
+  "requires_host_authentication": true,
+  "requires_host_authorization": true,
+  "requires_host_datasource": true,
+  "allows_own_user_store": false,
+  "allows_own_datasource": false,
+  "web": {
+    "templates_path": "templates",
+    "static_path": "static",
+    "thymeleaf": true,
+    "local_assets_only": true
+  }
+}
