@@ -106,7 +106,7 @@ class ReportsEndToEndDbTest {
         org.junit.jupiter.api.Assertions.assertFalse(laudo.get("runnable").asBoolean());
         org.junit.jupiter.api.Assertions.assertEquals(6, laudo.get("blocks").size());
         org.junit.jupiter.api.Assertions.assertFalse(laudo.at("/blocks/0/usable").asBoolean());
-        org.junit.jupiter.api.Assertions.assertTrue(laudo.at("/blocks/0/problem").asText().contains("does not exist"));
+        org.junit.jupiter.api.Assertions.assertTrue(laudo.at("/blocks/0/problem").asText().contains("is not released"));
 
         mvc.perform(as(get(BASE + "/ready-made/car-socioenvironmental"), "USER"))
                 .andExpect(jsonPath("$.content.flow.nodes.length()").value(6))
