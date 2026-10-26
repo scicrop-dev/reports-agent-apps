@@ -7,9 +7,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+
+import com.infinitestack.reports.engine.block.BlockQueries;
 
 /**
  * Gives a recent view of the data catalog. Inside the host (internal token present) it asks the
@@ -27,13 +28,13 @@ public class CatalogService {
     private volatile CatalogSnapshot current;
 
     @Autowired
-    public CatalogService(JdbcTemplate jdbc,
+    public CatalogService(BlockQueries blockQueries,
                           @Value("${infinitestack.host.base-url:http://127.0.0.1:8081}") String hostBaseUrl,
                           @Value("${infinitestack.plugin.runtime-id:reports}") String pluginId,
                           @Value("${infinitestack.plugin.internal-token:}") String internalToken,
                           @Value("${reports.catalog.cache-seconds:60}") long cacheSeconds) {
         this(internalToken == null || internalToken.isBlank()
-                        ? new InformationSchemaCatalogClient(jdbc)
+                        ? new InformationSchemaCatalogClient(blockQueries.jdbc())
                         : new HostCatalogClient(RestClient.builder().baseUrl(hostBaseUrl).build(), pluginId, internalToken),
                 Duration.ofSeconds(cacheSeconds));
         log.info("[reports] data catalog origin: {}", client.origin());

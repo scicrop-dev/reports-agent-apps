@@ -8,6 +8,9 @@ public record FlowDefinition(List<FlowNode> nodes, List<FlowConnection> connecti
     /** Namespace of the report inputs; no node may use it as id. */
     public static final String INPUTS = "inputs";
 
+    /** Namespace of the report metadata in the template (name, version, execution, date); reserved too. */
+    public static final String REPORT = "report";
+
     public FlowDefinition {
         nodes = nodes == null ? List.of() : List.copyOf(nodes);
         connections = connections == null ? List.of() : List.copyOf(connections);

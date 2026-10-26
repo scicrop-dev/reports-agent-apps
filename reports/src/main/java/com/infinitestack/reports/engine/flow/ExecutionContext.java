@@ -37,14 +37,31 @@ public final class ExecutionContext {
         return outputs == null ? null : outputs.get(node.port());
     }
 
-    /** What the template sees: {@code inputs.*} plus one namespace per node. */
-    public Map<String, Object> templateModel() {
-        return templateModel(inputs, values);
+    /** What the template sees: {@code inputs.*}, {@code report.*} and one namespace per node. */
+    public Map<String, Object> templateModel(Map<String, Object> report) {
+        return templateModel(inputs, values, report);
     }
 
-    public static Map<String, Object> templateModel(Map<String, Object> inputs, Map<String, ? extends Map<String, Object>> values) {
+    public static Map<String, Object> templateModel(Map<String, Object> inputs, Map<String, ? extends Map<String, Object>> values,
+                                                    Map<String, Object> report) {
         Map<String, Object> model = new LinkedHashMap<>(values);
         model.put(FlowDefinition.INPUTS, inputs);
+        model.put(FlowDefinition.REPORT, report);
         return model;
+    }
+
+    /**
+     * The {@code report} namespace: name, version, execution number (null in a preview) and when it
+     * was generated, formatted for reading (dd/MM/yyyy HH:mm, America/Sao_Paulo) and as ISO-8601.
+     */
+    public static Map<String, Object> reportMetadata(String name, int version, Long executionId, java.time.Instant generatedAt) {
+        Map<String, Object> report = new LinkedHashMap<>();
+        report.put("name", name);
+        report.put("version", version);
+        report.put("executionId", executionId);
+        report.put("generatedAt", java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
+                .withZone(java.time.ZoneId.of("America/Sao_Paulo")).format(generatedAt));
+        report.put("generatedAtIso", generatedAt.toString());
+        return report;
     }
 }

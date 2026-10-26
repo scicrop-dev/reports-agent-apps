@@ -225,6 +225,8 @@
         const byId = {};
         state.blocks.forEach((b) => { byId[b.definition.id] = b.definition; });
         const list = state.inputs.filter((i) => i.name).map((i) => ({ path: 'inputs.' + i.name, type: i.type, source: 'report input' }));
+        [['name', 'string'], ['version', 'number'], ['executionId', 'number'], ['generatedAt', 'string'], ['generatedAtIso', 'datetime']]
+            .forEach(([name, type]) => list.push({ path: 'report.' + name, type, source: 'report' }));
         state.flow.forEach((node) => {
             const def = byId[node.block];
             (def ? def.outputs : []).forEach((o) => list.push({ path: node.id + '.' + o.name, type: o.type, source: node.block }));
