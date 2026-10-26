@@ -88,10 +88,10 @@ td.highlight { width: 33%; border: 0.5pt solid #d1d5db; border-top: 3pt solid #1
 img.map { display: block; width: 90%; margin: 0 auto; border: 0.5pt solid #9ca3af; }
 .legend { font-size: 7.5pt; color: #374151; margin-top: 3pt; text-align: center; }
 .legend-title { font-weight: bold; margin-right: 4pt; }
-.legend-item { margin-right: 8pt; white-space: nowrap; }
+.legend-item { display: inline-block; margin-right: 8pt; white-space: nowrap; }
 .swatch { display: inline-block; width: 8pt; height: 8pt; border: 0.5pt solid #6b7280; vertical-align: middle; }
-.swatch-outline { border: 1.5pt solid #111827; background-color: #ffffff; }
-.swatch-neighbor { border: 1pt solid #9ca3af; background-color: #ffffff; }
+.swatch-outline { border: 1.5pt solid #b71c1c; background-color: #ffffff; }
+.swatch-neighbor { border: 1pt solid #bdbdbd; background-color: #ffffff; }
 
 /* Messages */
 .alert { border-left: 3pt solid #b45309; background-color: #fef3c7; color: #78350f; padding: 5pt 8pt; page-break-inside: avoid; }

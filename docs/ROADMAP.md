@@ -15,7 +15,9 @@ de Agent Apps em [../README.md](../README.md), [../design.md](../design.md) e [.
 > 4. a partir daí qualquer usuário monta a consulta que quiser com aquele Block.
 
 > **Estado (2026-10-26):** fases 0 a 7 implementadas em `reports/` (versão 0.1.0, ainda não
-> instalada num IS real). A próxima é a Fase 8 (Blocks), que começa com conversa. O que foi
+> instalada num IS real). Fase 8 em andamento: os 6 Blocks do CAR ([BLOCKS.md](BLOCKS.md)) e o
+> primeiro relatório pronto, o laudo socioambiental ([READY-MADE-REPORTS.md](READY-MADE-REPORTS.md)),
+> testados com dados reais do banco de dev; os Blocks do BR Geo esperam a base chegar ao ambiente. O que foi
 > construído e onde difere do desenho está na seção 47 do [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ---
@@ -233,6 +235,18 @@ Candidatos e as fontes que existem hoje, como ponto de partida da discussão (na
 o laudo socioambiental, catalogados em [BLOCKS.md](BLOCKS.md)). Os Dataset Blocks (estilo B,
 consulta livre sobre uma base liberada) e o prazo de atualização dos dados estão desenhados em
 [BLOCKS-FUTURO.md](BLOCKS-FUTURO.md) e entram depois.
+
+**Feito na Fase 8 (2026-10-26):**
+
+- Pool somente leitura para Blocks (`blockDataSource` + `BlockQueries`) e namespace `{{report.*}}`.
+- Blocks do CAR: `car-property`, `car-property-geometry`, `car-environmental-layers`, `car-overlaps`,
+  `car-history`, `car-property-map` (PNG gerado no app, sem tiles).
+- Relatórios prontos (catálogo, API, UI "Use") e o laudo socioambiental do imóvel CAR, validados
+  contra os Blocks reais em teste. Contra o dev: ~0,5 s por laudo e PDF em menos de 1 s.
+
+**Pendente na Fase 8:** Blocks do BR Geo (bioma, embargos IBAMA, DETER, PRODES) quando a base
+estiver no ambiente; formatação de números e datas em pt-BR no template (hoje saem como o Block
+entrega, ex.: `58.0949`); decisão sobre área de Hidrografia sem `num_area` no SICAR (hoje 0).
 
 ### Fase 9 — Endurecimento e release 1.0.0
 

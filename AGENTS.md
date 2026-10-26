@@ -50,8 +50,15 @@ mvn -q test                  # testes (nem todo app tem; ver src/test)
   só em `src/test`). Passe o banco por `IS_DATASOURCE_URL`/`IS_DATASOURCE_USERNAME`/`IS_DATASOURCE_PASSWORD`
   e `REPORTS_LOCAL_ROLE=ADMIN` para ver a tela de liberação. Sem o token do host, o catálogo vem do
   `information_schema` (schemas bronze/silver/gold do banco).
-- **Não há Blocks de produto** antes da Fase 8 do ROADMAP. Os Blocks de `src/test/.../support/TestBlocks`
-  não entram no `.ispz`.
+- **Blocks de produto** ficam em `blocks/<fonte>/` (hoje `blocks/car`), um por arquivo, com o contrato em
+  [docs/BLOCKS.md](docs/BLOCKS.md) (regras na seção 1: dados só via `BlockQueries`, pool somente leitura).
+  Os Blocks de `src/test/.../support/TestBlocks` são só de teste e não entram no `.ispz`.
+- **Testes contra o banco de dev** (somente leitura, consultas por imóvel): `CarBlocksDevDbTest` e
+  `CarPropertyMapDevDbTest` rodam com `CAR_TEST_DB_URL`/`CAR_TEST_DB_USER`/`CAR_TEST_DB_PASSWORD`.
+  Nunca grave credenciais em arquivo. Sem as variáveis, são pulados.
+- **App local com dados reais:** `reports.block-datasource.url/username/password` apontam o pool dos Blocks
+  para outro banco (ex.: dev, só leitura), enquanto as tabelas do app ficam no Postgres local de
+  `IS_DATASOURCE_*`. Passe a senha por `SPRING_APPLICATION_JSON`, não pela linha de comando.
 - A UI segue a regra de idioma (seção "Idioma", abaixo): textos de interface em inglês no código-fonte.
 - **Relatório pronto novo:** `reports/src/main/resources/ready-made/<id>.json` (+ `<id>.html`/`<id>.css`),
   formato e regras em [docs/READY-MADE-REPORTS.md](docs/READY-MADE-REPORTS.md). `mvn -q test` valida

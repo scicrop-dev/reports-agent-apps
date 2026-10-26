@@ -117,6 +117,27 @@ caixa do imóvel (só contorno, cinza), seta de norte, barra de escala e as coor
 Geometrias simplificadas (`ST_SimplifyPreserveTopology`) na resolução da imagem. Sem rede, sem
 tiles: só os dados do banco, então o PDF fica autocontido.
 
+## 2.1 Notas de implementação e dos dados (verificadas no banco de dev em 2026-10-26)
+
+- **Outputs que podem vir nulos são opcionais** no contrato real (`municipality`, rótulos, `condition`,
+  `fiscalModules`, `declaredAreaHa`, datas, `removedAt`): o executor recusa nulo em output obrigatório.
+  O template imprime vazio para nulo.
+- **Hidrografia não tem `num_area` no SICAR** (nulo nas amostras): entra como 0 ha. Pendente decidir
+  se cai para a área calculada da geometria, marcada como "calculada".
+- **Temas de APP se sobrepõem** (APP em vegetação nativa dentro de APP de rio): por isso a camada usa
+  o tema agregado (`APP_TOTAL`) quando existe. Só APPS e SERVIDAO_ADMINISTRATIVA têm agregado.
+- `car-overlaps` calcula o percentual sobre a **área calculada** (coerente com a sobreposição, que é
+  geodésica); camadas e resumo usam a **área declarada**.
+- `car-overlaps` passa as geometrias por `ST_MakeValid`, para um vizinho inválido não derrubar o Block.
+- `car-property-map` busca vizinhos na extensão inteira da imagem (+5%), recortados com
+  `ST_ClipByBox2D`, os mais próximos primeiro (até 300); simplificação de 1 pixel. PNG de 40 a 65 KB.
+  Todo texto do mapa é opcional: se o JRE do host não tiver fontes, o mapa sai sem rótulos.
+- Temas dentro de uma camada saem ordenados pelo código.
+- No dev, BA não tem feições de RESERVA_LEGAL (as amostras com reserva são do AC) e nenhum imóvel tem
+  `removido_em`; nenhuma amostra tem mais de uma versão. `geometryChanged = true` e `removedAt` só
+  estão cobertos por teste unitário e pelos dublês.
+- Tempos no dev, por imóvel: dados 45 a 70 ms por Block, mapa 170 a 280 ms; laudo inteiro ~0,5 s.
+
 ## 3. Blocks previstos (BR Geo, quando o `br-geo-agent-app` estiver no ambiente)
 
 | Block | Entrada → saída | Dados |

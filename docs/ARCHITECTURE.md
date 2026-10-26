@@ -1269,6 +1269,7 @@ propósito, do desenho conceitual acima. A ordem das fases está em [ROADMAP.md]
 | `catalog` | Leitura do catálogo (`HostCatalogClient` / `InformationSchemaCatalogClient`), `CatalogService` (cache curto), `BlockAvailabilityService` (AVAILABLE / STALE / MISSING_DATA), `BlockRelease` |
 | `template` | `TemplateRenderer` (Mustache estrito via JMustache), `TemplateScope` (variáveis conhecidas antes de rodar), `HtmlSanitizer` (jsoup, allowlist) |
 | `output` | `PdfRenderer` + `OpenHtmlToPdfRenderer` |
+| `blocks.car` | Blocks do CAR (contratos em [BLOCKS.md](BLOCKS.md)): `CarPropertyBlock`, `CarPropertyGeometryBlock`, `CarEnvironmentalLayersBlock`, `CarOverlapsBlock`, `CarHistoryBlock`, `CarPropertyMapBlock` + `PropertyMapRenderer` (Java2D); `CarTables`, `CarValues` |
 | `diff` | `LineDiff` (diff de versões) |
 | `report`, `execution` | Registros de domínio: `Report`, `ReportVersion`, `InputDefinition`, `PageSettings`, `Execution`, `ExecutionError` |
 | `repository` | JDBC puro, SQL qualificado com `apps.`; `SchemaInitializer` cria as tabelas em segundo plano |
@@ -1315,6 +1316,17 @@ POST /ready-made/{id}/instantiate          body {name?} → 201 Report do chamad
   utilizáveis.
 - Toda execução verifica de novo, antes de rodar, se os Blocks continuam utilizáveis. Se os dados
   sumiram, a execução fica FAILED na etapa VALIDATING, com o motivo.
+
+## 47.4.1 Como os Blocks leem dados
+
+- Os Blocks só leem pelo `blockDataSource`: pool **somente leitura** (até 3 conexões), transação
+  read-only e `statement_timeout` por chamada (`BlockQueries.read`). Nunca recebem o datasource
+  principal, que escreve as tabelas `apps.reports_*`.
+- No IS os dois pools apontam para o mesmo banco do host. Em desenvolvimento,
+  `reports.block-datasource.*` aponta os Blocks para outro banco (ex.: dev com o CAR real).
+- O template tem o namespace reservado `{{report.*}}`: `name`, `version`, `executionId` (vazio em
+  preview), `generatedAt` (dd/MM/yyyy HH:mm, America/Sao_Paulo) e `generatedAtIso`. Num resultado
+  renderizado de novo, a data é a da execução, não a da nova renderização.
 
 ## 47.5 Onde a implementação difere do desenho
 
