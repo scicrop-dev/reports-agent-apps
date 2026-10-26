@@ -1,10 +1,10 @@
 /*
- * The Flow tab: the Flow as an ordered list of nodes, each with a Block and, for every input port,
- * where its value comes from (ROADMAP Phase 6: no visual graph before the MVP).
+ * The Flow tab. It edits a working model and converts it to and from the stored JSON
+ * ({nodes: [{id, block, values, position}], connections: [{from, to}]}).
  *
- * It edits a working model and converts it to and from the stored JSON
- * ({nodes: [{id, block, values}], connections: [{from, to}]}). The order of the list is only for
- * reading: the engine runs nodes in dependency order.
+ * Two views of the same model: the visual graph (flow-graph.js, the default) and this list, where
+ * each node is a card with, for every input port, where its value comes from. The order of the list
+ * is only for reading: the engine runs nodes in dependency order.
  */
 (function () {
     'use strict';
@@ -28,7 +28,9 @@
                     ? { kind: 'input', input: sourcePort }
                     : { kind: 'node', node: sourceNode, port: sourcePort };
             });
-            return { id: node.id, block: node.block, bindings };
+            const position = node.position && typeof node.position.x === 'number'
+                ? { x: node.position.x, y: node.position.y } : null;
+            return { id: node.id, block: node.block, bindings, position };
         });
     }
 
@@ -49,7 +51,9 @@
                     connections.push({ from: binding.node + '.' + binding.port, to: node.id + '.' + port });
                 }
             });
-            nodes.push({ id: node.id, block: node.block, values });
+            const stored = { id: node.id, block: node.block, values };
+            if (node.position) stored.position = { x: Math.round(node.position.x), y: Math.round(node.position.y) };
+            nodes.push(stored);
         });
         return { nodes, connections };
     }
@@ -75,12 +79,29 @@
         return id;
     }
 
+    /** Which view the Flow tab shows; kept across re-renders. */
+    let mode = 'graph';
+
     /**
-     * ctx: {blocks: BlockView[], inputs: InputDefinition[], readOnly, onChange(), onDirty()}
+     * ctx: {blocks: BlockView[], inputs: InputDefinition[], readOnly, lastRun, onChange(), onDirty()}
      * Admins receive every Block; only usable ones are offered for new nodes.
      */
     function render(container, model, ctx) {
         clear(container);
+        const toggle = el('div.view-toggle', null,
+            el('button', { class: mode === 'graph' ? 'active' : '', onclick: () => { mode = 'graph'; render(container, model, ctx); } }, 'Graph'),
+            el('button', { class: mode === 'list' ? 'active' : '', onclick: () => { mode = 'list'; render(container, model, ctx); } }, 'List'));
+        const host = el('div');
+        container.appendChild(host);
+        if (mode === 'graph' && window.ReportsFlowGraph) {
+            window.ReportsFlowGraph.render(host, model, ctx, toggle);
+        } else {
+            container.insertBefore(el('div.row.list-head', null, toggle), host);
+            renderList(host, model, ctx);
+        }
+    }
+
+    function renderList(container, model, ctx) {
         const blocksById = {};
         ctx.blocks.forEach((b) => { blocksById[b.definition.id] = b.definition; });
 
@@ -101,7 +122,7 @@
                 disabled: !usable.length,
                 onclick: () => {
                     if (!select.value) return;
-                    model.push({ id: nextNodeId(model, select.value), block: select.value, bindings: {} });
+                    model.push({ id: nextNodeId(model, select.value), block: select.value, bindings: {}, position: null });
                     ctx.onChange();
                 }
             }, 'Add node');
@@ -210,5 +231,5 @@
         list.splice(index + delta, 0, item);
     }
 
-    window.ReportsFlowEditor = { fromFlow, toFlow, render };
+    window.ReportsFlowEditor = { fromFlow, toFlow, render, portRow, nextNodeId, STRUCTURED };
 })();

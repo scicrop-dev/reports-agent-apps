@@ -342,6 +342,8 @@
             blocks: state.blocks,
             inputs: state.inputs.filter((i) => i.name),
             readOnly: !isDraft() || !canEdit(),
+            // The last run of this report, so each node can show how it went and what it returned.
+            lastRun: state.lastExecution && state.report && state.lastExecution.reportId === state.report.id ? state.lastExecution : null,
             onChange: () => { markDirty(); renderFlow(); },
             onDirty: markDirty
         });
@@ -505,6 +507,7 @@
     /** Status, error, one row per Block, and the report in a sandboxed frame (no scripts, no origin). */
     function renderRun(execution, html) {
         state.lastExecution = execution;
+        renderFlow();
         const box = clear($('run-result'));
         box.appendChild(executionSummary(execution));
         box.appendChild(blockRunsTable(execution.blocks || []));
@@ -660,6 +663,10 @@
             el('div.ports-summary', null,
                 el('div', null, el('span.muted', null, 'Inputs: '), d.inputs.map((p) => el('code', null, p.name + ':' + p.type + (p.required ? '*' : '')))),
                 el('div', null, el('span.muted', null, 'Outputs: '), d.outputs.map((p) => el('code', null, p.name + ':' + p.type)))));
+        if (window.ReportsFlowGraph && view.docs) {
+            card.appendChild(el('details.block-docs', null, el('summary', null, 'How it works, how to connect it, limitations'),
+                window.ReportsFlowGraph.docsPanel(view, 'node')));
+        }
         if (a.checks.length) {
             card.appendChild(el('table.table.compact', null,
                 el('thead', null, el('tr', null, ['Data', 'Columns', 'Status', 'Last update', 'Source'].map((h) => el('th', null, h)))),
