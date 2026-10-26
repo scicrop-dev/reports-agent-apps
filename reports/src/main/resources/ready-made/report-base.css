@@ -5,7 +5,7 @@
 
 @page {
   @top-left { content: element(header); }
-  @bottom-left { content: "InfiniteStack Reports - dados públicos (SICAR, IBGE, IBAMA, INPE)"; font-family: Helvetica, Arial, sans-serif; font-size: 7.5pt; color: #6b7280; }
+  @bottom-left { content: "InfiniteStack Reports - dados públicos; fontes na última seção"; font-family: Helvetica, Arial, sans-serif; font-size: 7.5pt; color: #6b7280; }
   @bottom-right { content: "Página " counter(page) " de " counter(pages); font-family: Helvetica, Arial, sans-serif; font-size: 7.5pt; color: #6b7280; }
 }
 

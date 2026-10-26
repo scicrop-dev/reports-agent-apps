@@ -273,3 +273,11 @@ Regras:
   entram pelo método package-private `indexRows()`, porque não há banco em memória nos testes); teste
   real com `SENTINEL_NETWORK_TEST=1` + `CAR_TEST_DB_*` (`SatelliteHubLatestImageNetworkTest`, grava os
   PNGs em `reports/target/latest-image/`).
+- **Verificado com dados reais (2026-10-26):** em `AC-1200302-7ECA40E36E154380BC739F9CB7E33DE0`
+  (34.836 ha), as duas cenas de 25/10 tinham nuvem demais sobre o imóvel e foram puladas; a de 10/10
+  (S2B, 19MCM) entrou com 0% de nuvem na área, pixel de 40 m (618 x 667) e NDVI médio de 0,817. O Block
+  levou de 12 a 51 s e o PDF saiu com 7 páginas. Num imóvel de 3.097 ha
+  (`AC-1200179-BA98DAA4BFE841B9877C11E635B24695`), com pixel de 20 m e 3 cenas avaliadas, levou 32 s.
+  O tempo é dominado pela banda de rede até a AWS (us-west-2): daqui, cerca de 330 KB/s. Cada cena
+  avaliada lê a SCL, e a aceita lê as bandas dos índices (tiles de 1024 px; um imóvel pequeno em 10 m
+  ainda baixa de 1 a 4 tiles por banda).
