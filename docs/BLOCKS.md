@@ -22,8 +22,14 @@ estão desenhados em [BLOCKS-FUTURO.md](BLOCKS-FUTURO.md).
 - "Não encontrado" é falha do Block com mensagem clara (o executor registra o nó e o motivo).
 - Mudou o contrato ou o resultado de um Block → nova `version` (semver). As execuções guardam a
   versão que rodou.
-- Ids em kebab-case com prefixo da fonte (`car-...`, `brgeo-...`). Nomes e descrições em inglês
-  (regra de idioma do AGENTS.md); o texto do relatório fica no template.
+- Ids em kebab-case com prefixo da fonte (`car-...`, `brgeo-...`, `sathub-...`). Nomes e descrições
+  em inglês (regra de idioma do AGENTS.md); o texto do relatório fica no template.
+- **Todo Block de produto documenta-se em `docs()`** (`BlockDocs`): categoria (o grupo da paleta do
+  editor), resumo, como funciona, como ligar, limitações, fonte dos dados e um exemplo de template
+  (`<node>` vira o id do nó). É o que a pessoa que monta o Flow lê no inspetor e na tela de Blocks.
+  Documentação não é contrato: mudar `docs()` não muda a versão do Block.
+- Outputs pensados para o template Mustache: **o número 0 não é falso** no JMustache, então quem
+  precisa de "tem ou não tem" expõe um booleano (`hasActive`, `monitored`) ou uma lista vazia.
 
 ## 2. Blocks do CAR (fonte: `apps/car-agent-app`, tabelas `gold.car_agent_app_*`)
 
@@ -138,15 +144,75 @@ tiles: só os dados do banco, então o PDF fica autocontido.
   estão cobertos por teste unitário e pelos dublês.
 - Tempos no dev, por imóvel: dados 45 a 70 ms por Block, mapa 170 a 280 ms; laudo inteiro ~0,5 s.
 
-## 3. Blocks previstos (BR Geo, quando o `br-geo-agent-app` estiver no ambiente)
+## 3. Blocks do BR Geo (fonte: `apps/br-geo-agent-app`, tabelas `gold.br_geo_agent_app_*`)
 
-| Block | Entrada → saída | Dados |
+Quase todos recebem uma **área** (`geometry`, GeoJSON em SIRGAS 2000), em geral
+`car-property-geometry.geometry`: é aqui que o Flow encadeia Blocks. A área passa por
+`ST_MakeValid` e só a parte poligonal é analisada. Leem as linhas vigentes (`valid_to IS NULL`) e
+medem tudo em hectares geodésicos. Timeout de 30 s (consulta 25 s).
+
+| Block | Entradas | Saídas principais | Tabelas |
+|---|---|---|---|
+| `brgeo-municipalities` | `geometry` | `municipalities[] {ibgeCode, name, uf, intersectionHa, percentOfArea}`, `main`, `mainIbgeCode` (number, para ligar em Blocks por município), `count`, `areaHa`, `edition` | `ibge_municipality` (edição mais recente) |
+| `brgeo-biomes` | `geometry` | `biomes[] {code, name, intersectionHa, percentOfArea}`, `mainBiome`, `count`, `areaHa`, `edition` | `ibge_biome` |
+| `brgeo-embargoes` | `geometry`, `includeInactive?` (default true) | `embargoes[]` (até 100, ativos primeiro) `{term, series, seqTad, status, active, lifted, cancelled, formStatus, embargoedAt, liftedAt, liftType, changedAt, areaType, deterProdes, embargoedAreaHa, overlapHa, matchedBy, uf, municipalityIbge, processNumber, infractionNotice, judicialDecisions}`, `count`, `activeCount`, `hasActive`, `activeOverlapHa`, `lastEmbargoAt`, `truncated` | `ibama_embargo`, `ibama_embargo_decision` |
+| `brgeo-deter-alerts` | `geometry`, `dateFrom?`, `dateTo?` | `alerts[]` (até 200, mais novos primeiro), `byClass[] {className, count, overlapHa, firstDate, lastDate}`, `count`, `totalOverlapHa`, `lastAlertDate`, `monitored`, `coverage[]`, `truncated` | `inpe_deter_alert`, `ibge_biome` |
+| `brgeo-prodes` | `geometry`, `yearFrom?` | `byYear[] {product, productName, year, polygons, deforestedHa}`, `byProduct[] {..., firstYear, lastYear, deforestedHa, sinceCutoffHa}`, `count`, `maxDeforestedHa`, `lastYear`, `monitored`, `coverage[]` (com `lastYear` carregado) | `inpe_prodes_increment`, `ibge_biome` |
+| `brgeo-crop-production` | `municipalityIbge` (number), `year?`, `limit?` (15) | `year`, `crops[] {product, plantedHa, harvestedHa, quantity, quantityUnit, yieldKgHa, valueThousandBrl, shareOfHarvestedPercent}`, `count`, `totalHarvestedHa`, `totalValueThousandBrl`, `truncated` | `ibge_pam_value`, `ibge_pam_product` (SIDRA 5457) |
+
+Regras de cada um:
+
+- **Embargos.** Situação a partir do próprio termo: `sit_cancelado = 'S'` é cancelado,
+  `sit_desembargo = 'S'` é desembargado e o resto é ativo. Metade dos termos não tem polígono, só
+  coordenada: esses entram quando o ponto cai dentro da área (`matchedBy = point`, `overlapHa`
+  vazio). Sem dados pessoais (o BR Geo não grava nome nem CPF/CNPJ).
+- **DETER e PRODES: "não monitorado" não é "sem alerta".** `coverage` diz, por produto, se o bioma do
+  produto toca a área e se o BR Geo carregou o produto. `monitored` só é verdadeiro quando os dois
+  valem. A cobertura usa o bioma do IBGE como aproximação: o DETER Amazônia cobre, na verdade, a
+  Amazônia Legal. DETER: `deter_amz` (Amazônia) e `deter_cerrado` (Cerrado).
+- **PRODES: produtos nunca são somados.** Só os produtos por bioma entram; `prodes_legal_amz` fica de
+  fora porque repete o `prodes_amazon`. `sinceCutoffHa` soma os anos PRODES a partir de 2009, que
+  começa em agosto de 2008, logo depois do marco do Código Florestal (22/07/2008).
+- **PAM.** Tabela 5457 (lavouras temporárias e permanentes). Os totais vêm da linha `Total` (produto
+  0). Subtotais como `Café (em grão) Total` são pulados para a mesma lavoura não contar duas vezes.
+  Valores sigilosos ou ausentes (`X`, `...`, `-`) saem vazios.
+
+**Verificado no banco de dev (2026-10-26)** com `AC-1200302-7ECA40E36E154380BC739F9CB7E33DE0`
+(IRU, 34.836 ha, Feijó/AC, encadeado a partir de `car-property-geometry`): 99,79% em Feijó e 0,21%
+em Envira/AM, 100% Amazônia, 28 termos de embargo (24 ativos, 760 ha), 76 alertas DETER, PRODES
+2008 a 2014. Tempos por Block: 60 a 730 ms. O laudo completo com os 12 nós roda em cerca de 3 s.
+
+Estado dos dados no dev nessa data: DETER só `deter_amz`; PRODES só `prodes_amazon` de 2008 a 2014
+(carga parcial). O `coverage[].lastYear` mostra isso no relatório.
+
+## 4. Block do Satellite Hub (fonte: agent app `satellite-hub`, tabelas `gold.satellite_hub_*`)
+
+### `sathub-index-series` — Série de índice de vegetação
+
+Lê o que o Satellite Hub **já calculou e publicou** no gold (estatísticas por imagem Sentinel-2 e
+por área cadastrada nele). Não pede processamento novo (ver [INTEGRATIONS.md](INTEGRATIONS.md)).
+
+| Input | Tipo | |
 |---|---|---|
-| `brgeo-municipality-at` | lat/lon → município, UF, código IBGE | `gold.br_geo_agent_app_ibge_municipality` |
-| `brgeo-biomes` | geometria → biomas e % da área | `gold.br_geo_agent_app_ibge_biome` |
-| `brgeo-embargoes` | geometria → embargos IBAMA que intersectam | `gold.br_geo_agent_app_ibama_embargo` |
-| `brgeo-deter-alerts` | geometria + período → alertas DETER e área | `gold.br_geo_agent_app_inpe_deter_alert` |
-| `brgeo-prodes` | geometria → incrementos PRODES por ano | `gold.br_geo_agent_app_inpe_prodes_increment` |
+| `geometry` | geometry, opcional | combina as áreas do Satellite Hub que tocam a geometria (até 50, maior parte dentro primeiro) |
+| `areaId` | number, opcional | uma área do Satellite Hub pelo id (no lugar da geometria) |
+| `index` | string, opcional | `ndvi` (default), `evi`, `savi`, `ndre`, `gndvi`, `ndmi`, `ndwi`, `nbr` |
+| `days` | number, opcional | tamanho da série, contado a partir da imagem mais recente; default 365 |
+| `minValidPercent` | number, opcional | descarta imagens com menos desse % de área sem nuvem; default 50 |
 
-Entram no laudo socioambiental assim que os dados estiverem no catálogo: o gate de disponibilidade
-já cuida de mostrá-los só quando existirem.
+| Output | Tipo | Conteúdo |
+|---|---|---|
+| `index` | object | `{slug, name, description}` |
+| `areas` / `areaCount` | array / number | `{id, farmName, blockName, parcelName, areaHa, insideHa}` |
+| `series` | array | um ponto por data de imagem: `{date, mean, min, max, p10, p90, validAreaPercent, areas}` |
+| `count`, `latestDate`, `latestMean`, `periodMean`, `periodMin`, `periodMax` | | resumo da série |
+| `chart` | string | PNG `data:` (900 × 300): média ponderada em linha sobre a faixa p10-p90 |
+| `truncated` | boolean | mais de 50 áreas na geometria |
+
+Por data, as áreas são combinadas com média **ponderada pelos pixels válidos**. O Satellite Hub
+grava as geometrias em WGS 84 (4326), e a entrada é transformada para esse sistema. É preciso
+`geometry` ou `areaId`, senão o Block falha com mensagem clara.
+
+No dev (2026-10-26), as 23 mil áreas do Satellite Hub ficam no norte da França (dados de teste). Por
+isso nenhum imóvel CAR as cruza e o teste usa `areaId = 16991` ou um quadrado lá. A série tem 41
+imagens de 2026-04 a 2026-10.

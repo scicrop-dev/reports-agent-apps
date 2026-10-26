@@ -15,9 +15,9 @@ de Agent Apps em [../README.md](../README.md), [../design.md](../design.md) e [.
 > 4. a partir daí qualquer usuário monta a consulta que quiser com aquele Block.
 
 > **Estado (2026-10-26):** fases 0 a 7 implementadas em `reports/` (versão 0.1.0, ainda não
-> instalada num IS real). Fase 8 em andamento: os 6 Blocks do CAR ([BLOCKS.md](BLOCKS.md)) e o
-> primeiro relatório pronto, o laudo socioambiental ([READY-MADE-REPORTS.md](READY-MADE-REPORTS.md)),
-> testados com dados reais do banco de dev; os Blocks do BR Geo esperam a base chegar ao ambiente. O que foi
+> instalada num IS real). Fase 8 em andamento: 13 Blocks (CAR, BR Geo e Satellite Hub,
+> [BLOCKS.md](BLOCKS.md)), o editor visual de Flow e 4 relatórios prontos
+> ([READY-MADE-REPORTS.md](READY-MADE-REPORTS.md)), testados com dados reais do banco de dev. O que foi
 > construído e onde difere do desenho está na seção 47 do [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ---
@@ -244,9 +244,15 @@ consulta livre sobre uma base liberada) e o prazo de atualização dos dados est
 - Relatórios prontos (catálogo, API, UI "Use") e o laudo socioambiental do imóvel CAR, validados
   contra os Blocks reais em teste. Contra o dev: ~0,5 s por laudo e PDF em menos de 1 s.
 
-**Pendente na Fase 8:** Blocks do BR Geo (bioma, embargos IBAMA, DETER, PRODES) quando a base
-estiver no ambiente; formatação de números e datas em pt-BR no template (hoje saem como o Block
-entrega, ex.: `58.0949`); decisão sobre área de Hidrografia sem `num_area` no SICAR (hoje 0).
+**Feito na Fase 8, segunda parte (2026-10-26):** os 6 Blocks do BR Geo (municípios, biomas, embargos
+IBAMA, DETER, PRODES, PAM) e o do Satellite Hub (série de índice de vegetação), documentação
+detalhada de todo Block (`BlockDocs`), editor visual de Flow (ARCHITECTURE §47.7) e três prontos
+novos: laudo completo, diagnóstico de área e monitoramento de vegetação. Integrações desenhadas em
+[INTEGRATIONS.md](INTEGRATIONS.md): pedir processamento ao Satellite Hub e script Python do Skills Lab
+como Block.
+
+**Pendente na Fase 8:** formatação pt-BR de números nos templates; área de Hidrografia nula no SICAR;
+Blocks de ZARC e CONAB (as tabelas já estão no BR Geo).
 
 ### Fase 9 — Endurecimento e release 1.0.0
 

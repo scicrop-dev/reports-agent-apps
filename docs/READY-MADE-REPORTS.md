@@ -69,11 +69,14 @@ com o catálogo e as liberações, e a tela avisa.
 4. Lembre do Mustache estrito: toda variável usada tem de existir no escopo; dentro de
    `{{#lista}}...{{/lista}}` os nomes são relativos ao item. Para a tabela aparecer só quando a
    lista tem itens, abra-a em `{{#-first}}` e feche-a em `{{#-last}}` dentro da seção, e use
-   `{{^lista}}` para a mensagem de lista vazia (o laudo faz assim).
+   `{{^lista}}` para a mensagem de lista vazia (o laudo faz assim). **O número 0 não é falso** no
+   JMustache: `{{#x.count}}` com 0 mostra a seção. Teste listas ou booleanos (`hasActive`,
+   `monitored`). Inputs opcionais em branco chegam como nulo: teste-os com `{{#inputs.x}}`.
 5. Rode `mvn -q test`. O `ReadyMadeReportsValidityTest` pega **todos** os prontos e verifica Flow,
    template e página contra os Blocks, executa o Flow com saídas de exemplo e renderiza HTML e PDF em
    `reports/target/ready-made/` (abra o PDF e olhe). Se o pronto usa Blocks que ainda não têm
-   duplos de teste, acrescente-os (hoje: `support/CarBlockContractStubs`, espelho do BLOCKS.md).
+   duplos de teste, acrescente-os (hoje: `support/CarBlockContractStubs` e `support/GeoBlockContractStubs`,
+   espelhos do BLOCKS.md).
 6. Atualize o catálogo da §5 abaixo.
 
 ## 4. Versionamento
@@ -94,7 +97,14 @@ alterado a cópia, o diff mostra o que ele perderia; um merge automático fica f
 
 | # | Id | Nome | Blocks | Estado |
 |---|---|---|---|---|
-| 1 | `car-socioenvironmental` | Laudo socioambiental do imóvel CAR | `car-property`, `car-property-geometry`, `car-environmental-layers`, `car-overlaps`, `car-history`, `car-property-map` | **1.0.0**, aguardando os Blocks do CAR serem integrados e liberados |
+| 1 | `car-socioenvironmental` | Laudo socioambiental do imóvel CAR | `car-property`, `car-property-geometry`, `car-environmental-layers`, `car-overlaps`, `car-history`, `car-property-map` | **1.0.0**. Só CAR: roda numa instância sem o BR Geo |
+| 2 | `car-socioenvironmental-complete` | Laudo socioambiental completo do imóvel CAR | os 6 do CAR + `brgeo-biomes`, `brgeo-municipalities`, `brgeo-embargoes`, `brgeo-deter-alerts`, `brgeo-prodes`, `brgeo-crop-production` | **1.0.0**. Validado no dev: 12 nós, cerca de 3 s, 8 páginas |
+| 3 | `brgeo-area-diagnosis` | Diagnóstico socioambiental de uma área | `brgeo-municipalities`, `brgeo-biomes`, `brgeo-embargoes`, `brgeo-deter-alerts`, `brgeo-prodes` | **1.0.0**. Qualquer polígono (input `geometry`), sem CAR |
+| 4 | `sathub-vegetation-monitoring` | Monitoramento de vegetação de um talhão | `sathub-index-series` | **1.0.0**. Input `areaId` do Satellite Hub; `index` e `days` opcionais |
+
+Os prontos 2 a 4 usam o CSS comum `report-base.css` (o 1 mantém o seu). Um pronto só roda quando
+**todos** os seus Blocks estão utilizáveis. Por isso o laudo só do CAR continua existindo ao lado do
+completo: numa instância sem o BR Geo, o completo não roda.
 
 ### 5.1 Laudo socioambiental do imóvel CAR (`car-socioenvironmental`)
 
@@ -111,10 +121,35 @@ Entrada: `codImovel` (código do imóvel no SICAR). Seções:
 5. Sobreposições com outros imóveis CAR (`car-overlaps`), ou "nenhuma sobreposição".
 6. Fontes e limitações.
 
-Próximas versões: bioma, embargos IBAMA e alertas DETER/PRODES quando os Blocks `brgeo-*` existirem
-(BLOCKS.md §3); viram seções novas (minor).
+As seções do BR Geo ficaram num pronto à parte (§5.2), para este continuar rodando onde só há o CAR.
 
-### 5.2 Ideias (não decididas)
+### 5.2 Laudo socioambiental completo (`car-socioenvironmental-complete`)
+
+Entrada: `codImovel`. O Flow encadeia Blocks: `car-property-geometry.geometry` alimenta os 5 Blocks
+espaciais do BR Geo, e `car-property.municipalityIbge` alimenta `brgeo-crop-production`. Seções:
+
+0. **Síntese**: situação no CAR, bioma, Reserva Legal, sobreposições, embargos ativos, alertas DETER
+   e PRODES, cada um com destaque vermelho/verde. "Área não monitorada" aparece em cinza, nunca como
+   "sem alerta".
+1. a 5. As do laudo do CAR. A Localização ganha os biomas e a tabela de municípios.
+6. Embargos do IBAMA (termos ativos primeiro, situação, área embargada × sobre o imóvel, decisões judiciais).
+7. Alertas DETER por classe (ou aviso de área não monitorada).
+8. PRODES por produto e ano, com a cobertura carregada no ambiente.
+9. Perfil agrícola do município declarado (PAM).
+10. Fontes e limitações.
+
+### 5.3 Diagnóstico socioambiental de uma área (`brgeo-area-diagnosis`)
+
+Entradas: `area` (geometry, GeoJSON em SIRGAS 2000) e `areaName` (opcional). Mesmas seções do BR Geo
+do laudo completo, para qualquer polígono (um talhão, um imóvel fora do CAR, uma área de compra).
+
+### 5.4 Monitoramento de vegetação de um talhão (`sathub-vegetation-monitoring`)
+
+Entradas: `areaId` (id da área no Satellite Hub), `index` e `days` (opcionais). Destaques (imagem
+mais recente, média e faixa do período), o gráfico do índice e a tabela das imagens. O nó tem o valor
+fixo `minValidPercent = 60`.
+
+### 5.5 Ideias (não decididas)
 
 Possibilidades levantadas para conversar com o produto. **Nenhuma está decidida nem priorizada.**
 
