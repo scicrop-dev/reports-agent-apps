@@ -101,8 +101,9 @@ alterado a cópia, o diff mostra o que ele perderia; um merge automático fica f
 | 2 | `car-socioenvironmental-complete` | Laudo socioambiental completo do imóvel CAR | os 6 do CAR + `brgeo-biomes`, `brgeo-municipalities`, `brgeo-embargoes`, `brgeo-deter-alerts`, `brgeo-prodes`, `brgeo-crop-production` | **1.0.0**. Validado no dev: 12 nós, cerca de 3 s, 8 páginas |
 | 3 | `brgeo-area-diagnosis` | Diagnóstico socioambiental de uma área | `brgeo-municipalities`, `brgeo-biomes`, `brgeo-embargoes`, `brgeo-deter-alerts`, `brgeo-prodes` | **1.0.0**. Qualquer polígono (input `geometry`), sem CAR |
 | 4 | `sathub-vegetation-monitoring` | Monitoramento de vegetação de um talhão | `sathub-index-series` | **1.0.0**. Input `areaId` do Satellite Hub; `index` e `days` opcionais |
+| 5 | `car-latest-satellite-image` | Imagem de satélite mais recente do imóvel CAR | `car-property`, `car-property-geometry`, `sathub-latest-image` | **1.0.0**. Lê Sentinel-2 na hora (saída HTTPS para a AWS) |
 
-Os prontos 2 a 4 usam o CSS comum `report-base.css` (o 1 mantém o seu). Um pronto só roda quando
+Os prontos 2 a 5 usam o CSS comum `report-base.css` (o 1 mantém o seu). Um pronto só roda quando
 **todos** os seus Blocks estão utilizáveis. Por isso o laudo só do CAR continua existindo ao lado do
 completo: numa instância sem o BR Geo, o completo não roda.
 
@@ -149,7 +150,20 @@ Entradas: `areaId` (id da área no Satellite Hub), `index` e `days` (opcionais).
 mais recente, média e faixa do período), o gráfico do índice e a tabela das imagens. O nó tem o valor
 fixo `minValidPercent = 60`.
 
-### 5.5 Ideias (não decididas)
+### 5.5 Imagem de satélite mais recente do imóvel CAR (`car-latest-satellite-image`)
+
+Entrada: `codImovel`. O Flow liga `car-property-geometry.geometry` a `sathub-latest-image`, com o
+valor fixo `indices = ndvi,evi,ndmi,ndre`. Seções:
+
+0. Capa: código, município/UF, área, data da imagem e dias desde ela, satélite/quadrícula, nuvem
+   sobre o imóvel, cobertura da cena e resolução.
+1. Cor verdadeira (imagem grande, com o contorno do imóvel).
+2. Um bloco por índice: mapa, barra de cores (`legend`) e estatísticas (média, mediana, P10-P90,
+   mín.-máx., desvio, % de área válida).
+3. Sem imagem (`{{^image.found}}`): aviso, o motivo técnico (`message`) e as cenas descartadas.
+4. Cenas descartadas por nuvem (quando houver) e metodologia/limitações.
+
+### 5.6 Ideias (não decididas)
 
 Possibilidades levantadas para conversar com o produto. **Nenhuma está decidida nem priorizada.**
 

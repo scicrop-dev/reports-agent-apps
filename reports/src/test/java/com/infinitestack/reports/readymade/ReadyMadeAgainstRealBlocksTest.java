@@ -31,6 +31,7 @@ import com.infinitestack.reports.blocks.brgeo.BrGeoEmbargoesBlock;
 import com.infinitestack.reports.blocks.brgeo.BrGeoMunicipalitiesBlock;
 import com.infinitestack.reports.blocks.brgeo.BrGeoProdesBlock;
 import com.infinitestack.reports.blocks.sathub.SatelliteHubIndexSeriesBlock;
+import com.infinitestack.reports.blocks.sathub.SatelliteHubLatestImageBlock;
 import com.infinitestack.reports.template.HtmlSanitizer;
 import com.infinitestack.reports.template.TemplateRenderer;
 import com.infinitestack.reports.template.TemplateScope;
@@ -49,7 +50,7 @@ class ReadyMadeAgainstRealBlocksTest {
                 new CarOverlapsBlock(null), new CarHistoryBlock(null), new CarPropertyMapBlock(null),
                 new BrGeoMunicipalitiesBlock(null), new BrGeoBiomesBlock(null), new BrGeoEmbargoesBlock(null),
                 new BrGeoDeterAlertsBlock(null), new BrGeoProdesBlock(null), new BrGeoCropProductionBlock(null),
-                new SatelliteHubIndexSeriesBlock(null));
+                new SatelliteHubIndexSeriesBlock(null), new SatelliteHubLatestImageBlock(null, null, null));
     }
 
     @Test
