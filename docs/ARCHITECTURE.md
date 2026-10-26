@@ -1252,3 +1252,80 @@ Email
 ```
 
 Essa decisão deve ser preservada durante toda a implementação.
+---
+
+# 47. Implementação (fases 0 a 7)
+
+Esta seção descreve o que foi construído em `reports/` e onde a implementação se afasta, de
+propósito, do desenho conceitual acima. A ordem das fases está em [ROADMAP.md](ROADMAP.md).
+
+## 47.1 Mapa do código (`com.infinitestack.reports`)
+
+| Pacote | Conteúdo |
+|---|---|
+| `engine` | `DataType` (tipos do §12, com coerção de valores vindos de formulário/JSON) |
+| `engine.block` | `ReportBlock`, `BlockDefinition`, `BlockPort`, `DataRequirement`, `BlockRegistry` (beans Spring) |
+| `engine.flow` | `FlowDefinition`/`FlowNode`/`FlowConnection` (JSON gravado), `FlowValidator` (ids, tipos, inputs obrigatórios, ciclos, limite de nós), `FlowExecutor` (ordem topológica, timeout por Block e por execução), `ExecutionContext` |
+| `catalog` | Leitura do catálogo (`HostCatalogClient` / `InformationSchemaCatalogClient`), `CatalogService` (cache curto), `BlockAvailabilityService` (AVAILABLE / STALE / MISSING_DATA), `BlockRelease` |
+| `template` | `TemplateRenderer` (Mustache estrito via JMustache), `TemplateScope` (variáveis conhecidas antes de rodar), `HtmlSanitizer` (jsoup, allowlist) |
+| `output` | `PdfRenderer` + `OpenHtmlToPdfRenderer` |
+| `diff` | `LineDiff` (diff de versões) |
+| `report`, `execution` | Registros de domínio: `Report`, `ReportVersion`, `InputDefinition`, `PageSettings`, `Execution`, `ExecutionError` |
+| `repository` | JDBC puro, SQL qualificado com `apps.`; `SchemaInitializer` cria as tabelas em segundo plano |
+| `service`, `controller`, `web` | Regras de uso, API REST e identidade do usuário a partir dos headers `X-IS-*` |
+
+## 47.2 Tabelas (`apps.`)
+
+`reports_report` (soft delete), `reports_report_version` (inputs, flow, template HTML/CSS e página),
+`reports_execution` (inputs, contexto, versões dos Blocks, erro, `rerun_of`),
+`reports_execution_block` e `reports_block_release`.
+
+## 47.3 API (sob `/api/plugins/reports/api`)
+
+```text
+GET  /me                                   usuário dos headers e estado do banco
+GET  POST /reports   GET PUT DELETE /reports/{id}
+GET  POST /reports/{id}/versions           listar / criar rascunho a partir da última versão
+GET  PUT  /reports/{id}/versions/{n}       versão + validação / salvar rascunho
+POST /reports/{id}/versions/{n}/publish
+GET  /reports/{id}/versions/{n}/variables
+GET  /reports/{id}/versions/{a}/diff/{b}
+POST /reports/{id}/preview                 roda e renderiza sem gravar
+POST /reports/{id}/preview/pdf
+POST /reports/{id}/execute                 roda e grava
+GET  /reports/{id}/executions
+GET  /executions/{id}
+GET  /executions/{id}/result?format=html|pdf
+POST /executions/{id}/rerun
+GET  /blocks   GET /blocks/{id}   POST DELETE /blocks/{id}/release   POST /catalog/refresh
+```
+
+## 47.4 Catálogo e liberação de Blocks
+
+- Dentro do IS, o catálogo vem da porta interna `GET /api/extensions/internal/catalog/tables` do back
+  (infinitestack-back#1279), autenticada por `X-IS-Plugin-Id` + `X-IS-Plugin-Internal-Token`. Sem
+  token (desenvolvimento local), vem do `information_schema` dos schemas bronze/silver/gold.
+- Um Block é **utilizável** quando os seus `DataRequirement`s estão AVAILABLE no catálogo **e** um
+  ADMIN/SCICROP o liberou. Só é possível liberar um Block AVAILABLE. Usuários comuns só veem Blocks
+  utilizáveis.
+- Toda execução verifica de novo, antes de rodar, se os Blocks continuam utilizáveis. Se os dados
+  sumiram, a execução fica FAILED na etapa VALIDATING, com o motivo.
+
+## 47.5 Onde a implementação difere do desenho
+
+- **Flow e Template ficam dentro da versão do Report** (§21 previa tabelas próprias). Uma linha basta
+  para reproduzir uma execução. Flows e Templates reaproveitáveis (§34–35) ficam para depois.
+- **Linguagem**: Java/Spring, não as interfaces TypeScript conceituais do §10–13.
+- **Template**: Mustache sem lógica, estrito (variável inexistente é erro, valor nulo imprime vazio),
+  sem partials. O HTML final sempre passa pelo sanitizador: sem scripts, handlers, iframes, formulários
+  ou recursos externos; imagens só como `data:`.
+- **PDF**: openhtmltopdf (Java puro) em vez de headless browser (§18). Suporta CSS 2.1 e paged media,
+  não flex/grid. Fica atrás de `PdfRenderer` para poder trocar.
+- **Resultado não é gravado**: a execução guarda o contexto, e HTML/PDF são renderizados de novo sob
+  demanda a partir dele e do template da versão. Por isso `GENERATING_OUTPUT` (§24) ainda não é usado.
+- **Preview não é gravado**: roda o mesmo caminho da execução e devolve o HTML.
+- **Permissões** (§32): o host não informa organização nem projeto, e o catálogo não tem ACL por
+  dataset. Hoje todo usuário vê todos os reports; só o dono ou ADMIN/SCICROP alteram um report; só
+  ADMIN/SCICROP liberam Blocks.
+- **Reexecução**: só existe a implementação atual de cada Block no app. Uma reexecução avisa quando a
+  versão de um Block mudou desde a execução original e informa se os outputs saíram idênticos.

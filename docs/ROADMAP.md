@@ -14,6 +14,10 @@ de Agent Apps em [../README.md](../README.md), [../design.md](../design.md) e [.
 > 3. havendo os dados, um administrador **libera** o Block;
 > 4. a partir daí qualquer usuário monta a consulta que quiser com aquele Block.
 
+> **Estado (2026-10-26):** fases 0 a 7 implementadas em `reports/` (versão 0.1.0, ainda não
+> instalada num IS real). A próxima é a Fase 8 (Blocks), que começa com conversa. O que foi
+> construído e onde difere do desenho está na seção 47 do [ARCHITECTURE.md](ARCHITECTURE.md).
+
 ---
 
 ## 1. Ponto de partida (o que já existe no IS)
@@ -246,12 +250,12 @@ agendamento e distribuição (MASTER §22).
 
 | # | Decisão | Proposta | Quando |
 |---|---|---|---|
-| D1 | `plugin_id` e layout do repo | `reports`, app em subpasta, `recomendador-manejo` só como exemplo | Fase 0 |
-| D2 | Leitura do catálogo | porta interna `GET` no back + fallback `information_schema` | Fase 3 |
-| D3 | Quem libera Blocks | ADMIN/SCICROP via `X-IS-Role` | Fase 3 |
-| D4 | Liberação global ou por usuário/grupo | global no MVP (não há header de org) | Fase 3 |
-| D5 | Engine de template | spike JMustache × Handlebars.java | Fase 4 |
-| D6 | Renderer de PDF | openhtmltopdf no MVP, atrás de `PdfRenderer` | Fase 5 |
-| D7 | Guardar PDF ou regenerar | regenerar sob demanda | Fase 5 |
+| D1 | `plugin_id` e layout do repo | `reports`, app em `reports/`, `recomendador-manejo` só como exemplo | **decidido** |
+| D2 | Leitura do catálogo | porta interna `GET` no back (back#1279) + fallback `information_schema` | **decidido** |
+| D3 | Quem libera Blocks | ADMIN/SCICROP via `X-IS-Role` | **decidido** |
+| D4 | Liberação global ou por usuário/grupo | global no MVP (não há header de org) | **decidido** |
+| D5 | Engine de template | JMustache (modo estrito, sem partials) | **decidido** |
+| D6 | Renderer de PDF | openhtmltopdf 1.1.22, atrás de `PdfRenderer` | **decidido** |
+| D7 | Guardar PDF ou regenerar | regenerar sob demanda a partir do contexto gravado | **decidido** |
 | D8 | Conjunto de Blocks do MVP | discussão na Fase 8 | Fase 8 |
 | D9 | Stack da UI | Thymeleaf como casca + JS puro em `static/app/`, CodeMirror 5 vendorado, preview em iframe sandbox | **decidido** (2026-10-26) |

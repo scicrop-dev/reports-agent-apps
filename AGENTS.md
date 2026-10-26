@@ -14,13 +14,15 @@ de banco. O app não cuida de nada disso.
 
 | Diretório | `plugin_id` | Pacote Java |
 |---|---|---|
+| `reports` | `reports` | `com.infinitestack.reports` |
 | `recomendador-manejo` | `recomendador-manejo` | `com.infinitestack.recomendador` |
 
 Este repositório (`scicrop-dev/reports-agent-apps`, em `apps/reports-agent-apps/` no workspace) é o
 do **REPORTS**. O produto está descrito em [docs/MASTER.md](docs/MASTER.md), a arquitetura em
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) e a ordem de implementação em
-[docs/ROADMAP.md](docs/ROADMAP.md). Leia os três antes de mexer no app. `recomendador-manejo` fica como
-exemplo de referência do contrato. Agent apps novos não entram aqui: cada um tem repo próprio em
+[docs/ROADMAP.md](docs/ROADMAP.md). Leia os três antes de mexer no app. O app fica em `reports/`; o
+mapa do código e as decisões de implementação estão na seção 47 do ARCHITECTURE.md.
+`recomendador-manejo` fica como exemplo de referência do contrato. Agent apps novos não entram aqui: cada um tem repo próprio em
 `apps/<nome>/`.
 
 Não há build agregado na raiz. Cada app tem seu próprio `pom.xml`, `scripts/` e `.gitignore`.
@@ -37,6 +39,22 @@ mvn -q test                  # testes (nem todo app tem; ver src/test)
 - Os scripts usam `mvn` do sistema. Não há `mvnw` commitado, ao contrário do que o README sugere.
 - Rode `build-all.sh` antes de declarar uma mudança pronta. É o critério de "build limpo" do checklist.
 - `target/`, `build/`, `out/` e `*.ispz` são artefatos e nunca entram em commit.
+
+### REPORTS (`reports/`)
+
+- `mvn -q test` roda tudo sem banco. O teste de ponta a ponta (`ReportsEndToEndDbTest`) só roda com
+  um Postgres descartável:
+  `REPORTS_TEST_DB_URL=jdbc:postgresql://127.0.0.1:5432/<db> REPORTS_TEST_DB_USER=... mvn test`.
+  Ele apaga e recria o schema `reports_test` e a tabela `gold.reports_test_area` nesse banco.
+- **UI local:** `mvn spring-boot:test-run` sobe o app com os Blocks de teste (`LocalDevApplication`,
+  só em `src/test`). Passe o banco por `IS_DATASOURCE_URL`/`IS_DATASOURCE_USERNAME`/`IS_DATASOURCE_PASSWORD`
+  e `REPORTS_LOCAL_ROLE=ADMIN` para ver a tela de liberação. Sem o token do host, o catálogo vem do
+  `information_schema` (schemas bronze/silver/gold do banco).
+- **Não há Blocks de produto** antes da Fase 8 do ROADMAP. Os Blocks de `src/test/.../support/TestBlocks`
+  não entram no `.ispz`.
+- A UI segue a regra de idioma (seção "Idioma", abaixo): textos de interface em inglês no código-fonte.
+- Template novo além de `isp-index`/`isp-status` não existe: a UI é uma página só, com JS em
+  `static/app/*.js` e CodeMirror 5.65.16 vendorado em `static/vendor/codemirror/`.
 
 ## Regras invioláveis (contrato com o host)
 
