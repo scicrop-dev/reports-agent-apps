@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +29,8 @@ import com.infinitestack.reports.output.OpenHtmlToPdfRenderer;
 import com.infinitestack.reports.report.InputDefinition;
 import com.infinitestack.reports.service.ReportService;
 import com.infinitestack.reports.support.CarBlockContractStubs;
+import com.infinitestack.reports.support.GeoBlockContractStubs;
+import com.infinitestack.reports.engine.block.ReportBlock;
 import com.infinitestack.reports.template.HtmlSanitizer;
 import com.infinitestack.reports.template.TemplateRenderer;
 import com.infinitestack.reports.template.TemplateScope;
@@ -49,7 +52,9 @@ class ReadyMadeReportsValidityTest {
     @Test
     void everyReadyMadeIsValidAndRendersAgainstTheBlockContracts() throws Exception {
         for (boolean bare : List.of(false, true)) {
-            BlockRegistry registry = new BlockRegistry(CarBlockContractStubs.all(bare));
+            List<ReportBlock> blocks = new ArrayList<>(CarBlockContractStubs.all(bare));
+            blocks.addAll(GeoBlockContractStubs.all(bare));
+            BlockRegistry registry = new BlockRegistry(blocks);
             for (ReadyMadeReport report : catalog.all()) {
                 String label = report.id() + (bare ? " (bare)" : " (full)");
                 assertEquals(List.of(), ReportService.validateInputs(report.inputs()), label + " inputs");
@@ -58,7 +63,7 @@ class ReadyMadeReportsValidityTest {
                 assertEquals(List.of(), templates.validate(report.templateHtml(), report.templateCss(), scope), label + " template");
                 assertEquals(List.of(), report.page().problems(), label + " page");
 
-                FlowRun run = executor.run(flow, sampleInputs(report.inputs()), new ExecutionMetadata(42L, 1, 1, "u", "USER"));
+                FlowRun run = executor.run(flow, sampleInputs(report.inputs(), bare), new ExecutionMetadata(42L, 1, 1, "u", "USER"));
                 assertTrue(run.completed(), label + ": " + run.failure());
                 // Execution 42, as in the history; the bare case renders as a preview (no execution id).
                 Map<String, Object> model = run.context().templateModel(
@@ -77,6 +82,7 @@ class ReadyMadeReportsValidityTest {
                     assertTrue(document.getNumberOfPages() >= 1, label);
                     assertTrue(text.contains("Página 1 de " + document.getNumberOfPages()), label + ": " + text);
                     if (report.id().equals("car-socioenvironmental")) checkLaudo(html, text, bare, label);
+                    if (report.id().equals("car-socioenvironmental-complete")) checkCompleteLaudo(text, bare, label);
                 }
             }
         }
@@ -107,10 +113,38 @@ class ReadyMadeReportsValidityTest {
         }
     }
 
-    private static Map<String, Object> sampleInputs(List<InputDefinition> inputs) {
+    /** The BR Geo sections of the complete laudo: the alert and the "not monitored" branches. */
+    private static void checkCompleteLaudo(String text, boolean bare, String label) {
+        if (bare) {
+            assertTrue(text.contains("nenhum encontrado"), label);
+            assertTrue(text.contains("área não monitorada pelo DETER"), label);
+            assertTrue(text.contains("Nenhum termo de embargo"), label);
+            assertTrue(text.contains("O IBGE não publicou lavouras"), label);
+        } else {
+            assertTrue(text.contains("1 termo(s) ativo(s)"), label);
+            assertTrue(text.contains("4 alerta(s)"), label);
+            assertTrue(text.contains("PRODES Amazonia: 44.41 ha"), label);
+            assertTrue(text.contains("Soja (em grão)"), label);
+            assertTrue(text.contains("Bioma predominante"), label);
+        }
+    }
+
+    /** A value per input, by type; optional inputs stay empty in the bare case. */
+    private static Map<String, Object> sampleInputs(List<InputDefinition> inputs, boolean bare) {
         Map<String, Object> values = new HashMap<>();
         for (InputDefinition input : inputs) {
-            values.put(input.name(), "codImovel".equals(input.name()) ? CarBlockContractStubs.COD_IMOVEL : "sample");
+            if (bare && !input.required()) {
+                values.put(input.name(), null); // as the service sends an optional input left empty
+                continue;
+            }
+            Object value = switch (input.type()) {
+                case NUMBER -> 16991;
+                case GEOMETRY -> Map.of("type", "Polygon", "coordinates", List.of(List.of(
+                        List.of(-52.21, -12.61), List.of(-52.17, -12.61), List.of(-52.17, -12.64), List.of(-52.21, -12.61))));
+                default -> "codImovel".equals(input.name()) ? CarBlockContractStubs.COD_IMOVEL : "sample";
+            };
+            if ("index".equals(input.name())) value = "ndvi";
+            values.put(input.name(), value);
         }
         return values;
     }

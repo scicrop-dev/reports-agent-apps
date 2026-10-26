@@ -14,6 +14,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.infinitestack.reports.engine.DataType;
 import com.infinitestack.reports.engine.block.BlockDefinition;
+import com.infinitestack.reports.engine.block.BlockDocs;
 import com.infinitestack.reports.engine.block.BlockPort;
 import com.infinitestack.reports.engine.block.BlockQueries;
 import com.infinitestack.reports.engine.block.ExecutionMetadata;
@@ -64,6 +65,26 @@ public class CarPropertyGeometryBlock implements ReportBlock {
                         requirement(IMOVEL_VERSAO, "imovel_id", "valido_ate", "geometria_id"),
                         requirement(IMOVEL_GEOMETRIA, "id", "geom", "area_calc_ha")),
                 null);
+    }
+
+    @Override
+    public BlockDocs docs() {
+        return new BlockDocs("CAR",
+                "Gives the boundary of a CAR property as a geometry, plus its computed area, a reference point "
+                        + "inside it and its bounding box. It is the bridge from the CAR to every spatial Block.",
+                List.of(
+                        "Takes the geometry of the current registration version.",
+                        "Returns it as GeoJSON in SIRGAS 2000 (SRID 4674), with 6 decimals.",
+                        "Computes the reference point with ST_PointOnSurface, so it always falls inside the polygon."),
+                List.of(
+                        "codImovel: the same report input as car-property.",
+                        "geometry: connect it to brgeo-biomes, brgeo-municipalities, brgeo-embargoes, brgeo-deter-alerts, "
+                                + "brgeo-prodes and sathub-index-series, which all analyse an area."),
+                List.of(
+                        "The computed area can differ a little from the declared one (car-property.declaredAreaHa).",
+                        "The geometry is the declared drawing; it may overlap neighbours (see car-overlaps)."),
+                "SICAR, gold.car_agent_app_imovel_geometria",
+                "Area calculada: {{<node>.areaHa}} ha - ponto {{<node>.centroidLat}}, {{<node>.centroidLon}}");
     }
 
     @Override

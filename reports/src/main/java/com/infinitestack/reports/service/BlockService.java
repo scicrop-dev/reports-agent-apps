@@ -81,7 +81,7 @@ public class BlockService {
                 Instant.now(), mapper.valueToTree(diagnosis));
         releases.save(release);
         log.info("[reports] block {} {} released by {}", blockId, block.definition().version(), user.id());
-        return new BlockView(block.definition(), diagnosis, release, true);
+        return new BlockView(block.definition(), block.docs(), diagnosis, release, true);
     }
 
     public void revoke(String blockId, CurrentUser user) {
@@ -126,7 +126,7 @@ public class BlockService {
     private BlockView view(ReportBlock block, CatalogSnapshot snapshot, BlockRelease release) {
         BlockAvailability diagnosis = availability.check(block.definition(), snapshot);
         boolean usable = release != null && diagnosis.status() == AvailabilityStatus.AVAILABLE;
-        return new BlockView(block.definition(), diagnosis, release, usable);
+        return new BlockView(block.definition(), block.docs(), diagnosis, release, usable);
     }
 
     private static void requireAdmin(CurrentUser user) {

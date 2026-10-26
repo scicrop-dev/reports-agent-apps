@@ -1,0 +1,53 @@
+<div class="running-header">
+  <span class="rh-title">Monitoramento de vegetação</span>
+  <span class="rh-code">{{vegetation.index.name}} - área {{inputs.areaId}}</span>
+</div>
+
+<div class="cover">
+  <div class="cover-kicker">Monitoramento de vegetação - Sentinel-2</div>
+  <h1>{{#vegetation.areas}}{{#-first}}{{farmName}}{{#blockName}} / {{blockName}}{{/blockName}}{{#parcelName}} / {{parcelName}}{{/parcelName}}{{/-first}}{{/vegetation.areas}}</h1>
+  <p class="cover-sub">{{vegetation.index.name}}: {{vegetation.latestMean}} na imagem de {{vegetation.latestDate}}</p>
+  <table class="meta">
+    <tr><th>Área no Satellite Hub</th><td>id {{inputs.areaId}}{{#vegetation.areas}}{{#-first}}, {{areaHa}} ha{{/-first}}{{/vegetation.areas}}</td></tr>
+    <tr><th>Emitido em</th><td>{{report.generatedAt}}</td></tr>
+    <tr><th>Execução</th><td>{{#report.executionId}}nº {{report.executionId}} (versão {{report.version}} do relatório){{/report.executionId}}{{^report.executionId}}Prévia, não registrada no histórico{{/report.executionId}}</td></tr>
+  </table>
+</div>
+
+<div class="section">
+  <h2><span class="num">1</span> {{vegetation.index.name}} ao longo do tempo</h2>
+  {{#vegetation.series}}{{#-first}}
+  <table class="highlights">
+    <tr>
+      <td class="highlight"><div class="hl-label">Imagem mais recente</div><div class="hl-value">{{vegetation.latestMean}}</div><div class="hl-sub">{{vegetation.latestDate}}</div></td>
+      <td class="highlight"><div class="hl-label">Média do período</div><div class="hl-value">{{vegetation.periodMean}}</div><div class="hl-sub">{{vegetation.count}} imagem(ns)</div></td>
+      <td class="highlight"><div class="hl-label">Mínimo e máximo</div><div class="hl-value">{{vegetation.periodMin}} a {{vegetation.periodMax}}</div><div class="hl-sub">médias por imagem</div></td>
+    </tr>
+  </table>
+  {{/-first}}{{/vegetation.series}}
+  <img class="chart" src="{{vegetation.chart}}" alt="Série do índice">
+  <p class="note">Linha: média do índice na área, ponderada pelos pixels válidos. Faixa: do percentil 10 ao 90. Só entram imagens com pelo menos 60% da área sem nuvem. {{vegetation.index.description}}</p>
+</div>
+
+<div class="section">
+  <h2><span class="num">2</span> Imagens</h2>
+  {{#vegetation.series}}{{#-first}}
+  <table class="grid">
+    <thead><tr><th>Data</th><th class="r">Média</th><th class="r">P10</th><th class="r">P90</th><th class="r">Mín.</th><th class="r">Máx.</th><th class="r">Área válida (%)</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr><td class="nowrap">{{date}}</td><td class="r">{{mean}}</td><td class="r">{{p10}}</td><td class="r">{{p90}}</td><td class="r">{{min}}</td><td class="r">{{max}}</td><td class="r">{{validAreaPercent}}</td></tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/vegetation.series}}
+  {{^vegetation.series}}<p class="empty">Nenhuma imagem com área válida suficiente no período.</p>{{/vegetation.series}}
+</div>
+
+<div class="section">
+  <h2><span class="num">3</span> Fontes e limitações</h2>
+  <ul class="sources">
+    <li>Índices calculados pelo Satellite Hub a partir de imagens Sentinel-2 L2A (10 m), com máscara de nuvens.</li>
+    <li>O índice descreve o vigor da vegetação; ele não identifica a cultura nem comprova desmatamento.</li>
+  </ul>
+</div>

@@ -1,0 +1,43 @@
+{
+  "id": "car-socioenvironmental-complete",
+  "version": "1.0.0",
+  "name": "Laudo socioambiental completo do imóvel CAR",
+  "description": "O laudo do CAR (cadastro, uso declarado, sobreposições, mapa) cruzado com o BR Geo: bioma, municípios, embargos do IBAMA, alertas DETER, desmatamento PRODES e o perfil agrícola do município.",
+  "category": "Socioambiental",
+  "inputs": [
+    { "name": "codImovel", "type": "string", "required": true, "label": "Código do imóvel no CAR" }
+  ],
+  "flow": {
+    "nodes": [
+      { "id": "property", "block": "car-property" },
+      { "id": "geometry", "block": "car-property-geometry" },
+      { "id": "layers", "block": "car-environmental-layers" },
+      { "id": "overlaps", "block": "car-overlaps" },
+      { "id": "history", "block": "car-history" },
+      { "id": "map", "block": "car-property-map" },
+      { "id": "biomes", "block": "brgeo-biomes" },
+      { "id": "municipalities", "block": "brgeo-municipalities" },
+      { "id": "embargoes", "block": "brgeo-embargoes" },
+      { "id": "deter", "block": "brgeo-deter-alerts" },
+      { "id": "prodes", "block": "brgeo-prodes" },
+      { "id": "crops", "block": "brgeo-crop-production" }
+    ],
+    "connections": [
+      { "from": "inputs.codImovel", "to": "property.codImovel" },
+      { "from": "inputs.codImovel", "to": "geometry.codImovel" },
+      { "from": "inputs.codImovel", "to": "layers.codImovel" },
+      { "from": "inputs.codImovel", "to": "overlaps.codImovel" },
+      { "from": "inputs.codImovel", "to": "history.codImovel" },
+      { "from": "inputs.codImovel", "to": "map.codImovel" },
+      { "from": "geometry.geometry", "to": "biomes.geometry" },
+      { "from": "geometry.geometry", "to": "municipalities.geometry" },
+      { "from": "geometry.geometry", "to": "embargoes.geometry" },
+      { "from": "geometry.geometry", "to": "deter.geometry" },
+      { "from": "geometry.geometry", "to": "prodes.geometry" },
+      { "from": "property.municipalityIbge", "to": "crops.municipalityIbge" }
+    ]
+  },
+  "templateHtmlFile": "car-socioenvironmental-complete.html",
+  "templateCssFile": "report-base.css",
+  "page": { "size": "A4", "orientation": "portrait", "marginMm": 18 }
+}

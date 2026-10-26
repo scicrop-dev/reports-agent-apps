@@ -248,6 +248,9 @@ public class ExecutionService {
             Object value = given.get(definition.name());
             if (value == null || (value instanceof String s && s.isBlank())) {
                 if (definition.required()) problems.add("input '" + definition.name() + "' is required");
+                // An optional input left empty is still in the model, as null: a template may test it
+                // ({{#inputs.x}}...) and strict rendering refuses a name that is not there at all.
+                else inputs.put(definition.name(), null);
                 continue;
             }
             try {

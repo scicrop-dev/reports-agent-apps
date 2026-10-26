@@ -1254,7 +1254,7 @@ Email
 Essa decisão deve ser preservada durante toda a implementação.
 ---
 
-# 47. Implementação (fases 0 a 7)
+# 47. Implementação (fases 0 a 8)
 
 Esta seção descreve o que foi construído em `reports/` e onde a implementação se afasta, de
 propósito, do desenho conceitual acima. A ordem das fases está em [ROADMAP.md](ROADMAP.md).
@@ -1264,12 +1264,14 @@ propósito, do desenho conceitual acima. A ordem das fases está em [ROADMAP.md]
 | Pacote | Conteúdo |
 |---|---|
 | `engine` | `DataType` (tipos do §12, com coerção de valores vindos de formulário/JSON) |
-| `engine.block` | `ReportBlock`, `BlockDefinition`, `BlockPort`, `DataRequirement`, `BlockRegistry` (beans Spring) |
-| `engine.flow` | `FlowDefinition`/`FlowNode`/`FlowConnection` (JSON gravado), `FlowValidator` (ids, tipos, inputs obrigatórios, ciclos, limite de nós), `FlowExecutor` (ordem topológica, timeout por Block e por execução), `ExecutionContext` |
+| `engine.block` | `ReportBlock` (+ `docs()`), `BlockDefinition`, `BlockPort`, `DataRequirement`, `BlockDocs` (documentação para o editor, fora do contrato), `BlockRegistry` (beans Spring), `BlockQueries` |
+| `engine.flow` | `FlowDefinition`/`FlowNode` (com `position` opcional, só layout)/`FlowConnection` (JSON gravado), `FlowValidator` (ids, tipos, inputs obrigatórios, ciclos, limite de nós), `FlowExecutor` (ordem topológica, timeout por Block e por execução), `ExecutionContext` |
 | `catalog` | Leitura do catálogo (`HostCatalogClient` / `InformationSchemaCatalogClient`), `CatalogService` (cache curto), `BlockAvailabilityService` (AVAILABLE / STALE / MISSING_DATA), `BlockRelease` |
 | `template` | `TemplateRenderer` (Mustache estrito via JMustache), `TemplateScope` (variáveis conhecidas antes de rodar), `HtmlSanitizer` (jsoup, allowlist) |
 | `output` | `PdfRenderer` + `OpenHtmlToPdfRenderer` |
 | `blocks.car` | Blocks do CAR (contratos em [BLOCKS.md](BLOCKS.md)): `CarPropertyBlock`, `CarPropertyGeometryBlock`, `CarEnvironmentalLayersBlock`, `CarOverlapsBlock`, `CarHistoryBlock`, `CarPropertyMapBlock` + `PropertyMapRenderer` (Java2D); `CarTables`, `CarValues` |
+| `blocks.brgeo` | Blocks do BR Geo ([BLOCKS.md](BLOCKS.md) §3): `BrGeoMunicipalitiesBlock`, `BrGeoBiomesBlock`, `BrGeoEmbargoesBlock`, `BrGeoDeterAlertsBlock`, `BrGeoProdesBlock`, `BrGeoCropProductionBlock`; `MonitoringCoverage` (cobertura DETER/PRODES por bioma), `BrGeoTables`, `BrGeoValues` |
+| `blocks.sathub` | `SatelliteHubIndexSeriesBlock` ([BLOCKS.md](BLOCKS.md) §4) + `IndexSeriesChart` (Java2D) |
 | `diff` | `LineDiff` (diff de versões) |
 | `report`, `execution` | Registros de domínio: `Report`, `ReportVersion`, `InputDefinition`, `PageSettings`, `Execution`, `ExecutionError` |
 | `repository` | JDBC puro, SQL qualificado com `apps.`; `SchemaInitializer` cria as tabelas em segundo plano |
@@ -1368,4 +1370,44 @@ Detalhes, formato e catálogo em [READY-MADE-REPORTS.md](READY-MADE-REPORTS.md).
   `ReadyMadeReportsValidityTest` valida Flow e template contra os contratos dos Blocks, executa com
   saídas de exemplo e gera HTML/PDF em `reports/target/ready-made/`) e atualize o catálogo do
   READY-MADE-REPORTS.md. Os Blocks do teste são duplos dos contratos do [BLOCKS.md](BLOCKS.md)
-  (`support/CarBlockContractStubs`).
+  (`support/CarBlockContractStubs`, `support/GeoBlockContractStubs`).
+- Um input opcional deixado em branco entra no modelo do template como `null`
+  (`ExecutionService.coerceInputs`), para o template poder testá-lo sem erro de modo estrito.
+
+## 47.7 Editor visual de Flow
+
+Arquivos: `static/app/flow-graph.js` (grafo), `static/app/flow-editor.js` (modelo, conversão de e
+para o JSON gravado, a vista em lista e a chave Graph | List), CSS `.fg-*` no `isp-index.html`.
+Sem biblioteca: DOM + SVG, como o resto da UI (sem CDN).
+
+- **Três colunas.** Paleta (Blocks agrupados por `docs.category`, busca, arrastar para o canvas ou
+  duplo clique), canvas e inspetor.
+- **Canvas.** Cada nó é uma caixa com os inputs à esquerda e os outputs à direita. A caixa
+  "Report inputs" representa os inputs do report. Um fio liga um output a um input **do mesmo tipo**:
+  as cores dos pontos são os tipos, e ao arrastar só acendem os inputs compatíveis que não criam
+  ciclo. Pegar um input ligado arrasta o fio de novo, e soltá-lo no vazio o remove. Também há zoom
+  (roda do mouse), pan (arrastar o fundo), Fit, Auto layout (colunas por profundidade de
+  dependência), tela cheia e Delete para remover o nó ou fio selecionado. O número em cada nó é a
+  ordem de execução, calculada como o `FlowExecutor` calcula.
+- **Nós grandes** (mais de 5 outputs) mostram os outputs ligados e os 3 primeiros, com "+N more
+  outputs" para expandir. Os nós abaixo na mesma coluna são empurrados para não sobrepor.
+- **Posições** vão em `nodes[].position` e são salvas com o rascunho. O engine as ignora. Um Flow sem
+  posições (relatório pronto, Flow antigo) recebe o auto layout ao abrir.
+- **Inspetor.** Sem seleção, mostra a visão geral (ordem de execução, o que falta ligar, legenda de
+  cores). Com um nó, mostra o id editável, a origem de cada input (o mesmo `portRow` da lista, com
+  valor fixo), os outputs como `{{node.output}}` clicáveis para copiar, a última execução (status,
+  tempo, saídas resumidas) e a documentação do Block (`BlockDocs`). Com um Block da paleta, mostra a
+  documentação e o botão "Add to flow". Com um fio, mostra origem, destino e tipo.
+- **Ligação automática.** Ao adicionar um nó, os inputs obrigatórios com uma única origem do mesmo
+  nome e tipo (ou, na falta dela, uma única origem do mesmo tipo) já vêm ligados.
+- **Resultado no grafo.** Depois de uma prévia ou execução do report, cada nó mostra o tempo ou a
+  falha.
+- **"How flows work".** Ajuda em 6 passos (inputs, Blocks, fios, ordem, template, teste) com as dicas.
+- As portas são posicionadas por conta, com alturas fixas de linha (constantes no topo de
+  `flow-graph.js`, iguais ao CSS), e não por medição. Assim os fios saem certos mesmo com a aba
+  escondida. Quem mudar as alturas no CSS muda as constantes junto.
+
+## 47.8 Integrações com outros apps
+
+Satellite Hub (leitura feita; pedido de processamento desenhado) e scripts Python do Skills Lab como
+Block (desenhado, depende de porta nova no back): [INTEGRATIONS.md](INTEGRATIONS.md).

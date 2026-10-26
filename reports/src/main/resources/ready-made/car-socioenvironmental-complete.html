@@ -1,0 +1,283 @@
+<div class="running-header">
+  <span class="rh-title">Laudo socioambiental completo</span>
+  <span class="rh-code">{{property.codImovel}}</span>
+</div>
+
+<div class="cover">
+  <div class="cover-kicker">Laudo socioambiental completo</div>
+  <h1>Imóvel rural {{property.codImovel}}</h1>
+  <p class="cover-sub">{{property.municipality}} / {{property.uf}}</p>
+  <table class="meta">
+    <tr>
+      <th>Código do imóvel no CAR</th>
+      <td class="code">{{property.codImovel}}</td>
+    </tr>
+    <tr>
+      <th>Emitido em</th>
+      <td>{{report.generatedAt}}</td>
+    </tr>
+    <tr>
+      <th>Execução</th>
+      <td>{{#report.executionId}}nº {{report.executionId}} (versão {{report.version}} do relatório){{/report.executionId}}{{^report.executionId}}Prévia, não registrada no histórico{{/report.executionId}}</td>
+    </tr>
+  </table>
+  {{#property.removedAt}}
+  <p class="alert">Atenção: este imóvel foi removido da base do SICAR em {{property.removedAt}}. Os dados abaixo são os da última versão conhecida.</p>
+  {{/property.removedAt}}
+</div>
+
+<div class="section">
+  <h2><span class="num">0</span> Síntese</h2>
+  <table class="flags">
+    <tr><td class="flag-label">Situação no CAR</td><td><span class="flag-neutral">{{property.statusLabel}}</span> ({{property.condition}})</td></tr>
+    <tr><td class="flag-label">Bioma predominante</td><td><span class="flag-neutral">{{biomes.mainBiome}}</span></td></tr>
+    <tr><td class="flag-label">Reserva Legal declarada</td><td>{{#layers.hasLegalReserve}}<span class="flag-good">sim</span>, {{layers.summary.legalReservePercent}}% do imóvel ({{layers.summary.legalReserveHa}} ha){{/layers.hasLegalReserve}}{{^layers.hasLegalReserve}}<span class="flag-bad">não declarada</span>{{/layers.hasLegalReserve}}</td></tr>
+    <tr><td class="flag-label">Sobreposição com outros imóveis CAR</td><td>{{#overlaps.overlaps}}{{#-first}}<span class="flag-bad">{{overlaps.count}} imóvel(is)</span>, {{overlaps.totalOverlapHa}} ha{{/-first}}{{/overlaps.overlaps}}{{^overlaps.overlaps}}<span class="flag-good">nenhuma</span>{{/overlaps.overlaps}}</td></tr>
+    <tr><td class="flag-label">Embargos do IBAMA ativos</td><td>{{#embargoes.hasActive}}<span class="flag-bad">{{embargoes.activeCount}} termo(s) ativo(s)</span>, {{embargoes.activeOverlapHa}} ha sobre o imóvel{{/embargoes.hasActive}}{{^embargoes.hasActive}}<span class="flag-good">nenhum encontrado</span>{{/embargoes.hasActive}}{{#embargoes.embargoes}}{{#-first}} ({{embargoes.count}} termo(s) no total, contando desembargados e cancelados){{/-first}}{{/embargoes.embargoes}}</td></tr>
+    <tr><td class="flag-label">Alertas DETER</td><td>{{#deter.monitored}}{{#deter.byClass}}{{#-first}}<span class="flag-bad">{{deter.count}} alerta(s)</span>, {{deter.totalOverlapHa}} ha, o mais recente em {{deter.lastAlertDate}}{{/-first}}{{/deter.byClass}}{{^deter.byClass}}<span class="flag-good">nenhum alerta</span>{{/deter.byClass}}{{/deter.monitored}}{{^deter.monitored}}<span class="flag-neutral">área não monitorada pelo DETER</span>{{/deter.monitored}}</td></tr>
+    <tr><td class="flag-label">Desmatamento PRODES</td><td>{{#prodes.monitored}}{{#prodes.byProduct}}<span class="flag-bad">{{productName}}: {{deforestedHa}} ha</span> ({{firstYear}} a {{lastYear}}; {{sinceCutoffHa}} ha depois de 22/07/2008)<br>{{/prodes.byProduct}}{{^prodes.byProduct}}<span class="flag-good">nenhum incremento mapeado</span>{{/prodes.byProduct}}{{/prodes.monitored}}{{^prodes.monitored}}<span class="flag-neutral">área não monitorada pelo PRODES carregado</span>{{/prodes.monitored}}</td></tr>
+  </table>
+  <p class="note">A síntese resume as seções abaixo. Cada item indica o que as bases públicas mostram; nenhum deles, sozinho, é conclusão sobre a regularidade do imóvel.</p>
+</div>
+
+<div class="section">
+  <h2><span class="num">1</span> Identificação do imóvel</h2>
+  <table class="kv">
+    <tr><th>Código do imóvel</th><td class="code">{{property.codImovel}}</td></tr>
+    <tr><th>Município / UF</th><td>{{property.municipality}} / {{property.uf}} (IBGE {{property.municipalityIbge}})</td></tr>
+    <tr><th>Tipo de imóvel</th><td>{{property.typeLabel}} ({{property.type}})</td></tr>
+    <tr><th>Módulos fiscais</th><td>{{property.fiscalModules}}</td></tr>
+    <tr><th>Área declarada</th><td>{{property.declaredAreaHa}} ha</td></tr>
+  </table>
+</div>
+
+<div class="section">
+  <h2><span class="num">2</span> Localização</h2>
+  <div class="map-block">
+    <img class="map" src="{{map.image}}" alt="Mapa do imóvel">
+    <div class="legend">
+      <span class="legend-title">Legenda:</span>
+      <span class="legend-item"><span class="swatch swatch-outline"></span> Limite do imóvel</span>
+      {{#map.legend}}<span class="legend-item"><span class="swatch" style="background-color: {{color}};"></span> {{layerName}}</span> {{/map.legend}}
+      <span class="legend-item"><span class="swatch swatch-neighbor"></span> Imóveis vizinhos</span>
+    </div>
+  </div>
+  <table class="kv">
+    <tr><th>Município / UF</th><td>{{property.municipality}} / {{property.uf}}</td></tr>
+    <tr><th>Ponto de referência (dentro do imóvel)</th><td>latitude {{geometry.centroidLat}}, longitude {{geometry.centroidLon}}</td></tr>
+    <tr><th>Área calculada da geometria</th><td>{{geometry.areaHa}} ha</td></tr>
+    <tr><th>Área declarada no CAR</th><td>{{property.declaredAreaHa}} ha</td></tr>
+    <tr><th>Vértices do polígono</th><td>{{geometry.vertices}}</td></tr>
+    <tr><th>Bioma (IBGE {{biomes.edition}})</th><td>{{#biomes.biomes}}{{name}} ({{percentOfArea}}%)<br>{{/biomes.biomes}}{{^biomes.biomes}}fora dos biomas mapeados{{/biomes.biomes}}</td></tr>
+  </table>
+
+  <h3>Municípios em que o imóvel está (malha IBGE {{municipalities.edition}})</h3>
+  {{#municipalities.municipalities}}{{#-first}}
+  <table class="grid">
+    <thead><tr><th>Município</th><th>UF</th><th>Código IBGE</th><th class="r">Área no município (ha)</th><th class="r">% do imóvel</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr><td>{{name}}</td><td>{{uf}}</td><td class="code">{{ibgeCode}}</td><td class="r">{{intersectionHa}}</td><td class="r">{{percentOfArea}}</td></tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/municipalities.municipalities}}
+  {{^municipalities.municipalities}}<p class="empty">A geometria não cruza nenhum município da malha do IBGE.</p>{{/municipalities.municipalities}}
+  <p class="note">A área calculada vem da geometria vigente, em SIRGAS 2000, com cálculo geodésico; a área declarada é a informada no cadastro. Diferenças pequenas entre as duas são esperadas.</p>
+</div>
+
+<div class="section">
+  <h2><span class="num">3</span> Situação do cadastro</h2>
+  <table class="kv">
+    <tr><th>Situação</th><td><strong>{{property.statusLabel}}</strong> ({{property.status}})</td></tr>
+    <tr><th>Condição</th><td>{{property.condition}}</td></tr>
+    <tr><th>Inscrição no CAR</th><td>{{property.registeredAt}}</td></tr>
+    <tr><th>Última atualização</th><td>{{property.updatedAt}}</td></tr>
+    <tr><th>Versão vigente desde</th><td>{{property.versionSince}}</td></tr>
+    <tr><th>Versões registradas</th><td>{{history.count}}</td></tr>
+  </table>
+
+  <h3>Histórico de versões</h3>
+  {{#history.versions}}{{#-first}}
+  <table class="grid">
+    <thead>
+      <tr><th>Válida de</th><th>Válida até</th><th>Situação</th><th>Condição</th><th class="r">Área declarada (ha)</th><th>Geometria alterada</th></tr>
+    </thead>
+    <tbody>
+  {{/-first}}
+      <tr>
+        <td>{{validFrom}}</td>
+        <td>{{validTo}}{{^validTo}}vigente{{/validTo}}</td>
+        <td>{{statusLabel}}</td>
+        <td>{{condition}}</td>
+        <td class="r">{{declaredAreaHa}}</td>
+        <td>{{#geometryChanged}}sim{{/geometryChanged}}{{^geometryChanged}}não{{/geometryChanged}}</td>
+      </tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/history.versions}}
+  {{^history.versions}}<p class="empty">Nenhuma versão encontrada no histórico.</p>{{/history.versions}}
+</div>
+
+<div class="section">
+  <h2><span class="num">4</span> Uso e cobertura declarados</h2>
+  <table class="highlights">
+    <tr>
+      <td class="highlight">
+        <div class="hl-label">Reserva Legal</div>
+        <div class="hl-value">{{layers.summary.legalReservePercent}}%</div>
+        <div class="hl-sub">{{layers.summary.legalReserveHa}} ha</div>
+      </td>
+      <td class="highlight">
+        <div class="hl-label">Vegetação nativa</div>
+        <div class="hl-value">{{layers.summary.nativeVegetationPercent}}%</div>
+        <div class="hl-sub">{{layers.summary.nativeVegetationHa}} ha</div>
+      </td>
+      <td class="highlight">
+        <div class="hl-label">Áreas de Preservação Permanente</div>
+        <div class="hl-value">{{layers.summary.appPercent}}%</div>
+        <div class="hl-sub">{{layers.summary.appHa}} ha</div>
+      </td>
+    </tr>
+  </table>
+  {{^layers.hasLegalReserve}}
+  <p class="alert">Não há Reserva Legal declarada na versão vigente do cadastro.</p>
+  {{/layers.hasLegalReserve}}
+
+  {{#layers.layers}}{{#-first}}
+  <table class="grid">
+    <thead>
+      <tr><th>Camada</th><th>Temas</th><th class="r">Área declarada (ha)</th><th class="r">% do imóvel</th></tr>
+    </thead>
+    <tbody>
+  {{/-first}}
+      <tr>
+        <td><strong>{{layerName}}</strong></td>
+        <td class="themes">{{#themes}}{{themeName}} ({{count}} feição(ões), {{declaredAreaHa}} ha)<br>{{/themes}}</td>
+        <td class="r">{{declaredAreaHa}}</td>
+        <td class="r">{{percentOfProperty}}</td>
+      </tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/layers.layers}}
+  {{^layers.layers}}<p class="empty">Nenhuma feição de uso ou cobertura declarada na versão vigente.</p>{{/layers.layers}}
+  <p class="note">Percentuais sobre a área declarada do imóvel ({{layers.summary.propertyAreaHa}} ha). As camadas podem se sobrepor (por exemplo, APP dentro da Reserva Legal), então a soma pode passar de 100%.</p>
+</div>
+
+<div class="section">
+  <h2><span class="num">5</span> Sobreposições com outros imóveis CAR</h2>
+  {{#overlaps.overlaps}}{{#-first}}
+  <p>{{overlaps.count}} imóvel(is) vigente(s) se sobrepõe(m) a este, somando {{overlaps.totalOverlapHa}} ha de sobreposição (soma par a par; a mesma área pode ser contada mais de uma vez).</p>
+  <table class="grid">
+    <thead>
+      <tr><th>Imóvel</th><th>Situação</th><th class="r">Sobreposição (ha)</th><th class="r">% do imóvel</th></tr>
+    </thead>
+    <tbody>
+  {{/-first}}
+      <tr>
+        <td class="code">{{codImovel}}</td>
+        <td>{{statusLabel}}</td>
+        <td class="r">{{overlapHa}}</td>
+        <td class="r">{{percentOfProperty}}</td>
+      </tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/overlaps.overlaps}}
+  {{#overlaps.truncated}}<p class="note">A lista mostra as 100 maiores sobreposições.</p>{{/overlaps.truncated}}
+  {{^overlaps.overlaps}}<p class="ok">Nenhuma sobreposição com outros imóveis vigentes do CAR foi encontrada.</p>{{/overlaps.overlaps}}
+</div>
+
+<div class="section">
+  <h2><span class="num">6</span> Embargos do IBAMA</h2>
+  {{#embargoes.hasActive}}<p class="alert">Há {{embargoes.activeCount}} termo(s) de embargo ativo(s) sobre o imóvel, somando {{embargoes.activeOverlapHa}} ha de sobreposição com a sua área.</p>{{/embargoes.hasActive}}
+  {{#embargoes.embargoes}}{{#-first}}
+  <table class="grid">
+    <thead><tr><th>Termo (TAD)</th><th>Data</th><th>Situação</th><th>Tipo de área</th><th class="r">Área embargada (ha)</th><th class="r">Sobre o imóvel (ha)</th><th class="r">Decisões judiciais</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr>
+        <td class="code">{{term}}</td>
+        <td class="nowrap">{{embargoedAt}}</td>
+        <td>{{#active}}<strong>ativo</strong>{{/active}}{{#lifted}}desembargado {{liftedAt}} ({{liftType}}){{/lifted}}{{#cancelled}}cancelado{{/cancelled}}</td>
+        <td>{{areaType}}</td>
+        <td class="r">{{embargoedAreaHa}}</td>
+        <td class="r">{{overlapHa}}</td>
+        <td class="r">{{judicialDecisions}}</td>
+      </tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/embargoes.embargoes}}
+  {{#embargoes.truncated}}<p class="note">A lista mostra os 100 primeiros termos (ativos primeiro).</p>{{/embargoes.truncated}}
+  {{^embargoes.embargoes}}<p class="ok">Nenhum termo de embargo do IBAMA foi encontrado sobre o imóvel.</p>{{/embargoes.embargoes}}
+  <p class="note">Termos com polígono são cruzados pela área; termos publicados só com coordenada entram quando o ponto cai dentro do imóvel (nesses, a coluna "Sobre o imóvel" fica vazia). Embargos de órgãos estaduais não fazem parte desta base.</p>
+</div>
+
+<div class="section">
+  <h2><span class="num">7</span> Alertas de desmatamento e degradação (DETER)</h2>
+  {{#deter.monitored}}
+  {{#deter.byClass}}{{#-first}}
+  <p>{{deter.count}} alerta(s) do DETER sobre o imóvel, somando {{deter.totalOverlapHa}} ha. O mais recente é de {{deter.lastAlertDate}}.</p>
+  <table class="grid">
+    <thead><tr><th>Classe</th><th class="r">Alertas</th><th class="r">Área no imóvel (ha)</th><th>Primeiro</th><th>Último</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr><td>{{className}}</td><td class="r">{{count}}</td><td class="r">{{overlapHa}}</td><td class="nowrap">{{firstDate}}</td><td class="nowrap">{{lastDate}}</td></tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/deter.byClass}}
+  {{^deter.byClass}}<p class="ok">Nenhum alerta do DETER foi encontrado sobre o imóvel.</p>{{/deter.byClass}}
+  {{/deter.monitored}}
+  {{^deter.monitored}}<p class="alert">O imóvel não está em área coberta por um produto DETER carregado no ambiente. A ausência de alertas, aqui, não significa ausência de desmatamento.</p>{{/deter.monitored}}
+  <p class="note">O DETER é um sistema de alerta, não a medição oficial do desmatamento (que é o PRODES). Áreas pequenas e cobertas por nuvens podem não ser detectadas.</p>
+</div>
+
+<div class="section">
+  <h2><span class="num">8</span> Desmatamento anual mapeado (PRODES)</h2>
+  {{#prodes.monitored}}
+  {{#prodes.byYear}}{{#-first}}
+  <table class="grid">
+    <thead><tr><th>Produto</th><th class="r">Ano PRODES</th><th class="r">Polígonos</th><th class="r">Área no imóvel (ha)</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr><td>{{productName}}</td><td class="r">{{year}}</td><td class="r">{{polygons}}</td><td class="r">{{deforestedHa}}</td></tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/prodes.byYear}}
+  {{^prodes.byYear}}<p class="ok">Nenhum incremento de desmatamento do PRODES foi mapeado no imóvel.</p>{{/prodes.byYear}}
+  {{/prodes.monitored}}
+  {{^prodes.monitored}}<p class="alert">O imóvel não está em área coberta por um produto PRODES carregado no ambiente.</p>{{/prodes.monitored}}
+  <p class="note">O ano PRODES vai de agosto a julho: o ano 2009 é o primeiro depois do marco do Código Florestal (22/07/2008). Produtos diferentes não são somados. Cobertura no ambiente: {{#prodes.coverage}}{{#intersectsArea}}{{productName}} {{#loaded}}carregado até {{lastYear}}{{/loaded}}{{^loaded}}não carregado{{/loaded}}; {{/intersectsArea}}{{/prodes.coverage}}</p>
+</div>
+
+<div class="section">
+  <h2><span class="num">9</span> Perfil agrícola do município</h2>
+  {{#crops.crops}}{{#-first}}
+  <p>Lavouras de {{property.municipality}}/{{property.uf}} em {{crops.year}} (IBGE, Produção Agrícola Municipal): {{crops.totalHarvestedHa}} ha colhidos, valor de R$ {{crops.totalValueThousandBrl}} mil.</p>
+  <table class="grid">
+    <thead><tr><th>Lavoura</th><th class="r">Colhida (ha)</th><th class="r">% da área colhida</th><th class="r">Produção</th><th class="r">Rendimento (kg/ha)</th><th class="r">Valor (R$ mil)</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr><td>{{product}}</td><td class="r">{{harvestedHa}}</td><td class="r">{{shareOfHarvestedPercent}}</td><td class="r">{{quantity}} {{quantityUnit}}</td><td class="r">{{yieldKgHa}}</td><td class="r">{{valueThousandBrl}}</td></tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/crops.crops}}
+  {{^crops.crops}}<p class="empty">O IBGE não publicou lavouras para este município.</p>{{/crops.crops}}
+  <p class="note">Dados do município declarado no CAR, não do imóvel: servem de contexto sobre o que se cultiva na região.</p>
+</div>
+
+<div class="section">
+  <h2><span class="num">10</span> Fontes e limitações</h2>
+  <ul class="sources">
+    <li>CAR: Sistema Nacional de Cadastro Ambiental Rural (SICAR), coletado pelo car-agent-app. Informações autodeclaratórias, na versão vigente no momento da emissão.</li>
+    <li>Biomas e malha municipal: IBGE. Embargos: IBAMA, dados abertos de termos de embargo (sem dados pessoais). DETER e PRODES: INPE, TerraBrasilis. Produção agrícola: IBGE, PAM (SIDRA 5457). Todas mantidas em versões pelo br-geo-agent-app.</li>
+    <li>Áreas em SIRGAS 2000 (EPSG:4674), com cálculo geodésico. Os cruzamentos usam o desenho declarado do imóvel.</li>
+    <li>Este laudo reúne bases públicas e não substitui a análise do órgão ambiental competente, nem vistoria em campo, nem consulta às bases estaduais.</li>
+  </ul>
+</div>

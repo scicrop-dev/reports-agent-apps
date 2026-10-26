@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 
 import com.infinitestack.reports.engine.DataType;
 import com.infinitestack.reports.engine.block.BlockDefinition;
+import com.infinitestack.reports.engine.block.BlockDocs;
 import com.infinitestack.reports.engine.block.BlockPort;
 import com.infinitestack.reports.engine.block.BlockQueries;
 import com.infinitestack.reports.engine.block.ExecutionMetadata;
@@ -89,6 +90,28 @@ public class CarEnvironmentalLayersBlock implements ReportBlock {
                         requirement(CAMADA, "codigo", "nome", "ordem"),
                         requirement(TEMA, "codigo", "nome", "agregado")),
                 null);
+    }
+
+    @Override
+    public BlockDocs docs() {
+        return new BlockDocs("CAR",
+                "Summarises the land use and cover the owner declared in the CAR: legal reserve, native "
+                        + "vegetation, permanent preservation areas (APP), consolidated area and the other layers.",
+                List.of(
+                        "Reads the current features of the property, grouped by layer and theme.",
+                        "For each layer, uses the area of its aggregate theme (e.g. APP_TOTAL) when there is one, and the "
+                                + "sum of its themes otherwise, so overlapping APP themes are not counted twice.",
+                        "Computes the share of each layer over the declared area of the property."),
+                List.of(
+                        "codImovel: the same report input as car-property.",
+                        "summary.* goes straight to highlight cards; layers is a list to repeat in a table.",
+                        "hasLegalReserve lets the template warn when no legal reserve is declared."),
+                List.of(
+                        "Declared, not verified: compare with brgeo-prodes / sathub-index-series to see what is on the ground.",
+                        "Layers overlap (APP inside the legal reserve), so percentages may add up to more than 100.",
+                        "Hydrography has no declared area in the SICAR and shows as 0 ha."),
+                "SICAR, gold.car_agent_app_feicao with _camada and _tema",
+                "Reserva Legal: {{<node>.summary.legalReservePercent}}% ({{<node>.summary.legalReserveHa}} ha)");
     }
 
     @Override

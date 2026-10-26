@@ -14,6 +14,11 @@ public interface ReportBlock {
 
     BlockDefinition definition();
 
+    /** What the Flow editor shows about this Block; documentation, not contract. */
+    default BlockDocs docs() {
+        return BlockDocs.basic("Other");
+    }
+
     /**
      * @param inputs already checked against the declared input types; optional ports may be absent
      * @return one entry per declared output

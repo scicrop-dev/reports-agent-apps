@@ -50,11 +50,14 @@ mvn -q test                  # testes (nem todo app tem; ver src/test)
   só em `src/test`). Passe o banco por `IS_DATASOURCE_URL`/`IS_DATASOURCE_USERNAME`/`IS_DATASOURCE_PASSWORD`
   e `REPORTS_LOCAL_ROLE=ADMIN` para ver a tela de liberação. Sem o token do host, o catálogo vem do
   `information_schema` (schemas bronze/silver/gold do banco).
-- **Blocks de produto** ficam em `blocks/<fonte>/` (hoje `blocks/car`), um por arquivo, com o contrato em
-  [docs/BLOCKS.md](docs/BLOCKS.md) (regras na seção 1: dados só via `BlockQueries`, pool somente leitura).
+- **Blocks de produto** ficam em `blocks/<fonte>/` (hoje `blocks/car`, `blocks/brgeo`, `blocks/sathub`), um por
+  arquivo, com o contrato em [docs/BLOCKS.md](docs/BLOCKS.md) (regras na seção 1: dados só via `BlockQueries`,
+  pool somente leitura, e `docs()` com a documentação que o editor mostra).
   Os Blocks de `src/test/.../support/TestBlocks` são só de teste e não entram no `.ispz`.
-- **Testes contra o banco de dev** (somente leitura, consultas por imóvel): `CarBlocksDevDbTest` e
-  `CarPropertyMapDevDbTest` rodam com `CAR_TEST_DB_URL`/`CAR_TEST_DB_USER`/`CAR_TEST_DB_PASSWORD`.
+- Integrações com outros apps (Satellite Hub, scripts Python do Skills Lab): [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md).
+- **Testes contra o banco de dev** (somente leitura, consultas por imóvel): `CarBlocksDevDbTest`,
+  `CarPropertyMapDevDbTest`, `BrGeoBlocksDevDbTest` e `SatelliteHubDevDbTest` rodam com
+  `CAR_TEST_DB_URL`/`CAR_TEST_DB_USER`/`CAR_TEST_DB_PASSWORD`.
   Nunca grave credenciais em arquivo. Sem as variáveis, são pulados.
 - **App local com dados reais:** `reports.block-datasource.url/username/password` apontam o pool dos Blocks
   para outro banco (ex.: dev, só leitura), enquanto as tabelas do app ficam no Postgres local de
@@ -65,7 +68,9 @@ mvn -q test                  # testes (nem todo app tem; ver src/test)
   todos contra os contratos dos Blocks e gera HTML/PDF em `reports/target/ready-made/` para conferir.
   O conteúdo do relatório (template, nome, descrição) fica no idioma do relatório, não em inglês.
 - Template novo além de `isp-index`/`isp-status` não existe: a UI é uma página só, com JS em
-  `static/app/*.js` e CodeMirror 5.65.16 vendorado em `static/vendor/codemirror/`.
+  `static/app/*.js` e CodeMirror 5.65.16 vendorado em `static/vendor/codemirror/`. O editor visual de Flow
+  é `static/app/flow-graph.js` (DOM + SVG, sem biblioteca; ARCHITECTURE §47.7). As alturas das linhas
+  dos nós são constantes no JS e no CSS `.fg-*`: mude as duas juntas.
 
 ## Regras invioláveis (contrato com o host)
 

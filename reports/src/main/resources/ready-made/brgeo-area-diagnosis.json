@@ -1,0 +1,30 @@
+{
+  "id": "brgeo-area-diagnosis",
+  "version": "1.0.0",
+  "name": "Diagnóstico socioambiental de uma área",
+  "description": "Para qualquer polígono (GeoJSON), sem precisar de CAR: municípios, bioma, embargos do IBAMA, alertas DETER e desmatamento PRODES.",
+  "category": "Socioambiental",
+  "inputs": [
+    { "name": "area", "type": "geometry", "required": true, "label": "Área (geometria GeoJSON em SIRGAS 2000)" },
+    { "name": "areaName", "type": "string", "required": false, "label": "Nome da área (opcional)" }
+  ],
+  "flow": {
+    "nodes": [
+      { "id": "municipalities", "block": "brgeo-municipalities" },
+      { "id": "biomes", "block": "brgeo-biomes" },
+      { "id": "embargoes", "block": "brgeo-embargoes" },
+      { "id": "deter", "block": "brgeo-deter-alerts" },
+      { "id": "prodes", "block": "brgeo-prodes" }
+    ],
+    "connections": [
+      { "from": "inputs.area", "to": "municipalities.geometry" },
+      { "from": "inputs.area", "to": "biomes.geometry" },
+      { "from": "inputs.area", "to": "embargoes.geometry" },
+      { "from": "inputs.area", "to": "deter.geometry" },
+      { "from": "inputs.area", "to": "prodes.geometry" }
+    ]
+  },
+  "templateHtmlFile": "brgeo-area-diagnosis.html",
+  "templateCssFile": "report-base.css",
+  "page": { "size": "A4", "orientation": "portrait", "marginMm": 18 }
+}

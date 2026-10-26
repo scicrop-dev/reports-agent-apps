@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 
 import com.infinitestack.reports.engine.DataType;
 import com.infinitestack.reports.engine.block.BlockDefinition;
+import com.infinitestack.reports.engine.block.BlockDocs;
 import com.infinitestack.reports.engine.block.BlockPort;
 import com.infinitestack.reports.engine.block.BlockQueries;
 import com.infinitestack.reports.engine.block.ExecutionMetadata;
@@ -81,6 +82,25 @@ public class CarOverlapsBlock implements ReportBlock {
                         requirement(IMOVEL_GEOMETRIA, "id", "imovel_id", "geom", "area_calc_ha"),
                         requirement(STATUS_CADASTRO, "codigo", "descricao")),
                 TIMEOUT);
+    }
+
+    @Override
+    public BlockDocs docs() {
+        return new BlockDocs("CAR",
+                "Finds other current CAR properties whose drawing overlaps this one, and how much. Overlaps "
+                        + "usually mean a boundary dispute or a registration error.",
+                List.of(
+                        "Takes the current geometry of the property.",
+                        "Searches the spatial index for other current properties that intersect it.",
+                        "Measures each overlap in geodesic hectares and ignores touches smaller than minOverlapHa."),
+                List.of(
+                        "codImovel: the same report input as car-property.",
+                        "minOverlapHa: a fixed value when tiny edge overlaps should be ignored more (default 0.01 ha)."),
+                List.of(
+                        "totalOverlapHa adds pairwise overlaps: the same piece of land can be counted more than once.",
+                        "Only current registrations are compared; removed properties are not."),
+                "SICAR, gold.car_agent_app_imovel_geometria",
+                "{{<node>.count}} sobreposicao(oes), {{<node>.totalOverlapHa}} ha");
     }
 
     @Override
