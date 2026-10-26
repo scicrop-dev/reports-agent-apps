@@ -86,9 +86,9 @@ public class ReportService {
      * unreleased, and the version view says so.
      */
     @Transactional
-    public Report createFromReadyMade(ReadyMadeReport readyMade, String name, CurrentUser user) {
-        String checked = requireName(new ReportRequest(name, readyMade.description()));
-        long id = repository.insert(checked, readyMade.description(), user.id(), user.username(),
+    public Report createFromReadyMade(ReadyMadeReport readyMade, String name, String description, CurrentUser user) {
+        String checked = requireName(new ReportRequest(name, description));
+        long id = repository.insert(checked, description, user.id(), user.username(),
                 readyMade.id(), readyMade.version());
         Instant now = Instant.now();
         repository.insertVersion(new ReportVersion(id, 1, VersionStatus.DRAFT, readyMade.inputs(), readyMade.flow(),

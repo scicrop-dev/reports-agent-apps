@@ -25,6 +25,6 @@ public record ReadyMadeView(
     /** The view plus the whole content (Flow, template, page) of the ready-made report. */
     public record Detail(ReadyMadeView summary, ReadyMadeReport content) {}
 
-    /** Body of POST /ready-made/{id}/instantiate. */
-    public record InstantiateRequest(String name) {}
+    /** Body of POST /ready-made/{id}/instantiate; both optional (default: the ready-made's own). */
+    public record InstantiateRequest(String name, String description) {}
 }

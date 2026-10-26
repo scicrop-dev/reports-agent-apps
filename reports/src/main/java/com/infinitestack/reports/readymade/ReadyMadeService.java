@@ -45,7 +45,9 @@ public class ReadyMadeService {
     public Report instantiate(String id, ReadyMadeView.InstantiateRequest request, CurrentUser user) {
         ReadyMadeReport report = find(id);
         String name = request == null || request.name() == null || request.name().isBlank() ? report.name() : request.name();
-        return reportService.createFromReadyMade(report, name, user);
+        String description = request == null || request.description() == null || request.description().isBlank()
+                ? report.description() : request.description().trim();
+        return reportService.createFromReadyMade(report, name, description, user);
     }
 
     private ReadyMadeReport find(String id) {

@@ -1305,7 +1305,7 @@ POST /executions/{id}/rerun
 GET  /blocks   GET /blocks/{id}   POST DELETE /blocks/{id}/release   POST /catalog/refresh
 GET  /ready-made                           relatórios prontos + uso de cada Block para quem chama
 GET  /ready-made/{id}                      { summary, content } (Flow, template, página)
-POST /ready-made/{id}/instantiate          body {name?} → 201 Report do chamador, v1 DRAFT
+POST /ready-made/{id}/instantiate          body {name?, description?} → 201 Report do chamador, v1 DRAFT
 ```
 
 ## 47.4 Catálogo e liberação de Blocks
@@ -1364,8 +1364,16 @@ Detalhes, formato e catálogo em [READY-MADE-REPORTS.md](READY-MADE-REPORTS.md).
   chamador com `ready_made_id`/`ready_made_version` e a versão 1 em DRAFT com o conteúdo do pronto.
   Funciona mesmo com Blocks indisponíveis; a validação da versão mostra o que falta para rodar. A
   cópia não tem vínculo com o pronto depois disso (atualização de cópias é ideia futura).
-- Na UI, a seção "Ready-made reports" da barra lateral mostra os cartões, com chips por Block, e o
-  botão "Use" abre um campo de nome inline (sem diálogo do navegador) e abre o report criado.
+- Na UI, o botão "+ New report" da barra lateral abre uma janela da própria página (não um diálogo
+  do navegador, que travaria o iframe do host): "1. Start from" (relatório em branco ou um dos
+  prontos, com categoria, o que ele pede e se já roda) e "2. Name it" (nome, que vem do pronto se a
+  pessoa não digitar, e descrição opcional). Criar abre o report, e um pronto abre na aba Preview. A
+  tela vazia oferece os primeiros prontos como atalho.
+- A barra lateral de Reports tem só "+ New report", a busca e a lista "My reports" (status
+  rascunho/publicado, "atualizado há", ícone de pronto, dono quando não é você). A de Blocks tem
+  busca, filtros (All / Ready to use / Not released / Missing data; os dois últimos só para admin) e
+  fontes (`docs.category`), cada um com a contagem. Na tela principal, os Blocks ficam agrupados por
+  fonte, com a documentação e as tabelas lidas recolhidas (abertas quando falta dado).
 - **Para adicionar um pronto:** crie os arquivos, rode `mvn -q test` (o
   `ReadyMadeReportsValidityTest` valida Flow e template contra os contratos dos Blocks, executa com
   saídas de exemplo e gera HTML/PDF em `reports/target/ready-made/`) e atualize o catálogo do
