@@ -42,7 +42,7 @@ import com.infinitestack.reports.support.TestBlocks;
  * <p>Runs only when REPORTS_TEST_DB_URL (plus REPORTS_TEST_DB_USER and REPORTS_TEST_DB_PASSWORD)
  * points to a disposable database; skipped otherwise, so the build does not need one. It creates
  * the app tables in the schema {@code reports_test} and the table {@code gold.reports_test_area},
- * and drops both at the start. The catalog is read from information_schema (no host token).
+ * and drops both before the app boots. The catalog is read from information_schema (no host token).
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -51,8 +51,17 @@ class ReportsEndToEndDbTest {
     private static final String URL = System.getenv("REPORTS_TEST_DB_URL");
 
     @BeforeAll
-    static void requireDatabase() {
+    static void requireDatabase() throws Exception {
         assumeTrue(URL != null && !URL.isBlank(), "REPORTS_TEST_DB_URL not set: end-to-end test skipped");
+        // Before the Spring context starts: the app prepares its schema in the background on boot.
+        try (java.sql.Connection c = java.sql.DriverManager.getConnection(URL,
+                System.getenv().getOrDefault("REPORTS_TEST_DB_USER", "postgres"),
+                System.getenv().getOrDefault("REPORTS_TEST_DB_PASSWORD", ""));
+             java.sql.Statement st = c.createStatement()) {
+            st.execute("DROP SCHEMA IF EXISTS reports_test CASCADE");
+            st.execute("CREATE SCHEMA IF NOT EXISTS gold");
+            st.execute("DROP TABLE IF EXISTS gold.reports_test_area");
+        }
     }
 
     @DynamicPropertySource
@@ -89,9 +98,6 @@ class ReportsEndToEndDbTest {
 
     @Test
     void fromDraftToRenderedResult() throws Exception {
-        jdbc.execute("DROP SCHEMA IF EXISTS reports_test CASCADE");
-        jdbc.execute("CREATE SCHEMA IF NOT EXISTS gold");
-        jdbc.execute("DROP TABLE IF EXISTS gold.reports_test_area");
         catalog.refresh();
 
         mvc.perform(as(get(BASE + "/me"), "USER")).andExpect(jsonPath("$.databaseReady").value(true));

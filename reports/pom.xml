@@ -71,6 +71,10 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <!-- mvn spring-boot:test-run: the app with the test Blocks, for local development -->
+                    <testRunMainClass>com.infinitestack.reports.LocalDevApplication</testRunMainClass>
+                </configuration>
             </plugin>
         </plugins>
     </build>

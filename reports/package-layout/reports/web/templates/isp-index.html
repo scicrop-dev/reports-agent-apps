@@ -4,11 +4,370 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reports</title>
+    <link rel="stylesheet" th:href="@{${pluginAssetsPath} + '/vendor/codemirror/codemirror.css'}">
+    <link rel="stylesheet" th:href="@{${pluginAssetsPath} + '/vendor/codemirror/show-hint.css'}">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #0d0d0d;
+            --surface: #161616;
+            --surface2: #1e1e1e;
+            --border: #2a2a2a;
+            --text: #e8e8e8;
+            --muted: #6b6b6b;
+            --accent: #4ade80;
+            --accent2: #60a5fa;
+            --danger: #f87171;
+            --warn: #facc15;
+            --radius: 8px;
+            --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        }
+
+        body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; line-height: 1.5; height: 100vh; overflow: hidden; }
+        code, pre { font-family: var(--mono); font-size: 12px; }
+        .hidden { display: none !important; }
+        .muted { color: var(--muted); font-size: 12px; }
+
+        /* Header */
+        header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: center; gap: 12px; height: 53px; }
+        header h1 { font-size: 16px; font-weight: 600; letter-spacing: 0.02em; }
+        .btn-back { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); text-decoration: none; font-size: 12px; border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px; }
+        .btn-back:hover { color: var(--text); }
+        .badge { font-size: 11px; background: #1a2e1a; color: var(--accent); border: 1px solid #2d4a2d; padding: 2px 8px; border-radius: 20px; }
+        #app-status { margin-left: auto; font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+        .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); display: inline-block; }
+        .dot.ready { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+
+        /* Layout */
+        .layout { display: grid; grid-template-columns: 320px 1fr; height: calc(100vh - 53px); overflow: hidden; }
+        .sidebar { background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; padding: 20px 18px; }
+        .content { overflow-y: auto; padding: 20px 24px; position: relative; }
+        .section-title { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 18px 0 10px; }
+
+        .nav { display: flex; gap: 6px; }
+        .nav button { flex: 1; background: var(--surface2); border: 1px solid var(--border); color: var(--muted); border-radius: var(--radius); padding: 7px; font-size: 13px; cursor: pointer; }
+        .nav button.active { color: var(--accent); border-color: #2d4a2d; background: #13201a; }
+
+        /* Form controls */
+        .field { margin-bottom: 12px; }
+        .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; font-weight: 500; }
+        select, input, textarea { width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 7px 10px; border-radius: var(--radius); font-size: 13px; font-family: var(--font); outline: none; transition: border-color 0.15s; }
+        textarea { font-family: var(--mono); resize: vertical; }
+        select:focus, input:focus, textarea:focus { border-color: var(--accent); }
+        select option { background: #1e1e1e; }
+        input[type=checkbox] { width: auto; }
+        .btn { padding: 8px 14px; background: var(--accent); color: #0d1a0d; border: none; border-radius: var(--radius); font-size: 13px; font-weight: 700; cursor: pointer; letter-spacing: 0.03em; transition: opacity 0.15s; }
+        .btn:hover { opacity: 0.88; }
+        .btn:disabled, .btn-secondary:disabled, .icon:disabled { opacity: 0.35; cursor: not-allowed; }
+        .btn.full { width: 100%; }
+        .btn-secondary { padding: 7px 12px; background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); font-size: 13px; cursor: pointer; }
+        .btn-secondary.armed { border-color: var(--danger); color: var(--danger); }
+        .icon { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: 2px 8px; font-size: 11px; cursor: pointer; }
+        .icon:hover { color: var(--text); }
+        .icon.danger:hover { color: var(--danger); border-color: var(--danger); }
+        .row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+        .row select { width: auto; flex: 1; }
+
+        /* Chips, cards, lists */
+        .chip { font-size: 10px; padding: 1px 8px; border-radius: 10px; border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+        .chip.ok { background: #13201a; color: var(--accent); border-color: #2d4a2d; }
+        .chip.warn { background: #2a2410; color: var(--warn); border-color: #4a3f17; }
+        .chip.error { background: #2a1414; color: var(--danger); border-color: #4a2020; }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 12px; }
+        .list-item { padding: 9px 10px; border: 1px solid transparent; border-radius: var(--radius); cursor: pointer; }
+        .list-item:hover { background: var(--surface2); }
+        .list-item.active { border-color: #2d4a2d; background: #13201a; }
+        .list-item.compact { cursor: default; padding: 5px 0; }
+        .list-title { font-size: 13px; }
+        .list-meta { font-size: 11px; color: var(--muted); }
+        .placeholder { text-align: center; color: var(--muted); padding: 40px 20px; }
+        .placeholder.small { padding: 12px; font-size: 12px; text-align: left; }
+        .placeholder svg { opacity: 0.25; margin-bottom: 12px; }
+
+        /* Messages */
+        .message { position: sticky; top: 0; z-index: 5; border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; margin-bottom: 14px; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: flex-start; background: var(--surface2); }
+        .message > div { flex: 1; }
+        .message ul { width: 100%; padding-left: 18px; font-size: 12px; }
+        .message.ok { border-color: #2d4a2d; }
+        .message.warn { border-color: #4a3f17; }
+        .message.error { border-color: #4a2020; color: #fca5a5; }
+
+        /* Report head */
+        .report-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
+        .report-head h2 { font-size: 18px; font-weight: 600; }
+        .report-head .grow { flex: 1; }
+        .version-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+        .version-bar select { width: auto; }
+        #dirty { color: var(--warn); font-size: 12px; }
+        #readonly-note { font-size: 12px; color: var(--muted); }
+        #validation { margin-bottom: 12px; font-size: 12px; }
+        #validation summary { cursor: pointer; color: var(--warn); }
+        #validation .valid { color: var(--accent); }
+        #validation.stale::after { content: 'checked at the last save'; color: var(--muted); font-size: 11px; margin-left: 8px; }
+        #validation.stale > * { display: inline-block; opacity: 0.6; }
+        .problem-group { margin: 6px 0 0 12px; }
+        .problem-group ul { padding-left: 18px; color: #fca5a5; }
+
+        /* Tabs */
+        .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+        .tab { background: none; border: none; border-bottom: 2px solid transparent; color: var(--muted); padding: 8px 14px; font-size: 13px; cursor: pointer; }
+        .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+
+        /* Inputs */
+        .input-row { display: grid; grid-template-columns: 1fr 130px 1.4fr auto auto; gap: 8px; align-items: center; margin-bottom: 8px; }
+        .check { font-size: 12px; color: var(--muted); white-space: nowrap; }
+
+        /* Flow */
+        .node-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+        .node-index { width: 22px; height: 22px; border-radius: 50%; background: var(--surface2); border: 1px solid var(--border); font-size: 11px; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); }
+        .node-id { width: 180px; font-family: var(--mono); }
+        .node-actions { margin-left: auto; display: flex; gap: 4px; }
+        .port { display: grid; grid-template-columns: 200px 1fr 1fr; gap: 8px; align-items: center; margin-bottom: 6px; }
+        .port label { font-size: 12px; font-family: var(--mono); }
+        .type { color: var(--accent2); font-size: 10px; margin-left: 6px; font-family: var(--mono); }
+        .req { color: var(--warn); margin-left: 2px; }
+        .outputs { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+        .output { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; color: var(--accent2); }
+        .add-node select { max-width: 360px; }
+
+        /* Template */
+        .template-grid { display: grid; grid-template-columns: 1fr 260px; gap: 14px; }
+        .editor-label { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; }
+        .editor-host { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 14px; }
+        #html-editor .CodeMirror { height: 420px; }
+        #css-editor .CodeMirror { height: 200px; }
+        .CodeMirror { background: var(--bg); color: var(--text); font-family: var(--mono); font-size: 13px; line-height: 1.5; }
+        .CodeMirror-gutters { background: var(--bg); border-right: 1px solid var(--border); }
+        .CodeMirror-linenumber { color: #444; }
+        .CodeMirror-cursor { border-left: 2px solid var(--accent); }
+        .CodeMirror-selected, .CodeMirror-focused .CodeMirror-selected { background: #1d3a2a !important; }
+        .CodeMirror-matchingbracket { color: var(--accent) !important; text-decoration: underline; }
+        .cm-s-default .cm-tag { color: #f87171; } .cm-s-default .cm-attribute { color: #facc15; }
+        .cm-s-default .cm-string, .cm-s-default .cm-string-2 { color: #4ade80; }
+        .cm-s-default .cm-comment { color: #6b6b6b; } .cm-s-default .cm-number { color: #c084fc; }
+        .cm-s-default .cm-property, .cm-s-default .cm-def, .cm-s-default .cm-qualifier,
+        .cm-s-default .cm-builtin, .cm-s-default .cm-variable-2, .cm-s-default .cm-variable-3 { color: #60a5fa; }
+        .cm-s-default .cm-keyword, .cm-s-default .cm-atom { color: #c084fc; }
+        .cm-s-default .cm-bracket, .cm-s-default .cm-meta { color: #9ca3af; }
+        .CodeMirror-hints { background: var(--surface2); border: 1px solid var(--border); font-family: var(--mono); font-size: 12px; z-index: 50; }
+        .CodeMirror-hint { color: var(--text); }
+        li.CodeMirror-hint-active { background: #1d3a2a; color: var(--accent); }
+        .variables { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; max-height: 660px; overflow-y: auto; }
+        .variable { display: flex; justify-content: space-between; gap: 6px; width: 100%; background: none; border: none; color: var(--text); text-align: left; padding: 4px 2px; cursor: pointer; border-radius: 4px; }
+        .variable:hover { background: var(--surface2); }
+        .page-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
+
+        /* Preview */
+        .preview-grid { display: grid; grid-template-columns: 300px 1fr; gap: 16px; }
+        .run-summary { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+        .run-error { width: 100%; background: #2a1414; border: 1px solid #4a2020; border-radius: var(--radius); padding: 8px 12px; color: #fca5a5; font-size: 12px; }
+        .run-error ul { padding-left: 18px; }
+        .error-text { color: var(--danger); font-size: 12px; }
+        #preview-frame { width: 100%; height: 640px; border: 1px solid var(--border); border-radius: var(--radius); background: #ffffff; }
+        .spinner { width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .json { color: var(--muted); word-break: break-all; }
+
+        /* Tables */
+        .table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 12px; }
+        .table th { text-align: left; color: var(--muted); text-transform: uppercase; font-size: 10px; letter-spacing: 0.06em; font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+        .table td { padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+        .table tr:hover td { background: #121212; }
+        .table.compact td, .table.compact th { padding: 4px 6px; }
+        .actions { white-space: nowrap; display: flex; gap: 4px; }
+
+        /* Versions */
+        .diff-bar { display: flex; gap: 8px; align-items: center; margin: 10px 0 14px; }
+        .diff-bar select { width: auto; }
+        pre.diff { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px; overflow-x: auto; margin: 6px 0 12px; }
+        .diff-added { color: var(--accent); background: #0f1f15; }
+        .diff-removed { color: var(--danger); background: #1f0f0f; }
+        .diff-same { color: var(--muted); }
+        details > summary { cursor: pointer; margin: 4px 0; }
+
+        /* Blocks */
+        .block-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+        .ports-summary { margin: 8px 0; display: grid; gap: 4px; }
+        .ports-summary code { margin-right: 6px; color: var(--accent2); }
+    </style>
 </head>
 <body>
+
 <header>
-    <a class="btn-back" href="/agents/apps" target="_parent" title="Back to IS">Apps</a>
+    <a class="btn-back" href="/agents/apps" target="_parent" title="Back to the IS apps">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        Apps
+    </a>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/>
+    </svg>
     <h1>Reports</h1>
+    <span class="badge" id="user-badge">...</span>
+    <div id="app-status"><span class="dot" id="status-dot"></span><span id="status-text">loading...</span></div>
 </header>
+
+<div class="layout">
+    <aside class="sidebar">
+        <div class="nav">
+            <button id="nav-reports" class="active">Reports</button>
+            <button id="nav-blocks">Blocks</button>
+        </div>
+
+        <div id="side-reports">
+            <div class="section-title">New report</div>
+            <div class="field"><input id="new-report-name" placeholder="Name"></div>
+            <div class="field"><input id="new-report-description" placeholder="Description (optional)"></div>
+            <button class="btn full" id="btn-create">Create report</button>
+            <div class="section-title">Reports</div>
+            <div id="report-list"></div>
+        </div>
+
+        <div id="side-blocks" class="hidden">
+            <div class="section-title">How blocks work</div>
+            <p class="muted">Each block declares the catalog data it needs. When that data is in the catalog, an admin releases the block, and from then on anyone can use it in a flow.</p>
+            <div id="catalog-actions" class="hidden">
+                <div class="section-title">Catalog</div>
+                <p class="muted" id="catalog-origin"></p>
+                <div class="row"><button class="btn-secondary" id="btn-refresh-catalog">Read the catalog again</button></div>
+            </div>
+        </div>
+    </aside>
+
+    <main class="content">
+        <div id="message" class="message hidden"></div>
+
+        <div id="view-empty" class="placeholder">
+            <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <div>Create a report or pick one on the left.</div>
+        </div>
+
+        <div id="view-report" class="hidden">
+            <div class="report-head">
+                <div class="grow">
+                    <h2 id="report-name"></h2>
+                    <div class="muted" id="report-meta"></div>
+                </div>
+                <button class="btn-secondary" id="btn-rename">Rename</button>
+                <button class="btn-secondary" id="btn-delete">Delete</button>
+            </div>
+            <div id="rename-box" class="row hidden"><input id="rename-input"><button class="btn" id="btn-rename-ok">Save name</button></div>
+
+            <div class="version-bar">
+                <select id="version-select"></select>
+                <span id="version-status" class="chip"></span>
+                <button class="btn-secondary" id="btn-new-draft">New draft</button>
+                <button class="btn-secondary" id="btn-save">Save draft</button>
+                <button class="btn" id="btn-publish">Publish</button>
+                <span id="dirty" class="hidden">unsaved changes</span>
+                <span id="readonly-note"></span>
+            </div>
+            <div id="validation"></div>
+
+            <div class="tabs">
+                <button class="tab active" data-tab="inputs">Inputs</button>
+                <button class="tab" data-tab="flow">Flow</button>
+                <button class="tab" data-tab="template">Template</button>
+                <button class="tab" data-tab="preview">Preview</button>
+                <button class="tab" data-tab="executions">Executions</button>
+                <button class="tab" data-tab="versions">Versions</button>
+            </div>
+
+            <section id="tab-inputs" class="tab-panel">
+                <div id="inputs-editor"></div>
+            </section>
+
+            <section id="tab-flow" class="tab-panel hidden">
+                <p class="muted" style="margin-bottom:12px">Nodes run in dependency order. Each node's outputs are available to later nodes and to the template as <code>node.output</code>; report inputs as <code>inputs.name</code>.</p>
+                <div id="flow-editor"></div>
+            </section>
+
+            <section id="tab-template" class="tab-panel hidden">
+                <div class="template-grid">
+                    <div>
+                        <div class="editor-label">HTML</div>
+                        <div class="editor-host" id="html-editor"></div>
+                        <div class="editor-label">CSS</div>
+                        <div class="editor-host" id="css-editor"></div>
+                        <div class="editor-label">Page</div>
+                        <div class="page-grid">
+                            <div class="field"><label for="page-size">Size</label>
+                                <select id="page-size"><option>A4</option><option>A3</option><option>A5</option><option>LETTER</option><option>LEGAL</option></select></div>
+                            <div class="field"><label for="page-orientation">Orientation</label>
+                                <select id="page-orientation"><option value="portrait">portrait</option><option value="landscape">landscape</option></select></div>
+                            <div class="field"><label for="page-marginMm">Margin (mm)</label><input id="page-marginMm" type="number" min="0" max="60"></div>
+                        </div>
+                        <p class="hint">Use <code>{{node.output}}</code> for values, <code>{{#node.list}}...{{/node.list}}</code> to repeat. Values are escaped and the HTML is sanitized: no scripts and no external images (use data: URIs). For a PDF header or footer, give an element <code>position: running(header)</code> and use <code>@page { @top-center { content: element(header) } }</code>; page numbers with <code>counter(page)</code>. The PDF supports CSS 2.1 and paged media, not flex or grid.</p>
+                    </div>
+                    <div>
+                        <div class="editor-label">Variables</div>
+                        <div class="variables" id="variable-list"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="tab-preview" class="tab-panel hidden">
+                <div class="preview-grid">
+                    <div>
+                        <div class="editor-label">Inputs</div>
+                        <div id="run-inputs"></div>
+                        <p class="muted" id="run-version-note"></p>
+                        <div class="row">
+                            <button class="btn" id="btn-preview">Preview</button>
+                            <button class="btn-secondary" id="btn-preview-pdf">PDF</button>
+                            <button class="btn-secondary" id="btn-execute" title="Runs and stores the execution in the history">Execute</button>
+                            <span class="spinner hidden" id="run-spinner"></span>
+                        </div>
+                        <p class="hint">Preview and PDF store nothing. Execute keeps the execution, its outputs and the versions used.</p>
+                    </div>
+                    <div>
+                        <div id="run-result"></div>
+                        <div id="preview-empty" class="placeholder">Run a preview to see the report here.</div>
+                        <iframe id="preview-frame" class="hidden" sandbox="" title="Report preview"></iframe>
+                    </div>
+                </div>
+            </section>
+
+            <section id="tab-executions" class="tab-panel hidden">
+                <div id="executions"></div>
+            </section>
+
+            <section id="tab-versions" class="tab-panel hidden">
+                <div id="version-list"></div>
+                <div class="diff-bar">
+                    <span class="muted">Compare</span>
+                    <select id="diff-from"></select>
+                    <span class="muted">with</span>
+                    <select id="diff-to"></select>
+                    <button class="btn-secondary" id="btn-diff">Show differences</button>
+                </div>
+                <div id="diff-output"></div>
+            </section>
+        </div>
+
+        <div id="view-blocks" class="hidden">
+            <p class="muted" id="blocks-intro" style="margin-bottom:14px"></p>
+            <div id="blocks"></div>
+        </div>
+    </main>
+</div>
+
+<script th:inline="javascript">
+    window.REPORTS_BASE = /*[[${pluginBasePath}]]*/ '/api/plugins/reports';
+</script>
+<script th:src="@{${pluginAssetsPath} + '/vendor/codemirror/codemirror.js'}"></script>
+<script th:src="@{${pluginAssetsPath} + '/vendor/codemirror/xml.js'}"></script>
+<script th:src="@{${pluginAssetsPath} + '/vendor/codemirror/javascript.js'}"></script>
+<script th:src="@{${pluginAssetsPath} + '/vendor/codemirror/css.js'}"></script>
+<script th:src="@{${pluginAssetsPath} + '/vendor/codemirror/htmlmixed.js'}"></script>
+<script th:src="@{${pluginAssetsPath} + '/vendor/codemirror/closetag.js'}"></script>
+<script th:src="@{${pluginAssetsPath} + '/vendor/codemirror/matchbrackets.js'}"></script>
+<script th:src="@{${pluginAssetsPath} + '/vendor/codemirror/show-hint.js'}"></script>
+<script th:src="@{${pluginAssetsPath} + '/app/api.js'}"></script>
+<script th:src="@{${pluginAssetsPath} + '/app/flow-editor.js'}"></script>
+<script th:src="@{${pluginAssetsPath} + '/app/template-editor.js'}"></script>
+<script th:src="@{${pluginAssetsPath} + '/app/reports.js'}"></script>
 </body>
 </html>
