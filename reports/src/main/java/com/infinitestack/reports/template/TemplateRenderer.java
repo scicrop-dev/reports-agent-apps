@@ -11,6 +11,7 @@ import java.util.Set;
 import org.springframework.stereotype.Component;
 
 import com.infinitestack.reports.config.ReportsLimits;
+import com.infinitestack.reports.report.PageSettings;
 import com.samskivert.mustache.Mustache;
 import com.samskivert.mustache.MustacheException;
 import com.samskivert.mustache.Template;
@@ -79,8 +80,12 @@ public class TemplateRenderer {
         return problems;
     }
 
-    /** Renders and sanitizes; returns the complete HTML document. */
-    public String render(String title, String html, String css, Map<String, Object> model) throws TemplateException {
+    /**
+     * Renders and sanitizes; returns the complete HTML document. The page rule goes before the
+     * template's CSS so that the template can refine it.
+     */
+    public String render(String title, String html, String css, PageSettings page, Map<String, Object> model)
+            throws TemplateException {
         List<String> sizeProblems = checkSize(html, css);
         if (!sizeProblems.isEmpty()) throw new TemplateException(sizeProblems);
         String body;
@@ -89,7 +94,7 @@ public class TemplateRenderer {
         } catch (MustacheException e) {
             throw new TemplateException(List.of(e.getMessage()));
         }
-        String document = sanitizer.document(title, sanitizer.sanitizeBody(body), sanitizer.sanitizeCss(css));
+        String document = sanitizer.document(title, sanitizer.sanitizeBody(body), PageSettings.orDefaults(page).css() + sanitizer.sanitizeCss(css));
         if (document.getBytes(StandardCharsets.UTF_8).length > limits.maxRenderedBytes()) {
             throw new TemplateException(List.of("the rendered report exceeds " + limits.maxRenderedBytes() + " bytes"));
         }

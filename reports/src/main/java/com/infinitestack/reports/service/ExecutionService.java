@@ -23,6 +23,7 @@ import com.infinitestack.reports.engine.block.BlockRegistry;
 import com.infinitestack.reports.execution.Execution;
 import com.infinitestack.reports.execution.ExecutionError;
 import com.infinitestack.reports.execution.ExecutionStatus;
+import com.infinitestack.reports.output.PdfRenderer;
 import com.infinitestack.reports.report.InputDefinition;
 import com.infinitestack.reports.report.Report;
 import com.infinitestack.reports.report.ReportVersion;
@@ -54,10 +55,11 @@ public class ExecutionService {
     private final BlockService blockService;
     private final BlockRegistry registry;
     private final ExecutionRepository repository;
+    private final PdfRenderer pdfRenderer;
 
     public ExecutionService(ReportService reports, FlowValidator flowValidator, FlowExecutor flowExecutor,
                             TemplateRenderer templateRenderer, BlockService blockService, BlockRegistry registry,
-                            ExecutionRepository repository) {
+                            ExecutionRepository repository, PdfRenderer pdfRenderer) {
         this.reports = reports;
         this.flowValidator = flowValidator;
         this.flowExecutor = flowExecutor;
@@ -65,6 +67,7 @@ public class ExecutionService {
         this.blockService = blockService;
         this.registry = registry;
         this.repository = repository;
+        this.pdfRenderer = pdfRenderer;
     }
 
     public Execution execute(long reportId, Integer versionNumber, Map<String, Object> rawInputs, CurrentUser user) {
@@ -107,10 +110,34 @@ public class ExecutionService {
         Report report = reports.get(execution.reportId());
         ReportVersion version = reports.version(execution.reportId(), execution.reportVersion());
         try {
-            return templateRenderer.render(report.name(), version.templateHtml(), version.templateCss(),
+            return templateRenderer.render(report.name(), version.templateHtml(), version.templateCss(), version.page(),
                     ExecutionContext.templateModel(execution.inputs(), execution.values()));
         } catch (TemplateException e) {
             throw ApiException.conflict("The result cannot be rendered", e.problems());
+        }
+    }
+
+    /** PDF of a stored execution, generated on demand from its context (ROADMAP D7: not stored). */
+    public byte[] resultPdf(long executionId) {
+        return toPdf(resultHtml(executionId));
+    }
+
+    /** PDF of a preview: runs like {@link #preview} and stores nothing. */
+    public byte[] previewPdf(long reportId, Integer versionNumber, Map<String, Object> rawInputs, CurrentUser user) {
+        PreviewResult preview = preview(reportId, versionNumber, rawInputs, user);
+        if (preview.html() == null) {
+            ExecutionError error = preview.execution().error();
+            throw ApiException.conflict(error == null ? "The preview failed" : error.message(),
+                    error == null ? List.of() : error.details());
+        }
+        return toPdf(preview.html());
+    }
+
+    private byte[] toPdf(String html) {
+        try {
+            return pdfRenderer.render(html);
+        } catch (PdfRenderer.PdfException e) {
+            throw ApiException.conflict("The PDF could not be generated", List.of(e.getMessage()));
         }
     }
 
@@ -171,7 +198,7 @@ public class ExecutionService {
         // RENDERING
         try {
             String html = templateRenderer.render(prepared.report().name(), prepared.version().templateHtml(),
-                    prepared.version().templateCss(), run.context().templateModel());
+                    prepared.version().templateCss(), prepared.version().page(), run.context().templateModel());
             Instant finishedAt = Instant.now();
             return new Outcome(ExecutionStatus.COMPLETED, startedAt, finishedAt, Duration.between(startedAt, finishedAt).toMillis(),
                     values, blockVersions, run.blocks(), null, html);

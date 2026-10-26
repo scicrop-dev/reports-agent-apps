@@ -13,6 +13,7 @@ import org.springframework.stereotype.Repository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.infinitestack.reports.engine.flow.FlowDefinition;
 import com.infinitestack.reports.report.InputDefinition;
+import com.infinitestack.reports.report.PageSettings;
 import com.infinitestack.reports.report.Report;
 import com.infinitestack.reports.report.ReportVersion;
 import com.infinitestack.reports.report.VersionStatus;
@@ -89,21 +90,21 @@ public class ReportRepository {
     public void insertVersion(ReportVersion v) {
         initializer.requireReady();
         jdbc.update("INSERT INTO " + version()
-                + " (report_id, version, status, inputs_schema, flow, template_html, template_css, created_by, created_at, updated_at)"
-                + " VALUES (?, ?, ?, ?::jsonb, ?::jsonb, ?, ?, ?, ?, ?)",
+                + " (report_id, version, status, inputs_schema, flow, template_html, template_css, page_settings, created_by, created_at, updated_at)"
+                + " VALUES (?, ?, ?, ?::jsonb, ?::jsonb, ?, ?, ?::jsonb, ?, ?, ?)",
                 v.reportId(), v.version(), v.status().name(), json.write(v.inputs()), json.write(v.flow()),
-                v.templateHtml(), v.templateCss(), v.createdBy(), Timestamp.from(v.createdAt()), Timestamp.from(v.updatedAt()));
+                v.templateHtml(), v.templateCss(), json.write(v.page()), v.createdBy(), Timestamp.from(v.createdAt()), Timestamp.from(v.updatedAt()));
         touch(v.reportId());
     }
 
     /** Only drafts change; the WHERE clause makes that true even under a race with a publish. */
     public boolean updateDraft(long reportId, int versionNumber, List<InputDefinition> inputs, FlowDefinition flow,
-                               String templateHtml, String templateCss) {
+                               String templateHtml, String templateCss, PageSettings page) {
         initializer.requireReady();
         int rows = jdbc.update("UPDATE " + version()
-                + " SET inputs_schema = ?::jsonb, flow = ?::jsonb, template_html = ?, template_css = ?, updated_at = ?"
+                + " SET inputs_schema = ?::jsonb, flow = ?::jsonb, template_html = ?, template_css = ?, page_settings = ?::jsonb, updated_at = ?"
                 + " WHERE report_id = ? AND version = ? AND status = 'DRAFT'",
-                json.write(inputs), json.write(flow), templateHtml, templateCss, Timestamp.from(Instant.now()),
+                json.write(inputs), json.write(flow), templateHtml, templateCss, json.write(page), Timestamp.from(Instant.now()),
                 reportId, versionNumber);
         if (rows > 0) touch(reportId);
         return rows > 0;
@@ -134,7 +135,8 @@ public class ReportRepository {
                 VersionStatus.valueOf(rs.getString("status")),
                 json.read(rs.getString("inputs_schema"), INPUTS),
                 json.read(rs.getString("flow"), FlowDefinition.class),
-                rs.getString("template_html"), rs.getString("template_css"), rs.getString("created_by"),
+                rs.getString("template_html"), rs.getString("template_css"),
+                PageSettings.orDefaults(json.read(rs.getString("page_settings"), PageSettings.class)), rs.getString("created_by"),
                 instant(rs, "created_at"), instant(rs, "updated_at"), instant(rs, "published_at"));
     }
 

@@ -85,7 +85,7 @@ class FlowValidatorTest {
 
     @Test
     void enforcesTheNodeLimit() {
-        FlowValidator small = new FlowValidator(new BlockRegistry(TestBlocks.all()), new ReportsLimits(1, 30, 120, 1000, 1000));
+        FlowValidator small = new FlowValidator(new BlockRegistry(TestBlocks.all()), new ReportsLimits(1, 30, 120, 1000, 1000, 1000, 60));
         FlowDefinition flow = new FlowDefinition(
                 List.of(new FlowNode("a", "test-sum", Map.of("a", 1)), new FlowNode("b", "test-sum", Map.of("a", 1))), List.of());
         FlowValidationException e = assertThrows(FlowValidationException.class, () -> small.validate(flow, inputs));

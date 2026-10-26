@@ -150,6 +150,11 @@ class ReportsEndToEndDbTest {
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Security-Policy", containsString("default-src 'none'")))
                 .andExpect(content().string(containsString("<h1>ZZ</h1>")));
+        mvc.perform(as(get(BASE + "/executions/" + executionId + "/result?format=pdf"), "USER"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "application/pdf"));
+        mvc.perform(as(post(BASE + "/reports/" + id + "/preview/pdf"), "USER").content("{\"inputs\":{\"code\":\"ab\"}}"))
+                .andExpect(status().isOk());
 
         // The data disappears: the released Block stops being usable and the execution says why.
         jdbc.execute("DROP TABLE gold.reports_test_area");

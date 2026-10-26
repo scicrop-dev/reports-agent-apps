@@ -20,6 +20,7 @@ import com.infinitestack.reports.engine.flow.FlowNode;
 import com.infinitestack.reports.engine.flow.FlowValidationException;
 import com.infinitestack.reports.engine.flow.FlowValidator;
 import com.infinitestack.reports.report.InputDefinition;
+import com.infinitestack.reports.report.PageSettings;
 import com.infinitestack.reports.report.Report;
 import com.infinitestack.reports.report.ReportVersion;
 import com.infinitestack.reports.report.VersionStatus;
@@ -69,7 +70,7 @@ public class ReportService {
         long id = repository.insert(name, request.description(), user.id(), user.username());
         Instant now = Instant.now();
         repository.insertVersion(new ReportVersion(id, 1, VersionStatus.DRAFT, List.of(), FlowDefinition.empty(),
-                "", "", user.id(), now, now, null));
+                "", "", PageSettings.defaults(), user.id(), now, now, null));
         return get(id);
     }
 
@@ -110,7 +111,7 @@ public class ReportService {
         }
         Instant now = Instant.now();
         ReportVersion draft = new ReportVersion(id, latest.version() + 1, VersionStatus.DRAFT, latest.inputs(),
-                latest.flow(), latest.templateHtml(), latest.templateCss(), user.id(), now, now, null);
+                latest.flow(), latest.templateHtml(), latest.templateCss(), latest.page(), user.id(), now, now, null);
         repository.insertVersion(draft);
         return draft;
     }
@@ -126,7 +127,8 @@ public class ReportService {
         FlowDefinition flow = request.flow() == null ? FlowDefinition.empty() : request.flow();
         String html = request.templateHtml() == null ? "" : request.templateHtml();
         String css = request.templateCss() == null ? "" : request.templateCss();
-        if (!repository.updateDraft(id, versionNumber, inputs, flow, html, css)) {
+        PageSettings page = PageSettings.orDefaults(request.page());
+        if (!repository.updateDraft(id, versionNumber, inputs, flow, html, css, page)) {
             throw ApiException.conflict("Version " + versionNumber + " was published meanwhile");
         }
         return versionView(id, versionNumber);
@@ -142,12 +144,7 @@ public class ReportService {
         }
         ValidationReport validation = validate(version);
         if (!validation.valid()) {
-            List<String> all = new ArrayList<>();
-            all.addAll(validation.inputs());
-            all.addAll(validation.flow());
-            all.addAll(validation.template());
-            all.addAll(validation.blocks());
-            throw ApiException.invalid("Version " + versionNumber + " has problems and cannot be published", all);
+            throw ApiException.invalid("Version " + versionNumber + " has problems and cannot be published", validation.all());
         }
         if (!repository.publish(id, versionNumber)) {
             throw ApiException.conflict("Version " + versionNumber + " was published meanwhile");
@@ -172,7 +169,8 @@ public class ReportService {
         List<String> templateProblems = templateRenderer.validate(version.templateHtml(), version.templateCss(), scope);
         List<String> blockProblems = blockService.problemsFor(version.flow().nodes().stream()
                 .map(FlowNode::block).filter(b -> b != null && registry.find(b).isPresent()).toList());
-        return new ValidationReport(inputProblems, flowProblems, templateProblems, blockProblems);
+        return new ValidationReport(inputProblems, flowProblems, templateProblems,
+                PageSettings.orDefaults(version.page()).problems(), blockProblems);
     }
 
     static List<String> validateInputs(List<InputDefinition> inputs) {

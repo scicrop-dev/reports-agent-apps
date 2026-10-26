@@ -13,9 +13,11 @@ public record ReportsLimits(
         @DefaultValue("30") int blockTimeoutSeconds,
         @DefaultValue("120") int executionTimeoutSeconds,
         @DefaultValue("262144") int maxTemplateBytes,
-        @DefaultValue("5242880") int maxRenderedBytes) {
+        @DefaultValue("5242880") int maxRenderedBytes,
+        @DefaultValue("26214400") int maxPdfBytes,
+        @DefaultValue("60") int pdfTimeoutSeconds) {
 
     public static ReportsLimits defaults() {
-        return new ReportsLimits(50, 30, 120, 262144, 5242880);
+        return new ReportsLimits(50, 30, 120, 262144, 5242880, 26214400, 60);
     }
 }

@@ -26,9 +26,14 @@ class TemplateRendererTest {
             new FlowDefinition(List.of(new FlowNode("area", "test-area", Map.of())), List.of()),
             new BlockRegistry(TestBlocks.all()));
 
+    /** Renders with the default page settings. */
+    private String render(String html, String css, java.util.Map<String, Object> model) throws TemplateException {
+        return renderer.render("R", html, css, null, model);
+    }
+
     @Test
     void rendersNamespacedVariablesEscaped() throws Exception {
-        String html = renderer.render("R", "<h1>{{inputs.name}}</h1><p>{{area.details.name}}</p>", "h1 { color: red; }",
+        String html = render( "<h1>{{inputs.name}}</h1><p>{{area.details.name}}</p>", "h1 { color: red; }",
                 Map.of("inputs", Map.of("name", "<b>Fazenda</b> & cia"), "area", Map.of("details", Map.of("name", "Garça"))));
         assertTrue(html.contains("<h1>&lt;b&gt;Fazenda&lt;/b&gt; &amp; cia</h1>"), html);
         assertTrue(html.contains("<p>Garça</p>"), html);
@@ -56,7 +61,7 @@ class TemplateRendererTest {
     @Test
     void aMissingValueAtRunTimeFailsInsteadOfPrintingNothing() {
         TemplateException e = assertThrows(TemplateException.class,
-                () -> renderer.render("R", "{{inputs.name}}", "", Map.of("inputs", Map.of())));
+                () -> render( "{{inputs.name}}", "", Map.of("inputs", Map.of())));
         assertFalse(e.problems().isEmpty());
     }
 
@@ -64,12 +69,12 @@ class TemplateRendererTest {
     void aNullValuePrintsEmpty() throws Exception {
         java.util.HashMap<String, Object> inputs = new java.util.HashMap<>();
         inputs.put("name", null);
-        assertTrue(renderer.render("R", "[{{inputs.name}}]", "", Map.of("inputs", inputs)).contains("[]"));
+        assertTrue(render( "[{{inputs.name}}]", "", Map.of("inputs", inputs)).contains("[]"));
     }
 
     @Test
     void sanitizesScriptsHandlersAndExternalResources() throws Exception {
-        String html = renderer.render("R",
+        String html = render(
                 "<script>alert(1)</script><p onclick=\"x()\" style=\"background:url(http://evil/x.png);color:red\">ok</p>"
                         + "<img src=\"https://evil/x.png\"><img src=\"data:image/png;base64,AAAA\"><iframe src=\"/x\"></iframe>"
                         + "<a href=\"javascript:alert(1)\">j</a><a href=\"https://scicrop.com\">s</a>",
@@ -87,7 +92,7 @@ class TemplateRendererTest {
 
     @Test
     void enforcesTheTemplateSize() {
-        TemplateRenderer small = new TemplateRenderer(new HtmlSanitizer(), new ReportsLimits(50, 30, 120, 10, 1000));
+        TemplateRenderer small = new TemplateRenderer(new HtmlSanitizer(), new ReportsLimits(50, 30, 120, 10, 1000, 1000, 60));
         assertTrue(small.validate("01234567890", "", scope).get(0).contains("limit"));
     }
 

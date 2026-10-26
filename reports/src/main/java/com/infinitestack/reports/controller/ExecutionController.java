@@ -50,6 +50,13 @@ public class ExecutionController {
         return service.preview(id, body.version(), body.inputs(), user);
     }
 
+    @PostMapping("/reports/{id}/preview/pdf")
+    public ResponseEntity<byte[]> previewPdf(@PathVariable long id, @RequestBody(required = false) ExecuteRequest request,
+                                             CurrentUser user) {
+        ExecuteRequest body = request == null ? new ExecuteRequest(null, null) : request;
+        return pdf(service.previewPdf(id, body.version(), body.inputs(), user), "report-" + id + "-preview.pdf");
+    }
+
     @GetMapping("/reports/{id}/executions")
     public List<Execution> history(@PathVariable long id) {
         return service.history(id);
@@ -61,14 +68,25 @@ public class ExecutionController {
     }
 
     @GetMapping("/executions/{id}/result")
-    public ResponseEntity<String> result(@PathVariable long id, @RequestParam(defaultValue = "html") String format) {
+    public ResponseEntity<?> result(@PathVariable long id, @RequestParam(defaultValue = "html") String format) {
+        if ("pdf".equalsIgnoreCase(format)) {
+            return pdf(service.resultPdf(id), "execution-" + id + ".pdf");
+        }
         if (!"html".equalsIgnoreCase(format)) {
-            throw ApiException.badRequest("Unsupported format '" + format + "'; only html for now (PDF comes in Phase 5)");
+            throw ApiException.badRequest("Unsupported format '" + format + "'; use html or pdf");
         }
         return ResponseEntity.ok()
                 .contentType(new MediaType(MediaType.TEXT_HTML, java.nio.charset.StandardCharsets.UTF_8))
                 .header("Content-Security-Policy", RESULT_CSP)
                 .header(HttpHeaders.CACHE_CONTROL, "no-store")
                 .body(service.resultHtml(id));
+    }
+
+    private static ResponseEntity<byte[]> pdf(byte[] bytes, String filename) {
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(bytes);
     }
 }

@@ -18,6 +18,7 @@ public record ReportVersion(
         FlowDefinition flow,
         String templateHtml,
         String templateCss,
+        PageSettings page,
         String createdBy,
         Instant createdAt,
         Instant updatedAt,

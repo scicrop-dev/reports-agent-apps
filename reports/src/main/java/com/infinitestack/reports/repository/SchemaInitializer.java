@@ -99,6 +99,10 @@ public class SchemaInitializer {
             PRIMARY KEY (execution_id, position)
         )
         """,
+        // Phase 5: paper settings of the PDF. ALTER so an existing install gains the column.
+        """
+        ALTER TABLE %1$s.reports_report_version ADD COLUMN IF NOT EXISTS page_settings JSONB
+        """,
         // One row per released Block. availability is the catalog diagnosis at the moment of release.
         """
         CREATE TABLE IF NOT EXISTS %1$s.reports_block_release (
