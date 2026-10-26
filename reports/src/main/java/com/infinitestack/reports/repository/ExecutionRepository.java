@@ -42,12 +42,12 @@ public class ExecutionRepository {
     private String block() { return schema.table(SchemaInitializer.T_EXECUTION_BLOCK); }
 
     /** Registers the execution before anything runs, so a crash still leaves a trace. */
-    public long start(long reportId, int reportVersion, Map<String, Object> inputs, String startedBy) {
+    public long start(long reportId, int reportVersion, Map<String, Object> inputs, String startedBy, Long rerunOf) {
         initializer.requireReady();
         return jdbc.queryForObject("INSERT INTO " + execution()
-                + " (report_id, report_version, status, inputs, started_by, created_at) VALUES (?, ?, ?, ?::jsonb, ?, ?) RETURNING id",
+                + " (report_id, report_version, status, inputs, started_by, created_at, rerun_of) VALUES (?, ?, ?, ?::jsonb, ?, ?, ?) RETURNING id",
                 Long.class, reportId, reportVersion, ExecutionStatus.VALIDATING.name(), json.write(inputs), startedBy,
-                Timestamp.from(Instant.now()));
+                Timestamp.from(Instant.now()), rerunOf);
     }
 
     @Transactional
@@ -93,16 +93,17 @@ public class ExecutionRepository {
 
     private Execution map(ResultSet rs, List<BlockRun> blocks) throws SQLException {
         Long duration = rs.getObject("duration_ms", Long.class);
+        Long rerunOf = rs.getObject("rerun_of", Long.class);
         return new Execution(rs.getLong("id"), rs.getLong("report_id"), rs.getInt("report_version"),
                 ExecutionStatus.valueOf(rs.getString("status")),
                 json.read(rs.getString("inputs"), OBJECT), json.read(rs.getString("context"), VALUES),
                 json.read(rs.getString("block_versions"), VERSIONS),
                 json.read(rs.getString("error"), ExecutionError.class), rs.getString("started_by"),
-                ReportRepository.instant(rs, "created_at"), ReportRepository.instant(rs, "finished_at"), duration, blocks);
+                ReportRepository.instant(rs, "created_at"), ReportRepository.instant(rs, "finished_at"), duration, rerunOf, blocks);
     }
 
     private static Execution withBlocks(Execution e, List<BlockRun> blocks) {
         return new Execution(e.id(), e.reportId(), e.reportVersion(), e.status(), e.inputs(), e.values(),
-                e.blockVersions(), e.error(), e.startedBy(), e.createdAt(), e.finishedAt(), e.durationMs(), blocks);
+                e.blockVersions(), e.error(), e.startedBy(), e.createdAt(), e.finishedAt(), e.durationMs(), e.rerunOf(), blocks);
     }
 }

@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.infinitestack.reports.dto.DraftRequest;
+import com.infinitestack.reports.dto.VersionDiff;
 import com.infinitestack.reports.dto.ReportRequest;
 import com.infinitestack.reports.dto.VersionView;
 import com.infinitestack.reports.report.Report;
@@ -85,6 +86,12 @@ public class ReportController {
     @PostMapping("/{id}/versions/{version}/publish")
     public VersionView publish(@PathVariable long id, @PathVariable int version, CurrentUser user) {
         return service.publish(id, version, user);
+    }
+
+    /** What changed from one version to another (Phase 7). */
+    @GetMapping("/{id}/versions/{from}/diff/{to}")
+    public VersionDiff diff(@PathVariable long id, @PathVariable int from, @PathVariable int to) {
+        return service.diff(id, from, to);
     }
 
     /** The {{variables}} the template of this version can use. */

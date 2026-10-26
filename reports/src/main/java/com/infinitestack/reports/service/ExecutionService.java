@@ -10,6 +10,7 @@ import java.util.Map;
 import org.springframework.stereotype.Service;
 
 import com.infinitestack.reports.dto.PreviewResult;
+import com.infinitestack.reports.dto.RerunResult;
 import com.infinitestack.reports.engine.block.ExecutionMetadata;
 import com.infinitestack.reports.engine.flow.BlockRun;
 import com.infinitestack.reports.engine.flow.ExecutionContext;
@@ -71,8 +72,36 @@ public class ExecutionService {
     }
 
     public Execution execute(long reportId, Integer versionNumber, Map<String, Object> rawInputs, CurrentUser user) {
+        return execute(reportId, versionNumber, rawInputs, user, null);
+    }
+
+    /**
+     * Runs a stored execution again: same report version, same inputs (ARCHITECTURE section 36).
+     * Only the current implementation of each Block exists in the app, so when a Block changed
+     * version since then the answer says so; {@code identicalValues} tells whether every Block
+     * produced exactly what it produced the first time.
+     */
+    public RerunResult rerun(long executionId, CurrentUser user) {
+        Execution original = get(executionId);
+        List<String> warnings = new ArrayList<>();
+        Map<String, String> before = original.blockVersions() == null ? Map.of() : original.blockVersions();
+        before.forEach((blockId, version) -> {
+            String now = registry.find(blockId).map(b -> b.definition().version()).orElse(null);
+            if (now == null) {
+                warnings.add("block " + blockId + " " + version + " no longer exists");
+            } else if (!now.equals(version)) {
+                warnings.add("block " + blockId + " ran as " + version + " and now runs as " + now);
+            }
+        });
+        Execution rerun = execute(original.reportId(), original.reportVersion(), original.inputs(), user, original.id());
+        boolean identical = original.status() == ExecutionStatus.COMPLETED && rerun.status() == ExecutionStatus.COMPLETED
+                && java.util.Objects.equals(original.values(), rerun.values());
+        return new RerunResult(rerun, identical, warnings);
+    }
+
+    private Execution execute(long reportId, Integer versionNumber, Map<String, Object> rawInputs, CurrentUser user, Long rerunOf) {
         Prepared prepared = prepare(reportId, versionNumber, rawInputs);
-        long executionId = repository.start(reportId, prepared.version().version(), prepared.inputs(), user.id());
+        long executionId = repository.start(reportId, prepared.version().version(), prepared.inputs(), user.id(), rerunOf);
         Outcome outcome = run(prepared, executionId, user);
         repository.finish(executionId, outcome.status(), outcome.values(), outcome.blockVersions(), outcome.error(),
                 outcome.finishedAt(), outcome.durationMs(), outcome.blocks());
@@ -84,7 +113,7 @@ public class ExecutionService {
         Outcome outcome = run(prepared, null, user);
         Execution execution = new Execution(null, reportId, prepared.version().version(), outcome.status(),
                 prepared.inputs(), outcome.values(), outcome.blockVersions(), outcome.error(), user.id(),
-                outcome.startedAt(), outcome.finishedAt(), outcome.durationMs(), outcome.blocks());
+                outcome.startedAt(), outcome.finishedAt(), outcome.durationMs(), null, outcome.blocks());
         return new PreviewResult(execution, outcome.html());
     }
 

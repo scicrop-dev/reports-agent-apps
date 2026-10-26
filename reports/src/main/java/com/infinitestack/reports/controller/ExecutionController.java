@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.infinitestack.reports.dto.ExecuteRequest;
 import com.infinitestack.reports.dto.PreviewResult;
+import com.infinitestack.reports.dto.RerunResult;
 import com.infinitestack.reports.execution.Execution;
 import com.infinitestack.reports.service.ExecutionService;
 import com.infinitestack.reports.web.ApiException;
@@ -65,6 +66,12 @@ public class ExecutionController {
     @GetMapping("/executions/{id}")
     public Execution get(@PathVariable long id) {
         return service.get(id);
+    }
+
+    /** Runs the same version with the same inputs again (Phase 7). */
+    @PostMapping("/executions/{id}/rerun")
+    public RerunResult rerun(@PathVariable long id, CurrentUser user) {
+        return service.rerun(id, user);
     }
 
     @GetMapping("/executions/{id}/result")

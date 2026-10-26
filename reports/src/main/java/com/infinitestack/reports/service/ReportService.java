@@ -10,7 +10,10 @@ import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.infinitestack.reports.diff.LineDiff;
 import com.infinitestack.reports.dto.DraftRequest;
+import com.infinitestack.reports.dto.VersionDiff;
 import com.infinitestack.reports.dto.ReportRequest;
 import com.infinitestack.reports.dto.ValidationReport;
 import com.infinitestack.reports.dto.VersionView;
@@ -45,9 +48,11 @@ public class ReportService {
     private final TemplateRenderer templateRenderer;
     private final BlockRegistry registry;
     private final BlockService blockService;
+    private final ObjectMapper mapper;
 
     public ReportService(ReportRepository repository, FlowValidator flowValidator, TemplateRenderer templateRenderer,
-                         BlockRegistry registry, BlockService blockService) {
+                         BlockRegistry registry, BlockService blockService, ObjectMapper mapper) {
+        this.mapper = mapper;
         this.repository = repository;
         this.flowValidator = flowValidator;
         this.templateRenderer = templateRenderer;
@@ -150,6 +155,35 @@ public class ReportService {
             throw ApiException.conflict("Version " + versionNumber + " was published meanwhile");
         }
         return versionView(id, versionNumber);
+    }
+
+    /**
+     * Compares two versions part by part. Structured parts (inputs, flow, page) are compared as
+     * pretty-printed JSON so a diff line is a meaningful field.
+     */
+    public VersionDiff diff(long id, int from, int to) {
+        ReportVersion a = version(id, from);
+        ReportVersion b = version(id, to);
+        List<VersionDiff.Part> parts = new ArrayList<>();
+        parts.add(part("inputs", pretty(a.inputs()), pretty(b.inputs())));
+        parts.add(part("flow", pretty(a.flow()), pretty(b.flow())));
+        parts.add(part("page", pretty(a.page()), pretty(b.page())));
+        parts.add(part("templateHtml", a.templateHtml(), b.templateHtml()));
+        parts.add(part("templateCss", a.templateCss(), b.templateCss()));
+        return new VersionDiff(id, from, to, parts);
+    }
+
+    private static VersionDiff.Part part(String name, String before, String after) {
+        List<LineDiff.Line> lines = LineDiff.diff(before, after);
+        return new VersionDiff.Part(name, LineDiff.changed(lines), lines);
+    }
+
+    private String pretty(Object value) {
+        try {
+            return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(value);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     public List<TemplateScope.Variable> variables(long id, int versionNumber) {

@@ -13,6 +13,7 @@ import com.infinitestack.reports.engine.flow.BlockRun;
  * @param id null for a preview, which is never stored
  * @param values outputs per node id, i.e. the execution context without the inputs
  * @param blockVersions block id to the version that ran
+ * @param rerunOf the execution this one reproduces, if any
  */
 public record Execution(
         Long id,
@@ -27,5 +28,6 @@ public record Execution(
         Instant createdAt,
         Instant finishedAt,
         Long durationMs,
+        Long rerunOf,
         List<BlockRun> blocks) {
 }

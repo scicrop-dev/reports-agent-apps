@@ -156,6 +156,12 @@ class ReportsEndToEndDbTest {
         mvc.perform(as(post(BASE + "/reports/" + id + "/preview/pdf"), "USER").content("{\"inputs\":{\"code\":\"ab\"}}"))
                 .andExpect(status().isOk());
 
+        // Re-running reproduces the same values with the same block versions.
+        JsonNode rerun = json(as(post(BASE + "/executions/" + executionId + "/rerun"), "USER"), 200);
+        org.junit.jupiter.api.Assertions.assertTrue(rerun.get("identicalValues").asBoolean(), rerun.toString());
+        org.junit.jupiter.api.Assertions.assertEquals(0, rerun.get("warnings").size());
+        org.junit.jupiter.api.Assertions.assertEquals(executionId, rerun.at("/execution/rerunOf").asLong());
+
         // The data disappears: the released Block stops being usable and the execution says why.
         jdbc.execute("DROP TABLE gold.reports_test_area");
         catalog.refresh();
@@ -165,8 +171,14 @@ class ReportsEndToEndDbTest {
         org.junit.jupiter.api.Assertions.assertTrue(failed.at("/error/details/0").asText().contains("not in the catalog"), failed.toString());
 
         mvc.perform(as(delete(BASE + "/blocks/test-upper/release"), "ADMIN")).andExpect(status().isNoContent());
-        mvc.perform(as(get(BASE + "/reports/" + id + "/executions"), "USER")).andExpect(jsonPath("$.length()").value(2));
+        mvc.perform(as(get(BASE + "/reports/" + id + "/executions"), "USER")).andExpect(jsonPath("$.length()").value(3));
         mvc.perform(as(post(BASE + "/reports/" + id + "/versions"), "USER")).andExpect(jsonPath("$.version").value(2));
+        mvc.perform(as(post(BASE + "/reports/" + id + "/versions"), "USER")).andExpect(status().isConflict());
+        String changed = draft.replace("<h1>{{title.text}}</h1>", "<h2>{{title.text}}</h2>");
+        mvc.perform(as(put(BASE + "/reports/" + id + "/versions/2"), "USER").content(changed)).andExpect(status().isOk());
+        mvc.perform(as(get(BASE + "/reports/" + id + "/versions/1/diff/2"), "USER"))
+                .andExpect(jsonPath("$.parts[?(@.name == 'templateHtml')].changed").value(true))
+                .andExpect(jsonPath("$.parts[?(@.name == 'flow')].changed").value(false));
         mvc.perform(as(get(BASE + "/reports/" + id + "/versions/2/variables"), "USER"))
                 .andExpect(jsonPath("$[*].path", hasItem("area.details")));
     }
