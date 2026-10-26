@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 
 import com.infinitestack.reports.engine.DataType;
 import com.infinitestack.reports.engine.block.BlockDefinition;
+import com.infinitestack.reports.engine.block.BlockDocs;
 import com.infinitestack.reports.engine.block.BlockPort;
 import com.infinitestack.reports.engine.block.BlockQueries;
 import com.infinitestack.reports.engine.block.ExecutionMetadata;
@@ -55,6 +56,23 @@ public class CarHistoryBlock implements ReportBlock {
                         requirement(STATUS_CADASTRO, "codigo", "descricao"),
                         requirement(CONDICAO, "id", "descricao")),
                 null);
+    }
+
+    @Override
+    public BlockDocs docs() {
+        return new BlockDocs("CAR",
+                "Lists every version of a CAR registration, from the first to the current one, with status, "
+                        + "condition, declared area and whether the drawing changed.",
+                List.of(
+                        "Reads all versions of the property, oldest first.",
+                        "Marks geometryChanged when a version points to a geometry different from the previous one."),
+                List.of(
+                        "codImovel: the same report input as car-property.",
+                        "versions goes to a table; count to a summary line."),
+                List.of(
+                        "The history starts when car-agent-app began collecting the property, not at the first SICAR registration."),
+                "SICAR, gold.car_agent_app_imovel_versao",
+                "{{#<node>.versions}}{{validFrom}}: {{statusLabel}}<br>{{/<node>.versions}}");
     }
 
     @Override

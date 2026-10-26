@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 
 import com.infinitestack.reports.engine.DataType;
 import com.infinitestack.reports.engine.block.BlockDefinition;
+import com.infinitestack.reports.engine.block.BlockDocs;
 import com.infinitestack.reports.engine.block.BlockPort;
 import com.infinitestack.reports.engine.block.BlockQueries;
 import com.infinitestack.reports.engine.block.DataRequirement;
@@ -104,6 +105,26 @@ public class CarPropertyMapBlock implements ReportBlock {
                         DataRequirement.table(SCHEMA, FEATURE_TABLE, "id", "camada", "cod_imovel", "geom", "valido_ate"),
                         DataRequirement.table(SCHEMA, LAYER_TABLE, "codigo", "nome", "ordem")),
                 TIMEOUT);
+    }
+
+    @Override
+    public BlockDocs docs() {
+        return new BlockDocs("CAR",
+                "Draws a map of the property for the PDF: its boundary, the declared layers in colour and the "
+                        + "neighbouring properties, with north arrow, scale bar and corner coordinates.",
+                List.of(
+                        "Reads the property geometry, its current features and the neighbours inside the map frame.",
+                        "Simplifies the geometries to the image resolution and draws them with Java2D.",
+                        "Returns a PNG as a data: URL, so the PDF is self-contained (no tiles, no network)."),
+                List.of(
+                        "codImovel: the same report input as car-property.",
+                        "width / height: fixed values to change the image size (default 1000 x 700 px).",
+                        "image goes into <img src=\"{{<node>.image}}\">; legend lists the colours used."),
+                List.of(
+                        "No satellite background: only the data in the database.",
+                        "If the host JRE has no fonts, the map comes without labels."),
+                "SICAR, gold.car_agent_app_imovel_geometria and _feicao",
+                "<img src=\"{{<node>.image}}\">");
     }
 
     @Override

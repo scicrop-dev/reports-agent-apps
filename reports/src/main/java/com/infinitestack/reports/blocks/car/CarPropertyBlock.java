@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 
 import com.infinitestack.reports.engine.DataType;
 import com.infinitestack.reports.engine.block.BlockDefinition;
+import com.infinitestack.reports.engine.block.BlockDocs;
 import com.infinitestack.reports.engine.block.BlockPort;
 import com.infinitestack.reports.engine.block.BlockQueries;
 import com.infinitestack.reports.engine.block.ExecutionMetadata;
@@ -69,6 +70,27 @@ public class CarPropertyBlock implements ReportBlock {
                         requirement(TIPO_IMOVEL, "codigo", "descricao"),
                         requirement(CONDICAO, "id", "descricao")),
                 null);
+    }
+
+    @Override
+    public BlockDocs docs() {
+        return new BlockDocs("CAR",
+                "Identifies a rural property registered in the CAR (Cadastro Ambiental Rural): where it is, "
+                        + "what kind of property it is, its status in the SICAR and its declared area.",
+                List.of(
+                        "Finds the property by its SICAR code (UF-<IBGE>-<32 hex>).",
+                        "Reads the current version of the registration (the one with no end date) and resolves the "
+                                + "codes into labels: status, property type, condition and municipality.",
+                        "removedAt is filled when the property left the SICAR; the data is then the last known version."),
+                List.of(
+                        "codImovel: connect a report input of type string (the reader types the code).",
+                        "municipalityIbge feeds per-municipality Blocks such as brgeo-crop-production.",
+                        "Usually the first node of a CAR report: every other CAR Block takes the same codImovel."),
+                List.of(
+                        "Everything here is self-declared by the owner and may not have been analysed by the environmental agency.",
+                        "Fails with 'CAR property ... not found' when the code is not in the base."),
+                "SICAR, collected by car-agent-app into gold.car_agent_app_imovel and _imovel_versao",
+                "{{<node>.codImovel}} - {{<node>.municipality}}/{{<node>.uf}} - {{<node>.statusLabel}}");
     }
 
     @Override
