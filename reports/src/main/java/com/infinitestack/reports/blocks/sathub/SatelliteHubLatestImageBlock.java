@@ -7,7 +7,6 @@ import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -19,7 +18,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.function.ToDoubleFunction;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
@@ -292,7 +290,7 @@ public class SatelliteHubLatestImageBlock implements ReportBlock {
         out.put("pixelSizeM", grid.pixelSize());
         out.put("widthPx", grid.width());
         out.put("heightPx", grid.height());
-        out.put("trueColor", dataUri(renderer.trueColor(reflectance.get("red"), reflectance.get("green"), reflectance.get("blue"), clear, area)));
+        out.put("trueColor", ImageryRenderer.dataUri(renderer.trueColor(reflectance.get("red"), reflectance.get("green"), reflectance.get("blue"), clear, area)));
         out.put("indices", indexOut);
         out.put("candidatesTried", tried);
         out.put("skipped", skipped);
@@ -303,12 +301,15 @@ public class SatelliteHubLatestImageBlock implements ReportBlock {
     private Map<String, Object> index(IndexDefinition index, Map<String, float[]> reflectance, boolean[] clear, PolygonMask area) {
         int n = clear.length;
         float[] values = new float[n];
-        int[] at = {0};
-        ToDoubleFunction<String> band = name -> reflectance.get(name)[at[0]];
+        // Fast path of IndexFormula: the bands in bandOrder(), one reused array per pixel.
+        List<String> order = index.formula().bandOrder();
+        float[][] bands = new float[order.size()][];
+        for (int b = 0; b < bands.length; b++) bands[b] = reflectance.get(order.get(b));
+        double[] sample = new double[bands.length];
         boolean[] valid = new boolean[n];
         for (int i = 0; i < n; i++) {
-            at[0] = i;
-            double v = index.formula().evaluate(band);
+            for (int b = 0; b < bands.length; b++) sample[b] = bands[b][i];
+            double v = index.formula().evaluate(sample);
             if (!Double.isNaN(v)) {
                 if (index.clampMin() != null) v = Math.max(index.clampMin(), v);
                 if (index.clampMax() != null) v = Math.min(index.clampMax(), v);
@@ -326,12 +327,12 @@ public class SatelliteHubLatestImageBlock implements ReportBlock {
         byte[] png = renderer.indexMap(values, index.maskClouds() ? clear : null, area, palette, min, max);
 
         int inside = area.insideCount();
-        return map("slug", index.slug(), "name", index.name(), "description", index.description(), "image", dataUri(png),
+        return map("slug", index.slug(), "name", index.name(), "description", index.description(), "image", ImageryRenderer.dataUri(png),
                 "mean", round(stats.mean(), 4), "min", round(stats.min(), 4), "max", round(stats.max(), 4),
                 "stddev", round(stats.stddev(), 4), "p10", round(stats.p10(), 4), "p50", round(stats.p50(), 4),
                 "p90", round(stats.p90(), 4), "validPixels", stats.validPixels(),
                 "validPercent", round(inside == 0 ? 0 : 100.0 * stats.validPixels() / inside, 1),
-                "rangeMin", min, "rangeMax", max, "legend", legend(palette, min, max, LEGEND_STEPS));
+                "rangeMin", min, "rangeMax", max, "legend", ImageryRenderer.legend(palette, min, max, LEGEND_STEPS));
     }
 
     /** Reads the bands in parallel and turns digital numbers into reflectance (scale only, as Satellite Hub). */
@@ -487,22 +488,6 @@ public class SatelliteHubLatestImageBlock implements ReportBlock {
         List<String> out = Arrays.stream(text.split(",")).map(s -> s.trim().toLowerCase(Locale.ROOT))
                 .filter(s -> !s.isEmpty()).distinct().collect(Collectors.toList());
         return out.isEmpty() ? List.of(DEFAULT_INDICES.split(",")) : out;
-    }
-
-    /** Legend stops of a palette over [min, max]: {color "#rrggbb", value, label}. */
-    static List<Map<String, Object>> legend(Palette palette, double min, double max, int steps) {
-        List<Map<String, Object>> out = new ArrayList<>();
-        for (int i = 0; i < steps; i++) {
-            double t = steps == 1 ? 0 : (double) i / (steps - 1);
-            double value = min + t * (max - min);
-            out.add(map("color", String.format("#%06x", palette.colorAt(t) & 0xFFFFFF), "value", round(value, 4),
-                    "label", String.format(Locale.ROOT, "%.2f", value)));
-        }
-        return out;
-    }
-
-    static String dataUri(byte[] png) {
-        return "data:image/png;base64," + Base64.getEncoder().encodeToString(png);
     }
 
     private static Map<String, Object> notFound(String message, int tried, List<Map<String, Object>> skipped) {
