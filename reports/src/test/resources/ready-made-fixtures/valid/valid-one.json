@@ -1,0 +1,12 @@
+{
+  "id": "valid-one",
+  "version": "2.1.0",
+  "name": "Valid",
+  "category": "Test",
+  "inputs": [ { "name": "text", "type": "string", "required": true, "label": "Text" } ],
+  "flow": {
+    "nodes": [ { "id": "upper", "block": "test-upper" } ],
+    "connections": [ { "from": "inputs.text", "to": "upper.text" } ]
+  },
+  "templateHtmlFile": "valid-one.html"
+}

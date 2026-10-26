@@ -1,0 +1,1 @@
+{ "id": "bad-version", "version": "1.0", "name": "Bad", "flow": { "nodes": [ { "id": "a", "block": "test-upper" } ] } }

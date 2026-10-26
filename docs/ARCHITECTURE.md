@@ -1273,10 +1273,12 @@ propósito, do desenho conceitual acima. A ordem das fases está em [ROADMAP.md]
 | `report`, `execution` | Registros de domínio: `Report`, `ReportVersion`, `InputDefinition`, `PageSettings`, `Execution`, `ExecutionError` |
 | `repository` | JDBC puro, SQL qualificado com `apps.`; `SchemaInitializer` cria as tabelas em segundo plano |
 | `service`, `controller`, `web` | Regras de uso, API REST e identidade do usuário a partir dos headers `X-IS-*` |
+| `readymade` | Relatórios prontos (§47.6): `ReadyMadeCatalog` (lê `classpath:ready-made/*.json` no boot, falha rápido), `ReadyMadeReport`, `ReadyMadeService`, `ReadyMadeView` (DTO) |
 
 ## 47.2 Tabelas (`apps.`)
 
-`reports_report` (soft delete), `reports_report_version` (inputs, flow, template HTML/CSS e página),
+`reports_report` (soft delete; `ready_made_id`/`ready_made_version` quando é cópia de um relatório
+pronto), `reports_report_version` (inputs, flow, template HTML/CSS e página),
 `reports_execution` (inputs, contexto, versões dos Blocks, erro, `rerun_of`),
 `reports_execution_block` e `reports_block_release`.
 
@@ -1298,6 +1300,9 @@ GET  /executions/{id}
 GET  /executions/{id}/result?format=html|pdf
 POST /executions/{id}/rerun
 GET  /blocks   GET /blocks/{id}   POST DELETE /blocks/{id}/release   POST /catalog/refresh
+GET  /ready-made                           relatórios prontos + uso de cada Block para quem chama
+GET  /ready-made/{id}                      { summary, content } (Flow, template, página)
+POST /ready-made/{id}/instantiate          body {name?} → 201 Report do chamador, v1 DRAFT
 ```
 
 ## 47.4 Catálogo e liberação de Blocks
@@ -1329,3 +1334,26 @@ GET  /blocks   GET /blocks/{id}   POST DELETE /blocks/{id}/release   POST /catal
   ADMIN/SCICROP liberam Blocks.
 - **Reexecução**: só existe a implementação atual de cada Block no app. Uma reexecução avisa quando a
   versão de um Block mudou desde a execução original e informa se os outputs saíram idênticos.
+
+## 47.6 Relatórios prontos
+
+Detalhes, formato e catálogo em [READY-MADE-REPORTS.md](READY-MADE-REPORTS.md).
+
+- Um relatório pronto é um JSON em `reports/src/main/resources/ready-made/<id>.json` (id, versão
+  semver, nome, descrição, categoria, inputs, Flow, template e página), com HTML/CSS grandes em
+  arquivos irmãos (`<id>.html`, `<id>.css`). O `ReadyMadeCatalog` lê todos no boot, sem banco, e
+  para o boot se um arquivo estiver malformado ou se houver id repetido.
+- `GET /ready-made` lista os prontos e, para cada Block do Flow, se ele é utilizável para quem chama
+  (`BlockService.problemsFor`: existe no app, liberado, dados AVAILABLE). `runnable` = todos
+  utilizáveis. Block que nem existe no app aparece como `does not exist`.
+- `POST /ready-made/{id}/instantiate` chama `ReportService.createFromReadyMade`: grava o report do
+  chamador com `ready_made_id`/`ready_made_version` e a versão 1 em DRAFT com o conteúdo do pronto.
+  Funciona mesmo com Blocks indisponíveis; a validação da versão mostra o que falta para rodar. A
+  cópia não tem vínculo com o pronto depois disso (atualização de cópias é ideia futura).
+- Na UI, a seção "Ready-made reports" da barra lateral mostra os cartões, com chips por Block, e o
+  botão "Use" abre um campo de nome inline (sem diálogo do navegador) e abre o report criado.
+- **Para adicionar um pronto:** crie os arquivos, rode `mvn -q test` (o
+  `ReadyMadeReportsValidityTest` valida Flow e template contra os contratos dos Blocks, executa com
+  saídas de exemplo e gera HTML/PDF em `reports/target/ready-made/`) e atualize o catálogo do
+  READY-MADE-REPORTS.md. Os Blocks do teste são duplos dos contratos do [BLOCKS.md](BLOCKS.md)
+  (`support/CarBlockContractStubs`).
