@@ -182,7 +182,17 @@ header + sidebar, pt-BR, assets locais).
 - Lista de Reports → editor com abas **Inputs**, **Flow**, **Template**, **Preview**.
 - Flow como lista de nós: escolher um Block (só os liberados), mapear cada input para um input do
   Report, um output de outro nó ou um valor fixo, e validar.
-- Editor HTML/CSS: `textarea` na primeira versão, e CodeMirror vendorado em `static/` se fizer falta.
+- **Stack (D9):** Thymeleaf só como casca e JavaScript puro em `static/app/*.js` (`api.js`,
+  `reports.js`, `flow-editor.js`, `template-editor.js`), sem framework SPA e sem Bootstrap. O CSS sai
+  dos tokens e componentes do `design.md`. É o padrão do `satellite-hub` e do
+  `chatbot-workflow-manager`. React/Vue exigiriam npm e bundler no build do `.ispz`. Se o estado do
+  editor apertar, a saída é Alpine.js vendorado.
+- Editor HTML/CSS: **CodeMirror 5 vendorado desde o início**, reaproveitando o de
+  `infinitestack-agent-apps/dbviewer/src/main/resources/static/vendor/codemirror/`, mais os modos
+  `xml`/`css`/`htmlmixed` e um hint com as variáveis `{{...}}` disponíveis.
+- **O HTML do template nunca passa pelo Thymeleaf.** Ele trafega só como JSON pela API, porque o
+  Thymeleaf interpretaria expressões inline dentro dele. Pelo mesmo motivo, o JS grande fica em
+  arquivo próprio, fora do template.
 - Execução: formulário gerado a partir do `inputs_schema`, outputs por nó, preview e download do PDF.
 - Histórico de execuções com status e erro por Block.
 
@@ -224,7 +234,8 @@ Candidatos e as fontes que existem hoje, como ponto de partida da discussão (na
 
 ### Depois do MVP
 
-Worker assíncrono e fila (§30–31), cache por versão + parâmetros (§29), Flows/Templates
+Editor visual do Flow, adaptando o `flow-builder.js` do `chatbot-workflow-manager` (SVG puro,
+segunda visão do mesmo JSON, com `ui:{x,y}` opcional por nó), worker assíncrono e fila (§30–31), cache por versão + parâmetros (§29), Flows/Templates
 reaproveitáveis (§34–35), Blocks de mapa e imagem (§19–20), Blocks lógicos (IF/FILTER/LOOP…),
 permissão por organização/projeto quando o host expuser isso, saídas JSON/dashboard (§46),
 agendamento e distribuição (MASTER §22).
@@ -243,3 +254,4 @@ agendamento e distribuição (MASTER §22).
 | D6 | Renderer de PDF | openhtmltopdf no MVP, atrás de `PdfRenderer` | Fase 5 |
 | D7 | Guardar PDF ou regenerar | regenerar sob demanda | Fase 5 |
 | D8 | Conjunto de Blocks do MVP | discussão na Fase 8 | Fase 8 |
+| D9 | Stack da UI | Thymeleaf como casca + JS puro em `static/app/`, CodeMirror 5 vendorado, preview em iframe sandbox | **decidido** (2026-10-26) |
