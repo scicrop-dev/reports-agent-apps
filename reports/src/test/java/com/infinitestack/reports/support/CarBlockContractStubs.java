@@ -16,19 +16,21 @@ import java.util.Map;
 
 import javax.imageio.ImageIO;
 
-import com.infinitestack.reports.engine.DataType;
+import com.infinitestack.reports.blocks.car.CarEnvironmentalLayersBlock;
+import com.infinitestack.reports.blocks.car.CarHistoryBlock;
+import com.infinitestack.reports.blocks.car.CarOverlapsBlock;
+import com.infinitestack.reports.blocks.car.CarPropertyBlock;
+import com.infinitestack.reports.blocks.car.CarPropertyGeometryBlock;
+import com.infinitestack.reports.blocks.car.CarPropertyMapBlock;
 import com.infinitestack.reports.engine.block.BlockDefinition;
-import com.infinitestack.reports.engine.block.BlockPort;
 import com.infinitestack.reports.engine.block.ExecutionMetadata;
 import com.infinitestack.reports.engine.block.ReportBlock;
 
 /**
- * TEST DOUBLES of the CAR Blocks: same ids, ports and types as the contracts in docs/BLOCKS.md
- * (section 2), with canned, realistic outputs and no database. They exist so the ready-made
- * reports can be validated and rendered before the real Blocks are merged. They do not declare
- * DataRequirements (the gate is not what these tests check). When a contract in BLOCKS.md
- * changes, change it here too; once the real Blocks exist, the ready-made reports must also be
- * validated against them.
+ * TEST DOUBLES of the CAR Blocks: the real Blocks' definitions (ids, ports, types) with canned,
+ * realistic outputs instead of database queries, so the ready-made reports can be executed and
+ * rendered to HTML and PDF without a database. The canned outputs must follow docs/BLOCKS.md
+ * (section 2); the engine checks their types against the real ports when they run.
  */
 public final class CarBlockContractStubs {
 
@@ -42,9 +44,6 @@ public final class CarBlockContractStubs {
                 new History(bare), new PropertyMap(bare));
     }
 
-    private static BlockPort in(String name, DataType type) { return BlockPort.required(name, type, name); }
-    private static BlockPort opt(String name, DataType type) { return BlockPort.optional(name, type, name); }
-    private static BlockPort out(String name, DataType type) { return BlockPort.required(name, type, name); }
 
     private static Map<String, Object> map(Object... keyValues) {
         Map<String, Object> m = new LinkedHashMap<>();
@@ -52,12 +51,18 @@ public final class CarBlockContractStubs {
         return m;
     }
 
+    /** The real definitions, so a stub can never drift from the Block it stands for. */
+    private static final Map<String, BlockDefinition> REAL = java.util.stream.Stream.of(
+                    new CarPropertyBlock(null), new CarPropertyGeometryBlock(null), new CarEnvironmentalLayersBlock(null),
+                    new CarOverlapsBlock(null), new CarHistoryBlock(null), new CarPropertyMapBlock(null))
+            .map(ReportBlock::definition)
+            .collect(java.util.stream.Collectors.toMap(BlockDefinition::id, d -> d));
+
     private abstract static class Stub implements ReportBlock {
         private final BlockDefinition definition;
 
-        Stub(String id, String name, List<BlockPort> inputs, List<BlockPort> outputs) {
-            this.definition = new BlockDefinition(id, name, name + " (contract test double)", "0.0.0-stub",
-                    inputs, outputs, List.of(), null);
+        Stub(String id) {
+            this.definition = REAL.get(id);
         }
 
         @Override public BlockDefinition definition() { return definition; }
@@ -68,13 +73,7 @@ public final class CarBlockContractStubs {
         private final boolean bare;
 
         Property(boolean bare) {
-            super("car-property", "CAR property", List.of(in("codImovel", DataType.STRING)), List.of(
-                    out("codImovel", DataType.STRING), out("uf", DataType.STRING), out("municipality", DataType.STRING),
-                    out("municipalityIbge", DataType.NUMBER), out("status", DataType.STRING), out("statusLabel", DataType.STRING),
-                    out("type", DataType.STRING), out("typeLabel", DataType.STRING), out("condition", DataType.STRING),
-                    out("fiscalModules", DataType.NUMBER), out("declaredAreaHa", DataType.NUMBER),
-                    out("registeredAt", DataType.DATE), out("updatedAt", DataType.DATE), out("versionSince", DataType.DATE),
-                    opt("removedAt", DataType.DATE)));
+            super("car-property");
             this.bare = bare;
         }
 
@@ -91,9 +90,7 @@ public final class CarBlockContractStubs {
     /** car-property-geometry */
     public static final class Geometry extends Stub {
         Geometry() {
-            super("car-property-geometry", "CAR property geometry", List.of(in("codImovel", DataType.STRING)), List.of(
-                    out("geometry", DataType.GEOMETRY), out("areaHa", DataType.NUMBER), out("centroidLat", DataType.NUMBER),
-                    out("centroidLon", DataType.NUMBER), out("bbox", DataType.OBJECT), out("vertices", DataType.NUMBER)));
+            super("car-property-geometry");
         }
 
         @Override public Map<String, Object> execute(Map<String, Object> inputs, ExecutionMetadata metadata) {
@@ -109,8 +106,7 @@ public final class CarBlockContractStubs {
         private final boolean bare;
 
         EnvironmentalLayers(boolean bare) {
-            super("car-environmental-layers", "CAR environmental layers", List.of(in("codImovel", DataType.STRING)), List.of(
-                    out("layers", DataType.ARRAY), out("summary", DataType.OBJECT), out("hasLegalReserve", DataType.BOOLEAN)));
+            super("car-environmental-layers");
             this.bare = bare;
         }
 
@@ -145,9 +141,7 @@ public final class CarBlockContractStubs {
         private final boolean bare;
 
         Overlaps(boolean bare) {
-            super("car-overlaps", "CAR overlaps", List.of(in("codImovel", DataType.STRING), opt("minOverlapHa", DataType.NUMBER)), List.of(
-                    out("overlaps", DataType.ARRAY), out("count", DataType.NUMBER), out("totalOverlapHa", DataType.NUMBER),
-                    out("truncated", DataType.BOOLEAN)));
+            super("car-overlaps");
             this.bare = bare;
         }
 
@@ -166,8 +160,7 @@ public final class CarBlockContractStubs {
         private final boolean bare;
 
         History(boolean bare) {
-            super("car-history", "CAR history", List.of(in("codImovel", DataType.STRING)), List.of(
-                    out("versions", DataType.ARRAY), out("count", DataType.NUMBER)));
+            super("car-history");
             this.bare = bare;
         }
 
@@ -195,9 +188,7 @@ public final class CarBlockContractStubs {
         private final boolean bare;
 
         PropertyMap(boolean bare) {
-            super("car-property-map", "CAR property map", List.of(in("codImovel", DataType.STRING),
-                    opt("width", DataType.NUMBER), opt("height", DataType.NUMBER)), List.of(
-                    out("image", DataType.STRING), out("legend", DataType.ARRAY)));
+            super("car-property-map");
             this.bare = bare;
         }
 
