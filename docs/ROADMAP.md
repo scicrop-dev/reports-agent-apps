@@ -229,12 +229,29 @@ Candidatos e as fontes que existem hoje, como ponto de partida da discussão (na
 | Centroide / área de geometria | cálculo (PostGIS no banco de destino), sem dado próprio |
 | Embargos, DETER, PRODES, ZARC na área | `gold.br_geo_agent_app_*` |
 
+**Estilo A primeiro.** A Fase 8 faz só Blocks de contrato fixo, escritos em código (os do CAR para
+o laudo socioambiental, catalogados em [BLOCKS.md](BLOCKS.md)). Os Dataset Blocks (estilo B,
+consulta livre sobre uma base liberada) e o prazo de atualização dos dados estão desenhados em
+[BLOCKS-FUTURO.md](BLOCKS-FUTURO.md) e entram depois.
+
 ### Fase 9 — Endurecimento e release 1.0.0
 
 - Limites e timeouts revisados, logs com `reportId`/`reportVersion`/`executionId`/`blockId` (§38).
 - Métricas de execução (§37) na tela de histórico.
 - Atualizar `AGENTS.md`/`ARCHITECTURE.md` deste repo com o que foi construído.
 - Versão nos três lugares, `.ispz` gerado **a partir da `main`**, instalação num IS real.
+
+### Depois da Fase 8 — Dataset Blocks e prazo dos dados (planejado)
+
+Desenho em [BLOCKS-FUTURO.md](BLOCKS-FUTURO.md), com etapas e critérios de pronto:
+
+- **Dataset Blocks (B1–B6):** o admin libera uma tabela do catálogo (`apps.reports_dataset`, colunas
+  expostas com papéis) e ela vira o Block `ds-<slug>`; o usuário monta a consulta no nó do Flow
+  (filtros, agrupamento, agregados, filtro espacial), compilada pelo app em SQL com allowlist,
+  parâmetros, `LIMIT` e timeout.
+- **Prazo de atualização (F1–F5):** prazo sugerido no código e decidido pelo admin na liberação,
+  política `WARN` (default) ou `BLOCK`, data dos dados gravada na execução e impressa no laudo
+  (`{{report.data.<nó>.updatedAt}}`).
 
 ### Depois do MVP
 
@@ -259,3 +276,4 @@ agendamento e distribuição (MASTER §22).
 | D7 | Guardar PDF ou regenerar | regenerar sob demanda a partir do contexto gravado | **decidido** |
 | D8 | Conjunto de Blocks do MVP | discussão na Fase 8 | Fase 8 |
 | D9 | Stack da UI | Thymeleaf como casca + JS puro em `static/app/`, CodeMirror 5 vendorado, preview em iframe sandbox | **decidido** (2026-10-26) |
+| D10 | Estilo dos Blocks | os dois: A (contrato fixo) na Fase 8; B (Dataset Blocks) depois, em [BLOCKS-FUTURO.md](BLOCKS-FUTURO.md) | **decidido** (2026-10-26) |
