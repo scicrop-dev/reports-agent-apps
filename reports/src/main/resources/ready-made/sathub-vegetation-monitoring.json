@@ -1,0 +1,25 @@
+{
+  "id": "sathub-vegetation-monitoring",
+  "version": "1.0.0",
+  "name": "Monitoramento de vegetação de um talhão",
+  "description": "Série temporal de um índice de vegetação (NDVI por padrão) de uma área do Satellite Hub, com gráfico e tabela das imagens Sentinel-2.",
+  "category": "Monitoramento",
+  "inputs": [
+    { "name": "areaId", "type": "number", "required": true, "label": "Id da área no Satellite Hub" },
+    { "name": "index", "type": "string", "required": false, "label": "Índice (ndvi, evi, savi, ndre, gndvi, ndmi, ndwi, nbr)" },
+    { "name": "days", "type": "number", "required": false, "label": "Dias de série (padrão 365)" }
+  ],
+  "flow": {
+    "nodes": [
+      { "id": "vegetation", "block": "sathub-index-series", "values": { "minValidPercent": 60 } }
+    ],
+    "connections": [
+      { "from": "inputs.areaId", "to": "vegetation.areaId" },
+      { "from": "inputs.index", "to": "vegetation.index" },
+      { "from": "inputs.days", "to": "vegetation.days" }
+    ]
+  },
+  "templateHtmlFile": "sathub-vegetation-monitoring.html",
+  "templateCssFile": "report-base.css",
+  "page": { "size": "A4", "orientation": "portrait", "marginMm": 18 }
+}

@@ -1,0 +1,102 @@
+<div class="running-header">
+  <span class="rh-title">Diagnóstico socioambiental de uma área</span>
+  <span class="rh-code">{{municipalities.main.name}} / {{municipalities.main.uf}}</span>
+</div>
+
+<div class="cover">
+  <div class="cover-kicker">Diagnóstico socioambiental</div>
+  <h1>{{#inputs.areaName}}{{inputs.areaName}}{{/inputs.areaName}}{{^inputs.areaName}}Área analisada{{/inputs.areaName}}</h1>
+  <p class="cover-sub">{{municipalities.areaHa}} ha em {{municipalities.main.name}} / {{municipalities.main.uf}} - bioma {{biomes.mainBiome}}</p>
+  <table class="meta">
+    <tr><th>Emitido em</th><td>{{report.generatedAt}}</td></tr>
+    <tr><th>Execução</th><td>{{#report.executionId}}nº {{report.executionId}} (versão {{report.version}} do relatório){{/report.executionId}}{{^report.executionId}}Prévia, não registrada no histórico{{/report.executionId}}</td></tr>
+  </table>
+</div>
+
+<div class="section">
+  <h2><span class="num">0</span> Síntese</h2>
+  <table class="flags">
+    <tr><td class="flag-label">Área</td><td><span class="flag-neutral">{{municipalities.areaHa}} ha</span></td></tr>
+    <tr><td class="flag-label">Embargos do IBAMA ativos</td><td>{{#embargoes.hasActive}}<span class="flag-bad">{{embargoes.activeCount}} termo(s)</span>, {{embargoes.activeOverlapHa}} ha{{/embargoes.hasActive}}{{^embargoes.hasActive}}<span class="flag-good">nenhum encontrado</span>{{/embargoes.hasActive}}</td></tr>
+    <tr><td class="flag-label">Alertas DETER</td><td>{{#deter.monitored}}{{#deter.byClass}}{{#-first}}<span class="flag-bad">{{deter.count}} alerta(s)</span>, {{deter.totalOverlapHa}} ha{{/-first}}{{/deter.byClass}}{{^deter.byClass}}<span class="flag-good">nenhum alerta</span>{{/deter.byClass}}{{/deter.monitored}}{{^deter.monitored}}<span class="flag-neutral">não monitorada</span>{{/deter.monitored}}</td></tr>
+    <tr><td class="flag-label">Desmatamento PRODES</td><td>{{#prodes.monitored}}{{#prodes.byProduct}}<span class="flag-bad">{{productName}}: {{deforestedHa}} ha</span> ({{firstYear}} a {{lastYear}})<br>{{/prodes.byProduct}}{{^prodes.byProduct}}<span class="flag-good">nenhum incremento</span>{{/prodes.byProduct}}{{/prodes.monitored}}{{^prodes.monitored}}<span class="flag-neutral">não monitorada</span>{{/prodes.monitored}}</td></tr>
+  </table>
+</div>
+
+<div class="section">
+  <h2><span class="num">1</span> Localização</h2>
+  <table class="kv">
+    <tr><th>Biomas (IBGE {{biomes.edition}})</th><td>{{#biomes.biomes}}{{name}}: {{percentOfArea}}% ({{intersectionHa}} ha)<br>{{/biomes.biomes}}{{^biomes.biomes}}fora dos biomas mapeados{{/biomes.biomes}}</td></tr>
+  </table>
+  {{#municipalities.municipalities}}{{#-first}}
+  <table class="grid">
+    <thead><tr><th>Município</th><th>UF</th><th>Código IBGE</th><th class="r">Área (ha)</th><th class="r">% da área</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr><td>{{name}}</td><td>{{uf}}</td><td class="code">{{ibgeCode}}</td><td class="r">{{intersectionHa}}</td><td class="r">{{percentOfArea}}</td></tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/municipalities.municipalities}}
+  {{^municipalities.municipalities}}<p class="alert">A área não cruza nenhum município brasileiro: confira se a geometria está em SIRGAS 2000 (longitude, latitude).</p>{{/municipalities.municipalities}}
+</div>
+
+<div class="section">
+  <h2><span class="num">2</span> Embargos do IBAMA</h2>
+  {{#embargoes.embargoes}}{{#-first}}
+  <table class="grid">
+    <thead><tr><th>Termo (TAD)</th><th>Data</th><th>Situação</th><th>Tipo de área</th><th class="r">Área embargada (ha)</th><th class="r">Na área (ha)</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr><td class="code">{{term}}</td><td class="nowrap">{{embargoedAt}}</td><td>{{#active}}<strong>ativo</strong>{{/active}}{{#lifted}}desembargado {{liftedAt}}{{/lifted}}{{#cancelled}}cancelado{{/cancelled}}</td><td>{{areaType}}</td><td class="r">{{embargoedAreaHa}}</td><td class="r">{{overlapHa}}</td></tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/embargoes.embargoes}}
+  {{^embargoes.embargoes}}<p class="ok">Nenhum termo de embargo do IBAMA foi encontrado na área.</p>{{/embargoes.embargoes}}
+</div>
+
+<div class="section">
+  <h2><span class="num">3</span> Alertas DETER</h2>
+  {{#deter.monitored}}
+  {{#deter.byClass}}{{#-first}}
+  <table class="grid">
+    <thead><tr><th>Classe</th><th class="r">Alertas</th><th class="r">Área (ha)</th><th>Primeiro</th><th>Último</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr><td>{{className}}</td><td class="r">{{count}}</td><td class="r">{{overlapHa}}</td><td class="nowrap">{{firstDate}}</td><td class="nowrap">{{lastDate}}</td></tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/deter.byClass}}
+  {{^deter.byClass}}<p class="ok">Nenhum alerta do DETER na área.</p>{{/deter.byClass}}
+  {{/deter.monitored}}
+  {{^deter.monitored}}<p class="alert">A área não está coberta por um produto DETER carregado: ausência de alerta não significa ausência de desmatamento.</p>{{/deter.monitored}}
+</div>
+
+<div class="section">
+  <h2><span class="num">4</span> Desmatamento PRODES</h2>
+  {{#prodes.monitored}}
+  {{#prodes.byYear}}{{#-first}}
+  <table class="grid">
+    <thead><tr><th>Produto</th><th class="r">Ano PRODES</th><th class="r">Polígonos</th><th class="r">Área (ha)</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr><td>{{productName}}</td><td class="r">{{year}}</td><td class="r">{{polygons}}</td><td class="r">{{deforestedHa}}</td></tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/prodes.byYear}}
+  {{^prodes.byYear}}<p class="ok">Nenhum incremento do PRODES mapeado na área.</p>{{/prodes.byYear}}
+  {{/prodes.monitored}}
+  {{^prodes.monitored}}<p class="alert">A área não está coberta por um produto PRODES carregado.</p>{{/prodes.monitored}}
+</div>
+
+<div class="section">
+  <h2><span class="num">5</span> Fontes e limitações</h2>
+  <ul class="sources">
+    <li>IBGE (municípios e biomas), IBAMA (termos de embargo), INPE (DETER e PRODES), mantidos em versões pelo br-geo-agent-app.</li>
+    <li>Áreas em SIRGAS 2000 (EPSG:4674), com cálculo geodésico. Só a parte poligonal da geometria é analisada.</li>
+    <li>O diagnóstico reúne bases públicas e não substitui vistoria nem a consulta aos órgãos ambientais estaduais.</li>
+  </ul>
+</div>

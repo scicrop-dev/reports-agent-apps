@@ -23,6 +23,14 @@ import com.infinitestack.reports.engine.block.BlockRegistry;
 import com.infinitestack.reports.engine.block.ReportBlock;
 import com.infinitestack.reports.engine.flow.FlowValidator;
 import com.infinitestack.reports.support.CarBlockContractStubs;
+import com.infinitestack.reports.support.GeoBlockContractStubs;
+import com.infinitestack.reports.blocks.brgeo.BrGeoBiomesBlock;
+import com.infinitestack.reports.blocks.brgeo.BrGeoCropProductionBlock;
+import com.infinitestack.reports.blocks.brgeo.BrGeoDeterAlertsBlock;
+import com.infinitestack.reports.blocks.brgeo.BrGeoEmbargoesBlock;
+import com.infinitestack.reports.blocks.brgeo.BrGeoMunicipalitiesBlock;
+import com.infinitestack.reports.blocks.brgeo.BrGeoProdesBlock;
+import com.infinitestack.reports.blocks.sathub.SatelliteHubIndexSeriesBlock;
 import com.infinitestack.reports.template.HtmlSanitizer;
 import com.infinitestack.reports.template.TemplateRenderer;
 import com.infinitestack.reports.template.TemplateScope;
@@ -38,14 +46,19 @@ class ReadyMadeAgainstRealBlocksTest {
 
     private static List<ReportBlock> realBlocks() {
         return List.of(new CarPropertyBlock(null), new CarPropertyGeometryBlock(null), new CarEnvironmentalLayersBlock(null),
-                new CarOverlapsBlock(null), new CarHistoryBlock(null), new CarPropertyMapBlock(null));
+                new CarOverlapsBlock(null), new CarHistoryBlock(null), new CarPropertyMapBlock(null),
+                new BrGeoMunicipalitiesBlock(null), new BrGeoBiomesBlock(null), new BrGeoEmbargoesBlock(null),
+                new BrGeoDeterAlertsBlock(null), new BrGeoProdesBlock(null), new BrGeoCropProductionBlock(null),
+                new SatelliteHubIndexSeriesBlock(null));
     }
 
     @Test
     void stubsHaveExactlyThePortsOfTheRealBlocks() {
         Map<String, BlockDefinition> real = realBlocks().stream().map(ReportBlock::definition)
                 .collect(Collectors.toMap(BlockDefinition::id, Function.identity()));
-        for (ReportBlock stub : CarBlockContractStubs.all(false)) {
+        List<ReportBlock> stubs = new java.util.ArrayList<>(CarBlockContractStubs.all(false));
+        stubs.addAll(GeoBlockContractStubs.all(false));
+        for (ReportBlock stub : stubs) {
             BlockDefinition s = stub.definition();
             BlockDefinition r = real.get(s.id());
             assertTrue(r != null, "stub " + s.id() + " has no real block");
