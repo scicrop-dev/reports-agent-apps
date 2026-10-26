@@ -15,15 +15,15 @@ de banco. O app não cuida de nada disso.
 | Diretório | `plugin_id` | Pacote Java |
 |---|---|---|
 | `reports` | `reports` | `com.infinitestack.reports` |
-| `recomendador-manejo` | `recomendador-manejo` | `com.infinitestack.recomendador` |
 
 Este repositório (`scicrop-dev/reports-agent-apps`, em `apps/reports-agent-apps/` no workspace) é o
 do **REPORTS**. O produto está descrito em [docs/MASTER.md](docs/MASTER.md), a arquitetura em
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) e a ordem de implementação em
 [docs/ROADMAP.md](docs/ROADMAP.md). Leia os três antes de mexer no app. O app fica em `reports/`; o
 mapa do código e as decisões de implementação estão na seção 47 do ARCHITECTURE.md.
-`recomendador-manejo` fica como exemplo de referência do contrato. Agent apps novos não entram aqui: cada um tem repo próprio em
-`apps/<nome>/`.
+Hoje `reports` é o único app do repo (o `recomendador-manejo`, que servia só de exemplo do contrato,
+saiu em 2026-10-26; o original continua em `infinitestack-agent-apps`). Agent apps novos não entram
+aqui: cada um tem repo próprio em `apps/<nome>/`.
 
 Não há build agregado na raiz. Cada app tem seu próprio `pom.xml`, `scripts/` e `.gitignore`.
 Trabalhe sempre dentro do diretório do app afetado e não altere outros apps de carona.
@@ -135,13 +135,12 @@ Fora do código-fonte, issues, PRs, documentação `.md` do repositório e conve
 Siga [design.md](design.md), com Thymeleaf: tema escuro com os tokens de `:root`, system font, header +
 sidebar 320px + conteúdo, `body` travado em `100vh` com scroll só nos painéis, botão primário verde
 (`--accent`), spinner CSS e bolinha de status para estados longos, texto em pt-BR. Para começar uma
-tela nova, copie a estrutura de `recomendador-manejo` (formulário → resultado) ou de `satellite-hub`
-(mapa/visualização). O design.md ainda o chama de `satellite-hub-viewer`.
+tela nova, parta do próprio `reports/` ou, em `infinitestack-agent-apps`, de `recomendador-manejo`
+(formulário → resultado) ou `satellite-hub` (mapa/visualização). O design.md chama este de `satellite-hub-viewer`.
 
 **Link de volta ao IS:** o README exige um link no `<header>` de `isp-index.html` para
 `/agents/apps` com `target="_parent"` (ou `window.parent.location`). Essa regra é mais nova que a §1
-do design.md ("sem links voltar") e prevalece sobre ela. Hoje só `recomendador-manejo` cumpre a regra.
-Ao mexer no header de outro app, adicione o link.
+do design.md ("sem links voltar") e prevalece sobre ela. O `reports` cumpre a regra (`.btn-back` no header).
 
 ## Versionamento e release
 

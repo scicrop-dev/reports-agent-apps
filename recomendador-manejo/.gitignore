@@ -1,6 +1,0 @@
-target/
-build/staging/
-build/plugin.jar
-out/
-*.ispz
-.mvn/
