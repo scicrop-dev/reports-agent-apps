@@ -16,6 +16,13 @@ de banco. O app não cuida de nada disso.
 |---|---|---|
 | `recomendador-manejo` | `recomendador-manejo` | `com.infinitestack.recomendador` |
 
+Este repositório (`scicrop-dev/reports-agent-apps`, em `apps/reports-agent-apps/` no workspace) é o
+do **REPORTS**. O produto está descrito em [docs/MASTER.md](docs/MASTER.md), a arquitetura em
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) e a ordem de implementação em
+[docs/ROADMAP.md](docs/ROADMAP.md). Leia os três antes de mexer no app. `recomendador-manejo` fica como
+exemplo de referência do contrato. Agent apps novos não entram aqui: cada um tem repo próprio em
+`apps/<nome>/`.
+
 Não há build agregado na raiz. Cada app tem seu próprio `pom.xml`, `scripts/` e `.gitignore`.
 Trabalhe sempre dentro do diretório do app afetado e não altere outros apps de carona.
 
