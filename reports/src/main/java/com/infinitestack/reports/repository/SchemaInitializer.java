@@ -107,6 +107,13 @@ public class SchemaInitializer {
         """
         ALTER TABLE %1$s.reports_execution ADD COLUMN IF NOT EXISTS rerun_of BIGINT
         """,
+        // A report copied from a ready-made report remembers which one, and its version at the copy.
+        """
+        ALTER TABLE %1$s.reports_report ADD COLUMN IF NOT EXISTS ready_made_id VARCHAR(100)
+        """,
+        """
+        ALTER TABLE %1$s.reports_report ADD COLUMN IF NOT EXISTS ready_made_version VARCHAR(40)
+        """,
         // One row per released Block. availability is the catalog diagnosis at the moment of release.
         """
         CREATE TABLE IF NOT EXISTS %1$s.reports_block_release (

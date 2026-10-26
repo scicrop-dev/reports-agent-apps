@@ -53,6 +53,10 @@ mvn -q test                  # testes (nem todo app tem; ver src/test)
 - **Não há Blocks de produto** antes da Fase 8 do ROADMAP. Os Blocks de `src/test/.../support/TestBlocks`
   não entram no `.ispz`.
 - A UI segue a regra de idioma (seção "Idioma", abaixo): textos de interface em inglês no código-fonte.
+- **Relatório pronto novo:** `reports/src/main/resources/ready-made/<id>.json` (+ `<id>.html`/`<id>.css`),
+  formato e regras em [docs/READY-MADE-REPORTS.md](docs/READY-MADE-REPORTS.md). `mvn -q test` valida
+  todos contra os contratos dos Blocks e gera HTML/PDF em `reports/target/ready-made/` para conferir.
+  O conteúdo do relatório (template, nome, descrição) fica no idioma do relatório, não em inglês.
 - Template novo além de `isp-index`/`isp-status` não existe: a UI é uma página só, com JS em
   `static/app/*.js` e CodeMirror 5.65.16 vendorado em `static/vendor/codemirror/`.
 

@@ -1,5 +1,5 @@
 /*
- * The REPORTS panel: report list, the editor (Inputs, Flow, Template), Preview and PDF,
+ * The REPORTS panel: report list, ready-made reports, the editor (Inputs, Flow, Template), Preview and PDF,
  * execution history with re-run, version diff, and the Blocks screen.
  *
  * State lives in one object; each section re-renders from it. Saving sends the whole draft; the
@@ -19,6 +19,8 @@
         me: null,
         blocks: [],
         reports: [],
+        readyMade: [],
+        readyMadeOpen: null, // id of the ready-made whose "Use" form is open
         report: null,
         versions: [],
         view: null,         // VersionView of the selected version
@@ -146,6 +148,65 @@
         await selectReport(report.id);
     }
 
+    // ---------------------------------------------------------------- ready-made reports
+
+    async function loadReadyMade() {
+        state.readyMade = await api.get('/ready-made');
+        renderReadyMade();
+    }
+
+    function renderReadyMade() {
+        const list = clear($('ready-made-list'));
+        if (!state.readyMade.length) {
+            list.appendChild(el('div.placeholder.small', null, 'No ready-made report yet.'));
+            return;
+        }
+        state.readyMade.forEach((r) => list.appendChild(readyMadeCard(r)));
+    }
+
+    function readyMadeCard(r) {
+        const card = el('div.card.ready-made', null,
+            el('div.ready-made-head', null, el('strong', null, r.name), r.category ? el('span.chip', null, r.category) : null),
+            r.description ? el('div.muted', null, r.description) : null,
+            el('div.ready-made-blocks', { title: 'Blocks this report needs' },
+                r.blocks.map((b) => el('span.chip.' + (b.usable ? 'ok' : 'error'),
+                    { title: b.usable ? 'Usable' : 'Unavailable: ' + b.problem }, b.id))));
+        if (!r.runnable) {
+            card.appendChild(el('div.ready-made-note', null, state.me && state.me.admin
+                ? 'Some blocks are unavailable. You can create the report now; it runs once they are released on the Blocks screen.'
+                : 'Some blocks are unavailable. You can create the report now; it runs once an admin releases them.'));
+        }
+        if (state.readyMadeOpen !== r.id) {
+            card.appendChild(el('div.row', null,
+                el('button.btn', { onclick: () => { state.readyMadeOpen = r.id; renderReadyMade(); } }, 'Use'),
+                el('span.muted', null, 'v' + r.version)));
+            return card;
+        }
+        // Inline name field instead of a browser dialog, which would block the host's iframe.
+        const name = el('input', { placeholder: r.name, maxlength: 200, 'aria-label': 'Name of the new report' });
+        const createButton = el('button.btn', { onclick: () => create() }, 'Create');
+        const create = () => guarded(createButton, () => useReadyMade(r, name.value.trim()));
+        name.addEventListener('keydown', (e) => { if (e.key === 'Enter') create(); });
+        card.appendChild(el('div.field', null, el('label', null, 'Name of your report (optional)'), name));
+        card.appendChild(el('div.row', null, createButton,
+            el('button.btn-secondary', { onclick: () => { state.readyMadeOpen = null; renderReadyMade(); } }, 'Cancel')));
+        setTimeout(() => name.focus(), 0);
+        return card;
+    }
+
+    async function useReadyMade(readyMade, name) {
+        if (!confirmDiscard()) return;
+        const report = await api.post('/ready-made/' + readyMade.id + '/instantiate', name ? { name } : {});
+        state.readyMadeOpen = null;
+        renderReadyMade();
+        await loadReports();
+        await selectReport(report.id);
+        showMessage(readyMade.runnable
+            ? 'Report created from "' + readyMade.name + '". Fill the inputs on the Preview tab to run it.'
+            : 'Report created from "' + readyMade.name + '". It cannot run until the unavailable blocks are released.',
+            readyMade.runnable ? 'ok' : 'warn');
+    }
+
     async function selectReport(id, versionNumber) {
         state.report = await api.get('/reports/' + id);
         state.versions = await api.get('/reports/' + id + '/versions');
@@ -179,6 +240,7 @@
         const r = state.report;
         $('report-name').textContent = r.name;
         $('report-meta').textContent = (r.description ? r.description + ' - ' : '') + 'owner ' + (r.ownerName || r.ownerId)
+            + (r.readyMadeId ? ' - from ready-made ' + r.readyMadeId + ' v' + r.readyMadeVersion : '')
             + ' - updated ' + formatDate(r.updatedAt);
         const select = clear($('version-select'));
         state.versions.forEach((v) => select.appendChild(el('option', { value: v.version },
@@ -667,6 +729,7 @@
             }
             await loadBlocks();
             await loadReports();
+            await loadReadyMade();
             setStatus('ready', true);
             showSection('reports');
         } catch (e) {

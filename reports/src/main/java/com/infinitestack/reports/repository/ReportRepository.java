@@ -52,11 +52,18 @@ public class ReportRepository {
     }
 
     public long insert(String name, String description, String ownerId, String ownerName) {
+        return insert(name, description, ownerId, ownerName, null, null);
+    }
+
+    /** @param readyMadeId null unless the report is a copy of a ready-made report */
+    public long insert(String name, String description, String ownerId, String ownerName,
+                       String readyMadeId, String readyMadeVersion) {
         initializer.requireReady();
         Timestamp now = Timestamp.from(Instant.now());
         return jdbc.queryForObject("INSERT INTO " + report()
-                + " (name, description, owner_id, owner_name, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
-                Long.class, name, description, ownerId, ownerName, now, now);
+                + " (name, description, owner_id, owner_name, created_at, updated_at, ready_made_id, ready_made_version)"
+                + " VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
+                Long.class, name, description, ownerId, ownerName, now, now, readyMadeId, readyMadeVersion);
     }
 
     public void update(long id, String name, String description) {
@@ -127,7 +134,8 @@ public class ReportRepository {
         Integer published = rs.getObject("published_version", Integer.class);
         return new Report(rs.getLong("id"), rs.getString("name"), rs.getString("description"),
                 rs.getString("owner_id"), rs.getString("owner_name"), published,
-                instant(rs, "created_at"), instant(rs, "updated_at"));
+                instant(rs, "created_at"), instant(rs, "updated_at"),
+                rs.getString("ready_made_id"), rs.getString("ready_made_version"));
     }
 
     private ReportVersion mapVersion(ResultSet rs) throws SQLException {
