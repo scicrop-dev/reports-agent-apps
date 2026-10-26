@@ -22,6 +22,7 @@ import com.infinitestack.reports.engine.flow.FlowDefinition;
 import com.infinitestack.reports.engine.flow.FlowNode;
 import com.infinitestack.reports.engine.flow.FlowValidationException;
 import com.infinitestack.reports.engine.flow.FlowValidator;
+import com.infinitestack.reports.readymade.ReadyMadeReport;
 import com.infinitestack.reports.report.InputDefinition;
 import com.infinitestack.reports.report.PageSettings;
 import com.infinitestack.reports.report.Report;
@@ -76,6 +77,22 @@ public class ReportService {
         Instant now = Instant.now();
         repository.insertVersion(new ReportVersion(id, 1, VersionStatus.DRAFT, List.of(), FlowDefinition.empty(),
                 "", "", PageSettings.defaults(), user.id(), now, now, null));
+        return get(id);
+    }
+
+    /**
+     * Creates the caller's own copy of a ready-made report: version 1 as a DRAFT holding its content,
+     * with the origin (id and version) recorded. The draft is not validated here: Blocks may still be
+     * unreleased, and the version view says so.
+     */
+    @Transactional
+    public Report createFromReadyMade(ReadyMadeReport readyMade, String name, CurrentUser user) {
+        String checked = requireName(new ReportRequest(name, readyMade.description()));
+        long id = repository.insert(checked, readyMade.description(), user.id(), user.username(),
+                readyMade.id(), readyMade.version());
+        Instant now = Instant.now();
+        repository.insertVersion(new ReportVersion(id, 1, VersionStatus.DRAFT, readyMade.inputs(), readyMade.flow(),
+                readyMade.templateHtml(), readyMade.templateCss(), readyMade.page(), user.id(), now, now, null));
         return get(id);
     }
 
@@ -207,7 +224,7 @@ public class ReportService {
                 PageSettings.orDefaults(version.page()).problems(), blockProblems);
     }
 
-    static List<String> validateInputs(List<InputDefinition> inputs) {
+    public static List<String> validateInputs(List<InputDefinition> inputs) {
         List<String> problems = new ArrayList<>();
         Set<String> names = new HashSet<>();
         for (InputDefinition input : inputs) {

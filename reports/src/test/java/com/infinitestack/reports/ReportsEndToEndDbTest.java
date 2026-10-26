@@ -92,8 +92,50 @@ class ReportsEndToEndDbTest {
     }
 
     private JsonNode json(MockHttpServletRequestBuilder request, int expectedStatus) throws Exception {
-        String body = mvc.perform(request).andExpect(status().is(expectedStatus)).andReturn().getResponse().getContentAsString();
+        String body = mvc.perform(request).andExpect(status().is(expectedStatus)).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
         return body.isEmpty() ? null : mapper.readTree(body);
+    }
+
+    /** The CAR Blocks are not in this context: the ready-made is listed as not runnable but can still be copied. */
+    @Test
+    void instantiatesAReadyMadeReport() throws Exception {
+        JsonNode list = json(as(get(BASE + "/ready-made"), "USER"), 200);
+        JsonNode laudo = null;
+        for (JsonNode item : list) if ("car-socioenvironmental".equals(item.get("id").asText())) laudo = item;
+        org.junit.jupiter.api.Assertions.assertNotNull(laudo, list.toString());
+        org.junit.jupiter.api.Assertions.assertFalse(laudo.get("runnable").asBoolean());
+        org.junit.jupiter.api.Assertions.assertEquals(6, laudo.get("blocks").size());
+        org.junit.jupiter.api.Assertions.assertFalse(laudo.at("/blocks/0/usable").asBoolean());
+        org.junit.jupiter.api.Assertions.assertTrue(laudo.at("/blocks/0/problem").asText().contains("is not released"));
+
+        mvc.perform(as(get(BASE + "/ready-made/car-socioenvironmental"), "USER"))
+                .andExpect(jsonPath("$.content.flow.nodes.length()").value(6))
+                .andExpect(jsonPath("$.content.templateHtml", containsString("{{property.codImovel}}")));
+        mvc.perform(as(get(BASE + "/ready-made/nope"), "USER")).andExpect(status().isNotFound());
+        mvc.perform(as(post(BASE + "/ready-made/nope/instantiate"), "USER").content("{}")).andExpect(status().isNotFound());
+
+        JsonNode created = json(as(post(BASE + "/ready-made/car-socioenvironmental/instantiate"), "USER")
+                .content("{\"name\":\"Laudo da fazenda\"}"), 201);
+        long id = created.get("id").asLong();
+        org.junit.jupiter.api.Assertions.assertEquals("Laudo da fazenda", created.get("name").asText());
+        org.junit.jupiter.api.Assertions.assertEquals("user", created.get("ownerId").asText());
+        org.junit.jupiter.api.Assertions.assertEquals("car-socioenvironmental", created.get("readyMadeId").asText());
+        org.junit.jupiter.api.Assertions.assertEquals(laudo.get("version").asText(), created.get("readyMadeVersion").asText());
+
+        // Version 1 is a draft holding the ready-made content; it cannot run until the Blocks exist and are released.
+        mvc.perform(as(get(BASE + "/reports/" + id + "/versions/1"), "USER"))
+                .andExpect(jsonPath("$.version.status").value("DRAFT"))
+                .andExpect(jsonPath("$.version.inputs[0].name").value("codImovel"))
+                .andExpect(jsonPath("$.version.flow.nodes.length()").value(6))
+                .andExpect(jsonPath("$.version.page.marginMm").value(18))
+                .andExpect(jsonPath("$.version.templateCss", containsString("counter(pages)")));
+
+        // Without a body the name is the ready-made's own.
+        mvc.perform(as(post(BASE + "/ready-made/car-socioenvironmental/instantiate"), "OTHER"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.name").value(laudo.get("name").asText()))
+                .andExpect(jsonPath("$.ownerId").value("other"));
+        mvc.perform(as(get(BASE + "/reports"), "USER")).andExpect(jsonPath("$[*].readyMadeId", hasItem("car-socioenvironmental")));
     }
 
     @Test

@@ -32,6 +32,13 @@ public final class TemplateScope {
         Map<String, Field> inputFields = new LinkedHashMap<>();
         for (InputDefinition input : inputs) inputFields.put(input.name(), new Field(input.type(), "report input"));
         scope.namespaces.put(FlowDefinition.INPUTS, inputFields);
+        Map<String, Field> reportFields = new LinkedHashMap<>();
+        reportFields.put("name", new Field(DataType.STRING, "report"));
+        reportFields.put("version", new Field(DataType.NUMBER, "report"));
+        reportFields.put("executionId", new Field(DataType.NUMBER, "report"));
+        reportFields.put("generatedAt", new Field(DataType.STRING, "report"));
+        reportFields.put("generatedAtIso", new Field(DataType.DATETIME, "report"));
+        scope.namespaces.put(FlowDefinition.REPORT, reportFields);
         for (FlowNode node : flow.nodes()) {
             Optional<ReportBlock> block = registry.find(node.block());
             if (block.isEmpty() || node.id() == null) continue;

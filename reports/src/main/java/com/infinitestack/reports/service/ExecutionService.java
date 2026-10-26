@@ -140,7 +140,9 @@ public class ExecutionService {
         ReportVersion version = reports.version(execution.reportId(), execution.reportVersion());
         try {
             return templateRenderer.render(report.name(), version.templateHtml(), version.templateCss(), version.page(),
-                    ExecutionContext.templateModel(execution.inputs(), execution.values()));
+                    ExecutionContext.templateModel(execution.inputs(), execution.values(), ExecutionContext.reportMetadata(
+                            report.name(), execution.reportVersion(), execution.id(),
+                            execution.finishedAt() != null ? execution.finishedAt() : execution.createdAt())));
         } catch (TemplateException e) {
             throw ApiException.conflict("The result cannot be rendered", e.problems());
         }
@@ -227,7 +229,9 @@ public class ExecutionService {
         // RENDERING
         try {
             String html = templateRenderer.render(prepared.report().name(), prepared.version().templateHtml(),
-                    prepared.version().templateCss(), prepared.version().page(), run.context().templateModel());
+                    prepared.version().templateCss(), prepared.version().page(), run.context().templateModel(
+                            ExecutionContext.reportMetadata(prepared.report().name(), prepared.version().version(),
+                                    executionId, Instant.now())));
             Instant finishedAt = Instant.now();
             return new Outcome(ExecutionStatus.COMPLETED, startedAt, finishedAt, Duration.between(startedAt, finishedAt).toMillis(),
                     values, blockVersions, run.blocks(), null, html);

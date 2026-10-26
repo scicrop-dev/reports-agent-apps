@@ -1,0 +1,31 @@
+{
+  "id": "car-socioenvironmental",
+  "version": "1.0.0",
+  "name": "Laudo socioambiental do imóvel CAR",
+  "description": "Identificação, localização, situação do cadastro, uso e cobertura declarados e sobreposições de um imóvel do CAR, a partir dos dados do SICAR.",
+  "category": "Socioambiental",
+  "inputs": [
+    { "name": "codImovel", "type": "string", "required": true, "label": "Código do imóvel no CAR" }
+  ],
+  "flow": {
+    "nodes": [
+      { "id": "property", "block": "car-property" },
+      { "id": "geometry", "block": "car-property-geometry" },
+      { "id": "layers", "block": "car-environmental-layers" },
+      { "id": "overlaps", "block": "car-overlaps" },
+      { "id": "history", "block": "car-history" },
+      { "id": "map", "block": "car-property-map" }
+    ],
+    "connections": [
+      { "from": "inputs.codImovel", "to": "property.codImovel" },
+      { "from": "inputs.codImovel", "to": "geometry.codImovel" },
+      { "from": "inputs.codImovel", "to": "layers.codImovel" },
+      { "from": "inputs.codImovel", "to": "overlaps.codImovel" },
+      { "from": "inputs.codImovel", "to": "history.codImovel" },
+      { "from": "inputs.codImovel", "to": "map.codImovel" }
+    ]
+  },
+  "templateHtmlFile": "car-socioenvironmental.html",
+  "templateCssFile": "car-socioenvironmental.css",
+  "page": { "size": "A4", "orientation": "portrait", "marginMm": 18 }
+}

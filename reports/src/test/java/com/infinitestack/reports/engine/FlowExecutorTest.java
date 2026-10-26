@@ -45,7 +45,7 @@ class FlowExecutorTest {
         assertTrue(run.completed());
         assertEquals(3.0, run.context().values().get("first").get("total"));
         assertEquals(13.0, run.context().values().get("second").get("total"));
-        assertEquals(1, run.context().templateModel().get("inputs") instanceof Map<?, ?> m ? m.get("n") : null);
+        assertEquals(1, run.context().templateModel(Map.of()).get("inputs") instanceof Map<?, ?> m ? m.get("n") : null);
         assertEquals(List.of("first", "second"), run.blocks().stream().map(BlockRun::nodeId).toList());
     }
 

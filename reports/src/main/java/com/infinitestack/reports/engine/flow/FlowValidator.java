@@ -57,8 +57,8 @@ public class FlowValidator {
                 problems.add("node id '" + node.id() + "' is invalid (letters, digits and _; starts with a letter)");
                 continue;
             }
-            if (FlowDefinition.INPUTS.equals(node.id())) {
-                problems.add("node id 'inputs' is reserved for the report inputs");
+            if (FlowDefinition.INPUTS.equals(node.id()) || FlowDefinition.REPORT.equals(node.id())) {
+                problems.add("node id '" + node.id() + "' is reserved");
                 continue;
             }
             if (nodes.putIfAbsent(node.id(), node) != null) {

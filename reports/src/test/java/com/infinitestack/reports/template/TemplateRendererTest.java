@@ -98,7 +98,8 @@ class TemplateRendererTest {
 
     @Test
     void variablesAreOfferedFromInputsAndBlockOutputs() {
-        assertEquals(List.of("inputs.name", "area.code", "area.details"),
+        assertEquals(List.of("inputs.name", "report.name", "report.version", "report.executionId", "report.generatedAt",
+                        "report.generatedAtIso", "area.code", "area.details"),
                 scope.variables().stream().map(TemplateScope.Variable::path).toList());
     }
 }

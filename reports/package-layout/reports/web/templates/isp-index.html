@@ -188,6 +188,16 @@
         .diff-same { color: var(--muted); }
         details > summary { cursor: pointer; margin: 4px 0; }
 
+        /* Ready-made reports */
+        #ready-made-list { margin-top: 8px; }
+        .ready-made { padding: 10px 12px; margin-bottom: 8px; }
+        .ready-made-head { display: flex; align-items: flex-start; gap: 6px; justify-content: space-between; }
+        .ready-made-head strong { font-size: 13px; font-weight: 600; }
+        .ready-made .muted { margin: 4px 0 6px; }
+        .ready-made-blocks { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+        .ready-made-note { font-size: 11px; color: var(--warn); margin-bottom: 6px; }
+        .ready-made .row { margin-top: 6px; }
+
         /* Blocks */
         .block-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
         .ports-summary { margin: 8px 0; display: grid; gap: 4px; }
@@ -221,6 +231,9 @@
             <div class="field"><input id="new-report-name" placeholder="Name"></div>
             <div class="field"><input id="new-report-description" placeholder="Description (optional)"></div>
             <button class="btn full" id="btn-create">Create report</button>
+            <div class="section-title">Ready-made reports</div>
+            <p class="muted">Start from a report someone already built. You get your own copy to run and change.</p>
+            <div id="ready-made-list"></div>
             <div class="section-title">Reports</div>
             <div id="report-list"></div>
         </div>

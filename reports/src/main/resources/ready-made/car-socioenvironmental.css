@@ -1,0 +1,102 @@
+/*
+ * Laudo socioambiental do imóvel CAR. Written for openhtmltopdf: CSS 2.1 + paged media only
+ * (no flex, no grid). The page size and margin come from the report's page settings (A4, 18 mm).
+ */
+
+@page {
+  @top-left { content: element(header); }
+  @bottom-left { content: "Laudo socioambiental - dados declarados no SICAR"; font-family: Helvetica, Arial, sans-serif; font-size: 7.5pt; color: #6b7280; }
+  @bottom-right { content: "Página " counter(page) " de " counter(pages); font-family: Helvetica, Arial, sans-serif; font-size: 7.5pt; color: #6b7280; }
+}
+
+body {
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 9.5pt;
+  line-height: 1.4;
+  color: #1f2933;
+  margin: 0;
+}
+
+/* Running header: on every PDF page; in the HTML preview it shows once, at the top. */
+.running-header {
+  position: running(header);
+  width: 100%;
+  font-size: 7.5pt;
+  color: #6b7280;
+  border-bottom: 0.5pt solid #9ca3af;
+  padding-bottom: 2pt;
+}
+.rh-title { font-weight: bold; color: #1f4d3a; }
+.rh-code { float: right; font-family: "Courier New", Courier, monospace; }
+
+/* Cover block */
+.cover {
+  border-top: 3pt solid #1f4d3a;
+  padding-top: 10pt;
+  margin: 6pt 0 16pt 0;
+  page-break-inside: avoid;
+}
+.cover-kicker { font-size: 8pt; text-transform: uppercase; letter-spacing: 1pt; color: #1f4d3a; font-weight: bold; }
+h1 { font-size: 17pt; margin: 4pt 0 2pt 0; color: #111827; font-weight: bold; }
+.cover-sub { font-size: 11pt; color: #4b5563; margin: 0 0 10pt 0; }
+
+/* Sections */
+.section { margin: 0 0 14pt 0; }
+h2 {
+  font-size: 12pt;
+  color: #1f4d3a;
+  border-bottom: 1pt solid #1f4d3a;
+  padding-bottom: 2pt;
+  margin: 0 0 8pt 0;
+  page-break-after: avoid;
+}
+h2 .num {
+  display: inline-block;
+  width: 16pt;
+  color: #ffffff;
+  background-color: #1f4d3a;
+  text-align: center;
+  margin-right: 4pt;
+}
+h3 { font-size: 10pt; color: #374151; margin: 10pt 0 5pt 0; page-break-after: avoid; }
+p { margin: 0 0 6pt 0; }
+
+/* Tables */
+table { width: 100%; border-collapse: collapse; margin: 0 0 8pt 0; page-break-inside: avoid; }
+tr { page-break-inside: avoid; }
+th, td { text-align: left; vertical-align: top; padding: 3pt 5pt; }
+
+table.meta th, table.kv th { width: 38%; color: #4b5563; font-weight: normal; background-color: #f3f4f6; border: 0.5pt solid #d1d5db; }
+table.meta td, table.kv td { border: 0.5pt solid #d1d5db; }
+
+table.grid { font-size: 8.5pt; }
+table.grid th { background-color: #1f4d3a; color: #ffffff; font-weight: bold; border: 0.5pt solid #1f4d3a; }
+table.grid td { border: 0.5pt solid #d1d5db; }
+.r { text-align: right; }
+.code { font-family: "Courier New", Courier, monospace; font-size: 8.5pt; }
+td.themes { font-size: 7.5pt; color: #4b5563; }
+
+/* Highlights (Reserva Legal, vegetação nativa, APP) */
+table.highlights { border-collapse: collapse; }
+td.highlight { width: 33%; border: 0.5pt solid #d1d5db; border-top: 3pt solid #1f4d3a; padding: 6pt 8pt; background-color: #f9fafb; }
+.hl-label { font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.5pt; color: #4b5563; }
+.hl-value { font-size: 16pt; font-weight: bold; color: #1f4d3a; }
+.hl-sub { font-size: 8pt; color: #6b7280; }
+
+/* Map */
+.map-block { page-break-inside: avoid; margin: 0 0 8pt 0; }
+img.map { display: block; width: 90%; margin: 0 auto; border: 0.5pt solid #9ca3af; }
+.legend { font-size: 7.5pt; color: #374151; margin-top: 3pt; text-align: center; }
+.legend-title { font-weight: bold; margin-right: 4pt; }
+.legend-item { display: inline-block; margin-right: 8pt; white-space: nowrap; }
+.swatch { display: inline-block; width: 8pt; height: 8pt; border: 0.5pt solid #6b7280; vertical-align: middle; }
+.swatch-outline { border: 1.5pt solid #b71c1c; background-color: #ffffff; }
+.swatch-neighbor { border: 1pt solid #bdbdbd; background-color: #ffffff; }
+
+/* Messages */
+.alert { border-left: 3pt solid #b45309; background-color: #fef3c7; color: #78350f; padding: 5pt 8pt; page-break-inside: avoid; }
+.ok { border-left: 3pt solid #1f4d3a; background-color: #ecfdf5; color: #14532d; padding: 5pt 8pt; }
+.empty { color: #6b7280; font-style: italic; }
+.note { font-size: 7.5pt; color: #6b7280; }
+ul.sources { margin: 0 0 0 14pt; padding: 0; }
+ul.sources li { margin-bottom: 4pt; }
