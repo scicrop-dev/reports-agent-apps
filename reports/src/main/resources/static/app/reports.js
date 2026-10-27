@@ -20,7 +20,9 @@
         blocks: [],
         reports: [],
         readyMade: [],
-        readyMadeOpen: null, // id of the ready-made whose "Use" form is open
+        reportQuery: '',
+        newReport: { choice: 'blank', nameTouched: false }, // the New report dialog
+        blockFilter: { q: '', status: 'all', category: null },
         report: null,
         versions: [],
         view: null,         // VersionView of the selected version
@@ -92,6 +94,8 @@
     // ---------------------------------------------------------------- navigation
 
     function showSection(name) {
+        // A message belongs to the screen it was shown on.
+        if (name === 'blocks') $('message').className = 'message hidden';
         ['reports', 'blocks'].forEach((s) => {
             $('nav-' + s).classList.toggle('active', s === name);
             $('side-' + s).classList.toggle('hidden', s !== name);
@@ -122,89 +126,166 @@
         renderReportList();
     }
 
+    const REPORT_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+    const TEMPLATE_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>';
+
+    /** A static, trusted SVG string as a node (never data: names and texts go through el()). */
+    function icon(svg) {
+        const span = el('span.report-icon');
+        span.innerHTML = svg;
+        return span;
+    }
+
     function renderReportList() {
         const list = clear($('report-list'));
+        const q = state.reportQuery.trim().toLowerCase();
+        const reports = state.reports
+            .filter((r) => !q || (r.name + ' ' + (r.description || '')).toLowerCase().includes(q))
+            .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+        $('report-count').textContent = state.reports.length ? String(state.reports.length) : '';
         if (!state.reports.length) {
-            list.appendChild(el('div.placeholder.small', null, 'No report yet.'));
+            list.appendChild(el('div.side-empty', null, 'No report yet.', el('br'), 'Use "New report" to start blank or from a template.'));
             return;
         }
-        state.reports.forEach((r) => {
-            list.appendChild(el('div.list-item' + (state.report && state.report.id === r.id ? '.active' : ''), {
+        if (!reports.length) {
+            list.appendChild(el('div.side-empty', null, 'No report matches "' + state.reportQuery.trim() + '".'));
+            return;
+        }
+        reports.forEach((r) => {
+            const mine = state.me && r.ownerId === state.me.id;
+            list.appendChild(el('div.report-item' + (state.report && state.report.id === r.id ? '.active' : ''), {
+                title: r.description || r.name,
                 onclick: () => { if (confirmDiscard()) selectReport(r.id).catch(fail); }
             },
-                el('div.list-title', null, r.name),
-                el('div.list-meta', null, r.publishedVersion ? 'published v' + r.publishedVersion : 'not published',
-                    ' - ', r.ownerName || r.ownerId)));
+                icon(r.readyMadeId ? TEMPLATE_ICON : REPORT_ICON),
+                el('div.report-text', null,
+                    el('div.report-name', null, r.name),
+                    el('div.report-meta', null,
+                        el('span.status-dot' + (r.publishedVersion ? '.published' : '')),
+                        r.publishedVersion ? 'Published v' + r.publishedVersion : 'Draft',
+                        el('span', null, '-'), timeAgo(r.updatedAt),
+                        mine ? null : el('span', null, '- ' + (r.ownerName || r.ownerId))))));
         });
     }
 
-    async function createReport() {
-        const name = $('new-report-name').value.trim();
-        if (!name) return showMessage('Give the report a name.', 'warn');
-        const report = await api.post('/reports', { name, description: $('new-report-description').value.trim() || null });
-        $('new-report-name').value = '';
-        $('new-report-description').value = '';
-        await loadReports();
-        await selectReport(report.id);
+    /** "5 min ago", "3 h ago", "2 d ago", or the date. */
+    function timeAgo(value) {
+        const t = new Date(value).getTime();
+        if (isNaN(t)) return '';
+        const s = Math.max(0, (Date.now() - t) / 1000);
+        if (s < 60) return 'just now';
+        if (s < 3600) return Math.round(s / 60) + ' min ago';
+        if (s < 86400) return Math.round(s / 3600) + ' h ago';
+        if (s < 86400 * 30) return Math.round(s / 86400) + ' d ago';
+        return new Date(t).toLocaleDateString();
     }
 
-    // ---------------------------------------------------------------- ready-made reports
+    // ---------------------------------------------------------------- new report dialog (blank or from a template)
 
     async function loadReadyMade() {
         state.readyMade = await api.get('/ready-made');
-        renderReadyMade();
+        $('btn-browse-templates').textContent = 'Browse templates (' + state.readyMade.length + ')';
+        $('btn-browse-templates').classList.toggle('hidden', !state.readyMade.length);
+        renderEmptyTemplates();
     }
 
-    function renderReadyMade() {
-        const list = clear($('ready-made-list'));
-        if (!state.readyMade.length) {
-            list.appendChild(el('div.placeholder.small', null, 'No ready-made report yet.'));
-            return;
-        }
-        state.readyMade.forEach((r) => list.appendChild(readyMadeCard(r)));
-    }
-
-    function readyMadeCard(r) {
-        const card = el('div.card.ready-made', null,
-            el('div.ready-made-head', null, el('strong', null, r.name), r.category ? el('span.chip', null, r.category) : null),
-            r.description ? el('div.muted', null, r.description) : null,
-            el('div.ready-made-blocks', { title: 'Blocks this report needs' },
-                r.blocks.map((b) => el('span.chip.' + (b.usable ? 'ok' : 'error'),
-                    { title: b.usable ? 'Usable' : 'Unavailable: ' + b.problem }, b.id))));
-        if (!r.runnable) {
-            card.appendChild(el('div.ready-made-note', null, state.me && state.me.admin
-                ? 'Some blocks are unavailable. You can create the report now; it runs once they are released on the Blocks screen.'
-                : 'Some blocks are unavailable. You can create the report now; it runs once an admin releases them.'));
-        }
-        if (state.readyMadeOpen !== r.id) {
-            card.appendChild(el('div.row', null,
-                el('button.btn', { onclick: () => { state.readyMadeOpen = r.id; renderReadyMade(); } }, 'Use'),
-                el('span.muted', null, 'v' + r.version)));
-            return card;
-        }
-        // Inline name field instead of a browser dialog, which would block the host's iframe.
-        const name = el('input', { placeholder: r.name, maxlength: 200, 'aria-label': 'Name of the new report' });
-        const createButton = el('button.btn', { onclick: () => create() }, 'Create');
-        const create = () => guarded(createButton, () => useReadyMade(r, name.value.trim()));
-        name.addEventListener('keydown', (e) => { if (e.key === 'Enter') create(); });
-        card.appendChild(el('div.field', null, el('label', null, 'Name of your report (optional)'), name));
-        card.appendChild(el('div.row', null, createButton,
-            el('button.btn-secondary', { onclick: () => { state.readyMadeOpen = null; renderReadyMade(); } }, 'Cancel')));
-        setTimeout(() => name.focus(), 0);
-        return card;
-    }
-
-    async function useReadyMade(readyMade, name) {
+    /** choice: 'blank' or a ready-made id. The dialog is in the page: a browser dialog would block the host's iframe. */
+    function openNewReport(choice) {
         if (!confirmDiscard()) return;
-        const report = await api.post('/ready-made/' + readyMade.id + '/instantiate', name ? { name } : {});
-        state.readyMadeOpen = null;
-        renderReadyMade();
+        state.newReport = { choice: choice || 'blank', nameTouched: false };
+        $('new-report-name').value = '';
+        $('new-report-description').value = '';
+        applyChoice();
+        $('new-report-modal').classList.add('open');
+        setTimeout(() => $('new-report-name').focus(), 0);
+    }
+
+    function closeNewReport() {
+        $('new-report-modal').classList.remove('open');
+    }
+
+    function chosenTemplate() {
+        return state.readyMade.find((r) => r.id === state.newReport.choice) || null;
+    }
+
+    function choose(choice) {
+        state.newReport.choice = choice;
+        applyChoice();
+    }
+
+    /** Re-renders the picker and fills the name with the template's, unless the person typed one. */
+    function applyChoice() {
+        const template = chosenTemplate();
+        if (!state.newReport.nameTouched) $('new-report-name').value = template ? template.name : '';
+        $('new-report-description').placeholder = template ? template.description || '' : 'What is this report for?';
+        renderTemplatePicker();
+        const note = clear($('template-note'));
+        if (template) note.appendChild(templateDetail(template));
+        $('modal-hint').textContent = template
+            ? 'You get your own copy of the template: change it as you like.'
+            : 'You will add inputs, blocks and the template yourself.';
+    }
+
+    function renderTemplatePicker() {
+        const box = clear($('template-picker'));
+        box.appendChild(el('button.template-card.blank' + (state.newReport.choice === 'blank' ? '.selected' : ''), {
+            type: 'button', onclick: () => choose('blank')
+        },
+            el('div.template-name', null, 'Blank report'),
+            el('div.template-desc', null, 'An empty report: you add the inputs, connect the blocks in the Flow and write the template.')));
+        state.readyMade.forEach((r) => box.appendChild(templateCard(r, state.newReport.choice === r.id, () => choose(r.id))));
+    }
+
+    function templateCard(r, selected, onclick) {
+        const missing = r.blocks.filter((b) => !b.usable).length;
+        return el('button.template-card' + (selected ? '.selected' : ''), { type: 'button', onclick },
+            el('div.template-top', null, el('div.template-name', null, r.name), r.category ? el('span.chip', null, r.category) : null),
+            r.description ? el('div.template-desc', null, r.description) : null,
+            el('div.template-foot', null,
+                el('span', null, r.inputs.length ? 'Asks for: ' + r.inputs.filter((i) => i.required).map((i) => i.label || i.name).join(', ') : 'No input'),
+                missing
+                    ? el('span.readiness.warn', { title: r.blocks.filter((b) => !b.usable).map((b) => b.id + ': ' + b.problem).join('\n') },
+                        missing + ' block(s) missing')
+                    : el('span.readiness.ok', null, 'Ready to run')));
+    }
+
+    function templateDetail(r) {
+        const missing = r.blocks.filter((b) => !b.usable);
+        return el('div.template-detail', null,
+            el('div', null, 'Blocks used: ', r.blocks.map((b) => el('span.chip.' + (b.usable ? 'ok' : 'error'),
+                { title: b.usable ? 'Usable' : b.problem }, b.id))),
+            missing.length ? el('div.template-warn', null, state.me && state.me.admin
+                ? 'Some blocks are not available yet. You can create the report now; it runs once you release them on the Blocks screen.'
+                : 'Some blocks are not available yet. You can create the report now; it runs once an admin releases them.') : null);
+    }
+
+    async function createReport() {
+        const template = chosenTemplate();
+        const name = $('new-report-name').value.trim();
+        const description = $('new-report-description').value.trim() || null;
+        if (!template && !name) {
+            $('new-report-name').focus();
+            return showMessage('Give the report a name.', 'warn');
+        }
+        const report = template
+            ? await api.post('/ready-made/' + template.id + '/instantiate', { name: name || null, description })
+            : await api.post('/reports', { name, description });
+        closeNewReport();
         await loadReports();
         await selectReport(report.id);
-        showMessage(readyMade.runnable
-            ? 'Report created from "' + readyMade.name + '". Fill the inputs on the Preview tab to run it.'
-            : 'Report created from "' + readyMade.name + '". It cannot run until the unavailable blocks are released.',
-            readyMade.runnable ? 'ok' : 'warn');
+        if (template) {
+            showMessage(template.runnable
+                ? 'Report created from "' + template.name + '". Fill the inputs on the Preview tab to run it.'
+                : 'Report created from "' + template.name + '". It runs once the missing blocks are released.',
+                template.runnable ? 'ok' : 'warn');
+            showTab('preview');
+        }
+    }
+
+    /** The empty screen offers the first templates as shortcuts. */
+    function renderEmptyTemplates() {
+        const box = clear($('empty-templates'));
+        state.readyMade.slice(0, 3).forEach((r) => box.appendChild(templateCard(r, false, () => openNewReport(r.id))));
     }
 
     async function selectReport(id, versionNumber) {
@@ -634,41 +715,198 @@
         return state.blocks;
     }
 
+    /**
+     * The state of a Block for the person releasing it: released (usable), ready to release (its data is
+     * in the catalog, nobody released it yet) or missing data (cannot be released, or lost its data).
+     */
+    function blockState(b) {
+        if (b.usable) return 'released';
+        if (b.availability.status === 'AVAILABLE' && !b.release) return 'to-release';
+        return 'missing';
+    }
+
+    const BLOCK_STATES = {
+        released: { label: 'Released', hint: 'in use: anyone can add it to a flow' },
+        'to-release': { label: 'Ready to release', hint: 'its data is in the catalog; an admin can turn it on' },
+        missing: { label: 'Missing data', hint: 'its data is not in the catalog yet' }
+    };
+
+    const BLOCK_FILTERS = [
+        { id: 'all', label: 'All', test: () => true },
+        { id: 'released', label: 'Released', test: (b) => blockState(b) === 'released' },
+        { id: 'to-release', label: 'Ready to release', admin: true, test: (b) => blockState(b) === 'to-release' },
+        { id: 'missing', label: 'Missing data', admin: true, test: (b) => blockState(b) === 'missing' }
+    ];
+
+    function categoryOf(b) {
+        return (b.docs && b.docs.category) || 'Other';
+    }
+
+    function blockMatches(b, ignore) {
+        const f = state.blockFilter;
+        const filter = BLOCK_FILTERS.find((x) => x.id === f.status) || BLOCK_FILTERS[0];
+        if (ignore !== 'status' && !filter.test(b)) return false;
+        if (ignore !== 'category' && f.category && categoryOf(b) !== f.category) return false;
+        const q = f.q.trim().toLowerCase();
+        if (q) {
+            const d = b.definition;
+            const text = (d.id + ' ' + d.name + ' ' + (d.description || '') + ' ' + ((b.docs && b.docs.summary) || '')).toLowerCase();
+            if (!text.includes(q)) return false;
+        }
+        return true;
+    }
+
+    function setBlockFilter(status) {
+        state.blockFilter.status = status;
+        renderBlocksView();
+    }
+
+    /** Sidebar of the Blocks screen: state filters and sources, each with how many blocks it would show. */
+    function renderBlockFilters() {
+        const admin = state.me && state.me.admin;
+        const filters = clear($('block-filters'));
+        BLOCK_FILTERS.filter((f) => admin || !f.admin).forEach((f) => {
+            const n = state.blocks.filter((b) => f.test(b) && blockMatches(b, 'status')).length;
+            filters.appendChild(el('button.filter-item' + (state.blockFilter.status === f.id ? '.active' : ''), {
+                onclick: () => setBlockFilter(f.id)
+            }, el('span', null, f.label), el('span.count', null, String(n))));
+        });
+        const categories = clear($('block-categories'));
+        const names = [...new Set(state.blocks.map(categoryOf))].sort();
+        [null].concat(names).forEach((c) => {
+            const n = state.blocks.filter((b) => (!c || categoryOf(b) === c) && blockMatches(b, 'category')).length;
+            categories.appendChild(el('button.filter-item' + (state.blockFilter.category === c ? '.active' : ''), {
+                onclick: () => { state.blockFilter.category = c; renderBlocksView(); }
+            }, el('span', null, c || 'All sources'), el('span.count', null, String(n))));
+        });
+    }
+
+    /** The counters on top are filters too: click "Ready to release" to see what is left to turn on. */
+    function renderBlockStats(admin) {
+        const box = clear($('block-stats'));
+        box.classList.toggle('hidden', !admin);
+        if (!admin) return;
+        const count = (id) => state.blocks.filter((b) => (id === 'all' || blockState(b) === id) && blockMatches(b, 'status')).length;
+        [['all', 'All blocks'], ['released', 'Released'], ['to-release', 'Ready to release'], ['missing', 'Missing data']].forEach(([id, label]) => {
+            box.appendChild(el('button.stat.' + id + (state.blockFilter.status === id ? '.active' : ''), {
+                type: 'button', title: BLOCK_STATES[id] ? BLOCK_STATES[id].hint : 'every block of the app',
+                onclick: () => setBlockFilter(state.blockFilter.status === id ? 'all' : id)
+            }, el('div.stat-value', null, String(count(id))), el('div.stat-label', null, label)));
+        });
+    }
+
     function renderBlocksView() {
         const box = clear($('blocks'));
         const admin = state.me && state.me.admin;
         $('blocks-intro').textContent = admin
-            ? 'Every block, with what the data catalog says about its data. A block can be released when its data is AVAILABLE; once released, everyone can use it.'
-            : 'Blocks you can use in your flows: their data is in the catalog and an admin released them.';
+            ? 'Turn on (release) a block once its data is in the catalog; from then on everyone can use it in a flow. Click a card for the details.'
+            : 'The blocks you can use in your flows. Click a card for the details.';
         $('catalog-actions').classList.toggle('hidden', !admin);
+        renderBlockFilters();
+        renderBlockStats(admin);
+
+        const toRelease = state.blocks.filter((b) => blockState(b) === 'to-release' && blockMatches(b, 'status'));
+        const releaseAll = $('btn-release-all');
+        releaseAll.classList.toggle('hidden', !admin || !toRelease.length);
+        releaseAll.textContent = 'Release all ready (' + toRelease.length + ')';
+        releaseAll.onclick = (e) => guarded(e.target, () => releaseBlocks(toRelease));
+
         if (!state.blocks.length) {
             box.appendChild(el('div.placeholder', null, admin ? 'The app has no block yet.' : 'No block is available yet.'));
             return;
         }
-        state.blocks.forEach((b) => box.appendChild(blockCard(b, admin)));
+        const shown = state.blocks.filter((b) => blockMatches(b));
+        if (!shown.length) {
+            box.appendChild(el('div.placeholder', null, state.blockFilter.status === 'to-release'
+                ? 'Nothing left to release: every block with data is already on.' : 'No block matches the filters.'));
+        }
+        const groups = {};
+        shown.forEach((b) => { (groups[categoryOf(b)] = groups[categoryOf(b)] || []).push(b); });
+        Object.keys(groups).sort().forEach((category) => {
+            box.appendChild(el('div.block-group', null, category, el('span.count', null, String(groups[category].length))));
+            box.appendChild(el('div.block-grid', null, groups[category].map((b) => blockTile(b, admin))));
+        });
         const origin = state.blocks[0].availability.catalogOrigin;
-        $('catalog-origin').textContent = 'Catalog: ' + origin + (state.blocks[0].availability.catalogError ? ' - ' + state.blocks[0].availability.catalogError : '');
+        $('catalog-origin').textContent = 'Read from: ' + origin + (state.blocks[0].availability.catalogError ? ' - ' + state.blocks[0].availability.catalogError : '');
     }
 
-    function blockCard(view, admin) {
-        const d = view.definition;
-        const a = view.availability;
-        const statusClass = a.status === 'AVAILABLE' ? 'ok' : a.status === 'STALE' ? 'warn' : 'error';
-        const card = el('div.card.block-card', null,
-            el('div.block-head', null,
-                el('strong', null, d.name), el('code', null, d.id + ' ' + d.version),
-                el('span.chip.' + statusClass, null, a.status),
-                view.release ? el('span.chip.ok', null, 'released') : el('span.chip', null, 'not released')),
-            el('div.muted', null, d.description || ''),
-            el('div.ports-summary', null,
-                el('div', null, el('span.muted', null, 'Inputs: '), d.inputs.map((p) => el('code', null, p.name + ':' + p.type + (p.required ? '*' : '')))),
-                el('div', null, el('span.muted', null, 'Outputs: '), d.outputs.map((p) => el('code', null, p.name + ':' + p.type)))));
-        if (window.ReportsFlowGraph && view.docs) {
-            card.appendChild(el('details.block-docs', null, el('summary', null, 'How it works, how to connect it, limitations'),
-                window.ReportsFlowGraph.docsPanel(view, 'node')));
+    async function releaseBlocks(blocks) {
+        const failed = [];
+        for (const b of blocks) {
+            try {
+                await api.post('/blocks/' + b.definition.id + '/release');
+            } catch (e) {
+                failed.push(b.definition.id + ': ' + e.message);
+            }
         }
+        await loadBlocks();
+        renderBlocksView();
+        if (failed.length) showMessage('Some blocks could not be released.', 'warn', failed);
+        else showMessage(blocks.length + ' block(s) released.', 'ok');
+    }
+
+    async function toggleRelease(b) {
+        if (b.release) await api.del('/blocks/' + b.definition.id + '/release');
+        else await api.post('/blocks/' + b.definition.id + '/release');
+        await loadBlocks();
+        renderBlocksView();
+        const fresh = state.blocks.find((x) => x.definition.id === b.definition.id);
+        if ($('block-modal').classList.contains('open') && fresh) openBlock(fresh);
+    }
+
+    /** The Release / Revoke button of a block, or null when there is nothing to do. */
+    function releaseButton(b, admin) {
+        if (!admin) return null;
+        const stop = (e) => e.stopPropagation();
+        if (b.release) {
+            return el('button.btn-secondary', { onclick: (e) => { stop(e); guarded(e.target, () => toggleRelease(b)); } }, 'Revoke');
+        }
+        return el('button.btn', {
+            disabled: b.availability.status !== 'AVAILABLE',
+            title: b.availability.status !== 'AVAILABLE' ? 'Its data is not in the catalog yet' : 'Turn it on for everyone',
+            onclick: (e) => { stop(e); guarded(e.target, () => toggleRelease(b)); }
+        }, 'Release');
+    }
+
+    function blockTile(b, admin) {
+        const d = b.definition;
+        const st = blockState(b);
+        return el('div.block-tile.' + st, { tabindex: '0', role: 'button', onclick: () => openBlock(b),
+            onkeydown: (e) => { if (e.key === 'Enter') openBlock(b); } },
+            el('div.tile-top', null, el('span.chip', null, categoryOf(b)), el('span.list-meta', null, 'v' + d.version)),
+            el('div.tile-name', null, d.name),
+            el('div.tile-summary', null, (b.docs && b.docs.summary) || d.description || ''),
+            el('div.tile-ports', null, 'Needs ',
+                d.inputs.filter((p) => p.required).map((p) => el('code', { title: p.description || '' }, p.name + ' ')),
+                d.inputs.some((p) => p.required) ? null : 'nothing', ' - gives ', String(d.outputs.length), ' output(s)'),
+            el('div.tile-foot', null,
+                el('span.state-badge.' + st, { title: BLOCK_STATES[st].hint }, admin ? BLOCK_STATES[st].label : 'Ready to use'),
+                releaseButton(b, admin)));
+    }
+
+    /** Everything about a block: what it does, its ports, the data it reads and who released it. */
+    function openBlock(b) {
+        const admin = state.me && state.me.admin;
+        const d = b.definition;
+        const a = b.availability;
+        const st = blockState(b);
+        $('block-modal-title').textContent = d.name;
+        const body = clear($('block-modal-body'));
+        body.appendChild(el('div.block-detail-meta', null,
+            el('span.state-badge.' + st, null, admin ? BLOCK_STATES[st].label : 'Ready to use'),
+            el('span.muted', null, BLOCK_STATES[st].hint),
+            el('span.chip', null, categoryOf(b)), el('code', null, d.id + ' ' + d.version)));
+        if (window.ReportsFlowGraph) body.appendChild(window.ReportsFlowGraph.docsPanel(b, 'node'));
+        body.appendChild(el('div.editor-label', null, 'Inputs'));
+        body.appendChild(el('div.ports-summary', null, d.inputs.length ? d.inputs.map((p) => el('div', null,
+            el('code', null, p.name), el('span.type', null, p.type), p.required ? el('span.req', null, ' required') : el('span.muted', null, ' optional'),
+            p.description ? el('span.muted', null, ' - ' + p.description) : null)) : el('span.muted', null, 'none')));
+        body.appendChild(el('div.editor-label', null, 'Outputs'));
+        body.appendChild(el('div.ports-summary', null, d.outputs.map((p) => el('div', null,
+            el('code', null, p.name), el('span.type', null, p.type), p.description ? el('span.muted', null, ' - ' + p.description) : null))));
         if (a.checks.length) {
-            card.appendChild(el('table.table.compact', null,
+            body.appendChild(el('div.editor-label', null, 'Data it reads'));
+            body.appendChild(el('table.table.compact', null,
                 el('thead', null, el('tr', null, ['Data', 'Columns', 'Status', 'Last update', 'Source'].map((h) => el('th', null, h)))),
                 el('tbody', null, a.checks.map((c) => el('tr', null,
                     el('td', null, el('code', null, c.requirement.schema + '.' + c.requirement.table)),
@@ -677,19 +915,19 @@
                         c.problems.length ? el('div.error-text', null, c.problems.join('; ')) : null),
                     el('td', null, c.lastUpdate || '-'),
                     el('td', null, c.sourceId || '-'))))));
-        } else {
-            card.appendChild(el('div.muted', null, 'Needs no catalog data.'));
         }
-        if (view.release) {
-            card.appendChild(el('div.muted', null, 'Released by ' + (view.release.releasedByName || view.release.releasedBy) + ' on '
-                + formatDate(view.release.releasedAt) + ' (version ' + view.release.blockVersion + ')'));
-        }
-        if (admin) {
-            card.appendChild(el('div.row', null, view.release
-                ? el('button.btn-secondary', { onclick: (e) => guarded(e.target, async () => { await api.del('/blocks/' + d.id + '/release'); await loadBlocks(); renderBlocksView(); }) }, 'Revoke')
-                : el('button.btn', { disabled: a.status !== 'AVAILABLE', onclick: (e) => guarded(e.target, async () => { await api.post('/blocks/' + d.id + '/release'); await loadBlocks(); renderBlocksView(); }) }, 'Release')));
-        }
-        return card;
+        const foot = clear($('block-modal-foot'));
+        foot.appendChild(el('span.muted', null, b.release
+            ? 'Released by ' + (b.release.releasedByName || b.release.releasedBy) + ' on ' + formatDate(b.release.releasedAt) + ' (v' + b.release.blockVersion + ')'
+            : 'Not released yet.'));
+        const button = releaseButton(b, admin);
+        if (button) foot.appendChild(button);
+        foot.appendChild(el('button.btn-secondary', { onclick: closeBlock }, 'Close'));
+        $('block-modal').classList.add('open');
+    }
+
+    function closeBlock() {
+        $('block-modal').classList.remove('open');
     }
 
     async function refreshCatalog() {
@@ -704,7 +942,24 @@
     function bind() {
         $('nav-reports').onclick = () => showSection('reports');
         $('nav-blocks').onclick = () => { if (confirmDiscard()) showSection('blocks'); };
+        $('btn-new-report').onclick = () => openNewReport('blank');
+        $('btn-browse-templates').onclick = () => openNewReport(state.readyMade[0] ? state.readyMade[0].id : 'blank');
+        $('btn-empty-template').onclick = () => openNewReport(state.readyMade[0] ? state.readyMade[0].id : 'blank');
+        $('btn-empty-blank').onclick = () => openNewReport('blank');
         $('btn-create').onclick = (e) => guarded(e.target, createReport);
+        $('btn-modal-close').onclick = closeNewReport;
+        $('btn-modal-cancel').onclick = closeNewReport;
+        $('new-report-modal').addEventListener('click', (e) => { if (e.target.id === 'new-report-modal') closeNewReport(); });
+        $('new-report-name').addEventListener('input', () => { state.newReport.nameTouched = true; });
+        $('new-report-modal').addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeNewReport();
+            if (e.key === 'Enter' && e.target.tagName === 'INPUT') guarded($('btn-create'), createReport);
+        });
+        $('report-search').addEventListener('input', (e) => { state.reportQuery = e.target.value; renderReportList(); });
+        $('block-search').addEventListener('input', (e) => { state.blockFilter.q = e.target.value; renderBlocksView(); });
+        $('btn-block-modal-close').onclick = closeBlock;
+        $('block-modal').addEventListener('click', (e) => { if (e.target.id === 'block-modal') closeBlock(); });
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeBlock(); });
         document.querySelectorAll('.tab').forEach((t) => { t.onclick = () => showTab(t.dataset.tab); });
         $('version-select').onchange = (e) => {
             if (!confirmDiscard()) { e.target.value = state.view.version.version; return; }
