@@ -1,6 +1,0 @@
-{
-  "allowed_roles": ["ADMIN", "SCICROP", "USER"],
-  "inherits_host_authorization": true,
-  "manages_own_roles": false,
-  "manages_own_permissions": false
-}

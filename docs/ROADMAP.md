@@ -287,7 +287,7 @@ agendamento e distribuição (MASTER §22).
 
 | # | Decisão | Proposta | Quando |
 |---|---|---|---|
-| D1 | `plugin_id` e layout do repo | `reports`, app em `reports/`, `recomendador-manejo` só como exemplo | **decidido** |
+| D1 | `plugin_id` e layout do repo | `reports`, app em `reports/`; o `recomendador-manejo` de exemplo saiu do repo em 2026-10-26 | **decidido** |
 | D2 | Leitura do catálogo | porta interna `GET` no back (back#1279) + fallback `information_schema` | **decidido** |
 | D3 | Quem libera Blocks | ADMIN/SCICROP via `X-IS-Role` | **decidido** |
 | D4 | Liberação global ou por usuário/grupo | global no MVP (não há header de org) | **decidido** |

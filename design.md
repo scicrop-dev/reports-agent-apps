@@ -2,7 +2,7 @@
 
 Guia de design e UX para construir Agent Apps que **parecem nativos** do InfiniteStack (IS). O [README.md](README.md) cobre o contrato técnico (empacotamento `.ispz`, manifest, datasource, build). Este documento cobre o que torna um app **coeso visualmente** com o ecossistema IS e o que é necessário criar para um novo app seguir essa identidade.
 
-> Referências vivas: os apps `recomendador-manejo` e `satellite-hub-viewer` neste repositório são as implementações canônicas. Quando em dúvida, copie deles.
+> Referências vivas: o `reports/` deste repositório e, no repositório `infinitestack-agent-apps`, os apps `recomendador-manejo` e `satellite-hub-viewer`. Quando em dúvida, copie deles.
 
 ---
 
@@ -187,7 +187,7 @@ Fundo `#0d0d0d`, texto `#e8e8e8`, chave em `--muted`. Só isso.
 
 Checklist de design (complementa o checklist técnico do README):
 
-- [ ] `:root` com os tokens de cor da §2 (copie do `recomendador-manejo`).
+- [ ] `:root` com os tokens de cor da §2 (copie do `reports/src/main/resources/templates/isp-index.html`).
 - [ ] Tema **escuro**; nenhum fundo branco/claro de bloco.
 - [ ] `body` em `grid` travado em `100vh` com `overflow: hidden`; scroll só nos painéis internos.
 - [ ] **Header** com `--surface` + `border-bottom`, título 16px/600 e indicador de status à direita.
@@ -204,4 +204,4 @@ Checklist de design (complementa o checklist técnico do README):
 - [ ] Todos os templates com prefixo `isp-`.
 - [ ] Texto da UI em **pt-BR** (`<html lang="pt-BR">`), coerente com os apps existentes.
 
-> Atalho recomendado: comece copiando `isp-index.html` do app cuja estrutura mais se parece com o seu (`recomendador-manejo` para formulário→resultado; `satellite-hub-viewer` para mapa/visualização) e troque o conteúdo, preservando tokens, header e layout.
+> Atalho recomendado: comece copiando `isp-index.html` do app cuja estrutura mais se parece com o seu (`reports/` deste repositório; em `infinitestack-agent-apps`, `recomendador-manejo` para formulário→resultado e `satellite-hub-viewer` para mapa/visualização) e troque o conteúdo, preservando tokens, header e layout.

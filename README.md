@@ -484,7 +484,7 @@ apps.<plugin_id em snake_case>_<nome da tabela>
 |---|---|---|
 | `chatbot-workflow-manager` | conversas | `apps.chatbot_workflow_manager_conversation` |
 | `chatbot-whatsapp-manager` | mensagens | `apps.chatbot_whatsapp_manager_message` |
-| `recomendador-manejo` | simulações | `apps.recomendador_manejo_simulation` |
+| `reports` | relatórios | `apps.reports_report` |
 
 O mesmo vale para **índices**, com o prefixo depois do `idx_`:
 
