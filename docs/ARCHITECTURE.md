@@ -1371,9 +1371,14 @@ Detalhes, formato e catálogo em [READY-MADE-REPORTS.md](READY-MADE-REPORTS.md).
   tela vazia oferece os primeiros prontos como atalho.
 - A barra lateral de Reports tem só "+ New report", a busca e a lista "My reports" (status
   rascunho/publicado, "atualizado há", ícone de pronto, dono quando não é você). A de Blocks tem
-  busca, filtros (All / Ready to use / Not released / Missing data; os dois últimos só para admin) e
-  fontes (`docs.category`), cada um com a contagem. Na tela principal, os Blocks ficam agrupados por
-  fonte, com a documentação e as tabelas lidas recolhidas (abertas quando falta dado).
+  busca, filtros de estado (All / Released / Ready to release / Missing data; os dois últimos só para
+  admin) e fontes (`docs.category`), cada um com a contagem.
+- **Tela de Blocks.** Três estados por Block: *Released* (utilizável), *Ready to release* (dados no
+  catálogo, ninguém liberou) e *Missing data* (sem dados no catálogo, liberado ou não). Para admin, os
+  contadores do topo também são filtros, e "Release all ready (N)" libera de uma vez os que faltam,
+  dentro dos filtros. Os Blocks aparecem em cards por fonte, com a cor do estado, resumo, o que pedem e
+  Release/Revoke. O clique abre a janela de detalhes: documentação, entradas, saídas, tabelas lidas e
+  quem liberou.
 - **Para adicionar um pronto:** crie os arquivos, rode `mvn -q test` (o
   `ReadyMadeReportsValidityTest` valida Flow e template contra os contratos dos Blocks, executa com
   saídas de exemplo e gera HTML/PDF em `reports/target/ready-made/`) e atualize o catálogo do

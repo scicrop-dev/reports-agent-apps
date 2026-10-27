@@ -325,11 +325,39 @@
         /* Blocks screen */
         .blocks-head { margin-bottom: 14px; }
         .blocks-head h2 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+        .blocks-head { display: flex; gap: 12px; align-items: flex-start; }
+        .blocks-head .grow { flex: 1; }
+        .block-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 6px; }
+        .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; text-align: left; cursor: pointer; color: var(--text); position: relative; overflow: hidden; font-family: var(--font); }
+        .stat::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--muted); }
+        .stat.released::before { background: var(--accent); }
+        .stat.to-release::before { background: var(--warn); }
+        .stat.missing::before { background: var(--danger); }
+        .stat:hover { border-color: #3a3a3a; }
+        .stat.active { border-color: var(--accent2); box-shadow: 0 0 0 1px var(--accent2) inset; }
+        .stat-value { font-size: 22px; font-weight: 700; }
+        .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+        .block-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px; }
+        .block-tile { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 14px 12px; display: flex; flex-direction: column; gap: 8px; cursor: pointer; position: relative; overflow: hidden; }
+        .block-tile::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--muted); }
+        .block-tile.released::before { background: var(--accent); }
+        .block-tile.to-release::before { background: var(--warn); }
+        .block-tile.missing::before { background: var(--danger); }
+        .block-tile:hover { border-color: #3a3a3a; }
+        .tile-top { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+        .tile-name { font-size: 14px; font-weight: 600; line-height: 1.3; }
+        .tile-summary { font-size: 12px; color: var(--muted); line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+        .tile-ports { font-size: 11px; color: var(--muted); }
+        .tile-ports code { color: var(--accent2); font-size: 11px; }
+        .tile-foot { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-top: auto; padding-top: 6px; border-top: 1px solid var(--border); }
+        .tile-foot .btn, .tile-foot .btn-secondary { padding: 4px 12px; font-size: 12px; }
+        .state-badge { font-size: 11px; display: inline-flex; align-items: center; gap: 5px; }
+        .state-badge::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+        .state-badge.released { color: var(--accent); } .state-badge.released::before { background: var(--accent); box-shadow: 0 0 5px var(--accent); }
+        .state-badge.to-release { color: var(--warn); } .state-badge.to-release::before { background: var(--warn); }
+        .state-badge.missing { color: var(--danger); } .state-badge.missing::before { background: var(--danger); }
+        .block-detail-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 10px 0; }
         .block-group { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 20px 0 8px; display: flex; gap: 8px; align-items: center; }
-        .block-card .block-head strong { font-size: 14px; }
-        .block-card .block-actions { margin-left: auto; display: flex; gap: 6px; }
-        .block-card details { margin-top: 8px; font-size: 12px; }
-        .block-card details > summary { color: var(--accent2); }
         details.block-docs { margin: 8px 0; font-size: 12px; }
         details.block-docs summary { color: var(--accent2); }
         details.block-docs .fg-docs { padding: 6px 0 0 4px; }
@@ -563,9 +591,13 @@
 
         <div id="view-blocks" class="hidden">
             <div class="blocks-head">
-                <h2>Blocks</h2>
-                <p class="muted" id="blocks-intro"></p>
+                <div class="grow">
+                    <h2>Blocks</h2>
+                    <p class="muted" id="blocks-intro"></p>
+                </div>
+                <button class="btn hidden" id="btn-release-all">Release all ready</button>
             </div>
+            <div class="block-stats" id="block-stats"></div>
             <div id="blocks"></div>
         </div>
     </main>
@@ -592,6 +624,17 @@
             <button class="btn-secondary" id="btn-modal-cancel">Cancel</button>
             <button class="btn" id="btn-create">Create report</button>
         </div>
+    </div>
+</div>
+
+<div id="block-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="block-modal-title">
+    <div class="modal-card">
+        <div class="modal-head">
+            <h2 id="block-modal-title">Block</h2>
+            <button class="icon" id="btn-block-modal-close" aria-label="Close">Close</button>
+        </div>
+        <div class="modal-body" id="block-modal-body"></div>
+        <div class="modal-foot" id="block-modal-foot"></div>
     </div>
 </div>
 
