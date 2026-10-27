@@ -55,6 +55,10 @@ mvn -q test                  # testes (nem todo app tem; ver src/test)
   pool somente leitura, e `docs()` com a documentação que o editor mostra).
   Os Blocks de `src/test/.../support/TestBlocks` são só de teste e não entram no `.ispz`.
 - Integrações com outros apps (Satellite Hub, scripts Python do Skills Lab): [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md).
+- **Rede de saída:** o Block `sathub-latest-image` lê Sentinel-2 na hora e precisa de HTTPS do host
+  para `earth-search.aws.element84.com` (STAC; `reports.sentinel.stac-url` / `REPORTS_SENTINEL_STAC_URL`)
+  e `sentinel-cogs.s3.us-west-2.amazonaws.com` (COGs). O resto do app não sai da rede. O teste real
+  (`SatelliteHubLatestImageNetworkTest`) roda com `SENTINEL_NETWORK_TEST=1` + `CAR_TEST_DB_*`.
 - **Testes contra o banco de dev** (somente leitura, consultas por imóvel): `CarBlocksDevDbTest`,
   `CarPropertyMapDevDbTest`, `BrGeoBlocksDevDbTest` e `SatelliteHubDevDbTest` rodam com
   `CAR_TEST_DB_URL`/`CAR_TEST_DB_USER`/`CAR_TEST_DB_PASSWORD`.

@@ -1,5 +1,9 @@
 package com.infinitestack.reports.support;
 
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -10,6 +14,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import javax.imageio.ImageIO;
+
 import com.infinitestack.reports.blocks.brgeo.BrGeoBiomesBlock;
 import com.infinitestack.reports.blocks.brgeo.BrGeoCropProductionBlock;
 import com.infinitestack.reports.blocks.brgeo.BrGeoDeterAlertsBlock;
@@ -18,6 +24,7 @@ import com.infinitestack.reports.blocks.brgeo.BrGeoMunicipalitiesBlock;
 import com.infinitestack.reports.blocks.brgeo.BrGeoProdesBlock;
 import com.infinitestack.reports.blocks.sathub.IndexSeriesChart;
 import com.infinitestack.reports.blocks.sathub.SatelliteHubIndexSeriesBlock;
+import com.infinitestack.reports.blocks.sathub.SatelliteHubLatestImageBlock;
 import com.infinitestack.reports.engine.block.BlockDefinition;
 import com.infinitestack.reports.engine.block.ExecutionMetadata;
 import com.infinitestack.reports.engine.block.ReportBlock;
@@ -81,7 +88,64 @@ public final class GeoBlockContractStubs {
                                         map("product", "Milho (em grão)", "plantedHa", 120000.0, "harvestedHa", 120000.0, "quantity", 744000.0,
                                                 "quantityUnit", "Toneladas", "yieldKgHa", 6200.0, "valueThousandBrl", 669600.0, "shareOfHarvestedPercent", 27.6)),
                                 "count", 2, "totalHarvestedHa", 434800.0, "totalValueThousandBrl", 2998000.0, "truncated", false)),
-                stub("sathub-index-series", in -> indexSeries(bare)));
+                stub("sathub-index-series", in -> indexSeries(bare)),
+                stub("sathub-latest-image", in -> latestImage(bare)));
+    }
+
+    /** Full: a scene found, with tiny PNGs built here (not with ImageryRenderer). Bare: every scene too cloudy. */
+    private static Map<String, Object> latestImage(boolean bare) {
+        List<Map<String, Object>> skipped = List.of(
+                map("id", "S2B_19LFJ_20261021_0_L2A", "date", "2026-10-21", "areaCloudPercent", 64.2),
+                map("id", "S2A_19LFJ_20261016_0_L2A", "date", "2026-10-16", "areaCloudPercent", 41.0));
+        if (bare) {
+            Map<String, Object> out = map("found", false,
+                    "message", "the 4 most recent scenes had more than 30% clouds over the area",
+                    "scene", null, "acquiredDate", null, "daysAgo", null, "coveragePercent", null, "areaCloudPercent", null,
+                    "pixelSizeM", null, "widthPx", null, "heightPx", null, "trueColor", null);
+            out.put("indices", List.of());
+            out.put("candidatesTried", 4);
+            out.put("skipped", skipped);
+            return out;
+        }
+        List<Map<String, Object>> legend = List.of(
+                map("color", "#a50026", "value", 0.0, "label", "0.00"), map("color", "#f46d43", "value", 0.25, "label", "0.25"),
+                map("color", "#ffffbf", "value", 0.5, "label", "0.50"), map("color", "#a6d96a", "value", 0.75, "label", "0.75"),
+                map("color", "#006837", "value", 1.0, "label", "1.00"));
+        List<Map<String, Object>> indices = new ArrayList<>();
+        String[][] defs = {{"ndvi", "NDVI", "Normalized Difference Vegetation Index"}, {"evi", "EVI", "Enhanced Vegetation Index"},
+                {"ndmi", "NDMI", "Normalized Difference Moisture Index"}, {"ndre", "NDRE", "Normalized Difference Red Edge"}};
+        for (int i = 0; i < defs.length; i++) {
+            double mean = Math.round((0.62 - 0.1 * i) * 1e4) / 1e4;
+            Map<String, Object> item = map("slug", defs[i][0], "name", defs[i][1], "description", defs[i][2],
+                    "image", tinyPng(0x2e7d32 + 0x101000 * i), "mean", mean, "min", -0.05, "max", 0.91, "stddev", 0.12,
+                    "p10", Math.round((mean - 0.18) * 1e4) / 1e4, "p50", Math.round((mean + 0.02) * 1e4) / 1e4,
+                    "p90", Math.round((mean + 0.14) * 1e4) / 1e4, "validPixels", 38211, "validPercent", 97.4,
+                    "rangeMin", "ndmi".equals(defs[i][0]) ? -1.0 : 0.0, "rangeMax", 1.0);
+            item.put("legend", legend);
+            indices.add(item);
+        }
+        Map<String, Object> out = map("found", true, "message", null,
+                "scene", map("id", "S2A_19LFJ_20261011_0_L2A", "acquiredAt", "2026-10-11T14:52:31.024Z", "date", "2026-10-11",
+                        "platform", "sentinel-2a", "mgrsTile", "19LFJ", "cloudCoverPercent", 12.3,
+                        "stacUrl", "https://earth-search.aws.element84.com/v1/collections/sentinel-2-l2a/items/S2A_19LFJ_20261011_0_L2A"),
+                "acquiredDate", "2026-10-11", "daysAgo", 15, "coveragePercent", 100.0, "areaCloudPercent", 2.6,
+                "pixelSizeM", 30.0, "widthPx", 800, "heightPx", 612, "trueColor", tinyPng(0x6b7f4a));
+        out.put("indices", indices);
+        out.put("candidatesTried", 3);
+        out.put("skipped", skipped);
+        return out;
+    }
+
+    private static String tinyPng(int rgb) {
+        BufferedImage image = new BufferedImage(8, 6, BufferedImage.TYPE_INT_RGB);
+        for (int y = 0; y < 6; y++) for (int x = 0; x < 8; x++) image.setRGB(x, y, x < 4 ? rgb : 0x8a7354);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try {
+            ImageIO.write(image, "png", out);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return "data:image/png;base64," + Base64.getEncoder().encodeToString(out.toByteArray());
     }
 
     private static Map<String, Object> indexSeries(boolean bare) {
@@ -132,7 +196,7 @@ public final class GeoBlockContractStubs {
     public static final Map<String, BlockDefinition> REAL = Stream.of(
                     new BrGeoMunicipalitiesBlock(null), new BrGeoBiomesBlock(null), new BrGeoEmbargoesBlock(null),
                     new BrGeoDeterAlertsBlock(null), new BrGeoProdesBlock(null), new BrGeoCropProductionBlock(null),
-                    new SatelliteHubIndexSeriesBlock(null))
+                    new SatelliteHubIndexSeriesBlock(null), new SatelliteHubLatestImageBlock(null, null, null))
             .map(ReportBlock::definition)
             .collect(Collectors.toMap(BlockDefinition::id, d -> d));
 

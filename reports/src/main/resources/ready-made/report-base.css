@@ -5,7 +5,7 @@
 
 @page {
   @top-left { content: element(header); }
-  @bottom-left { content: "InfiniteStack Reports - dados públicos (SICAR, IBGE, IBAMA, INPE)"; font-family: Helvetica, Arial, sans-serif; font-size: 7.5pt; color: #6b7280; }
+  @bottom-left { content: "InfiniteStack Reports - dados públicos; fontes na última seção"; font-family: Helvetica, Arial, sans-serif; font-size: 7.5pt; color: #6b7280; }
   @bottom-right { content: "Página " counter(page) " de " counter(pages); font-family: Helvetica, Arial, sans-serif; font-size: 7.5pt; color: #6b7280; }
 }
 
@@ -86,12 +86,19 @@ td.highlight { width: 33%; border: 0.5pt solid #d1d5db; border-top: 3pt solid #1
 /* Map */
 .map-block { page-break-inside: avoid; margin: 0 0 8pt 0; }
 img.map { display: block; width: 90%; margin: 0 auto; border: 0.5pt solid #9ca3af; }
+img.index-map { width: 66%; }
 .legend { font-size: 7.5pt; color: #374151; margin-top: 3pt; text-align: center; }
 .legend-title { font-weight: bold; margin-right: 4pt; }
 .legend-item { display: inline-block; margin-right: 8pt; white-space: nowrap; }
 .swatch { display: inline-block; width: 8pt; height: 8pt; border: 0.5pt solid #6b7280; vertical-align: middle; }
 .swatch-outline { border: 1.5pt solid #b71c1c; background-color: #ffffff; }
 .swatch-neighbor { border: 1pt solid #bdbdbd; background-color: #ffffff; }
+
+/* Color scale under an index map: one row of colored cells, one of values */
+div.legend-bar { width: 100mm; margin: 3pt auto 6pt auto; }
+div.legend-bar table { width: 100%; margin: 0; table-layout: fixed; }
+td.legend-cell { height: 7pt; padding: 0; border: 0.5pt solid #ffffff; }
+td.legend-label { font-size: 7pt; color: #4b5563; text-align: center; padding: 1pt 0; }
 
 /* Messages */
 .alert { border-left: 3pt solid #b45309; background-color: #fef3c7; color: #78350f; padding: 5pt 8pt; page-break-inside: avoid; }

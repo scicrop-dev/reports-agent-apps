@@ -185,7 +185,7 @@ em Envira/AM, 100% Amazônia, 28 termos de embargo (24 ativos, 760 ha), 76 alert
 Estado dos dados no dev nessa data: DETER só `deter_amz`; PRODES só `prodes_amazon` de 2008 a 2014
 (carga parcial). O `coverage[].lastYear` mostra isso no relatório.
 
-## 4. Block do Satellite Hub (fonte: agent app `satellite-hub`, tabelas `gold.satellite_hub_*`)
+## 4. Blocks do Satellite Hub (fonte: agent app `satellite-hub`, tabelas `gold.satellite_hub_*`)
 
 ### `sathub-index-series` — Série de índice de vegetação
 
@@ -216,3 +216,68 @@ grava as geometrias em WGS 84 (4326), e a entrada é transformada para esse sist
 No dev (2026-10-26), as 23 mil áreas do Satellite Hub ficam no norte da França (dados de teste). Por
 isso nenhum imóvel CAR as cruza e o teste usa `areaId = 16991` ou um quadrado lá. A série tem 41
 imagens de 2026-04 a 2026-10.
+
+### `sathub-latest-image` — Última imagem Sentinel-2 da área
+
+O Satellite Hub só processa as áreas cadastradas nele, em agenda, e guarda estatísticas, não
+imagens. Este Block vai **à mesma fonte que o Satellite Hub usa** (STAC Earth Search da Element 84 +
+COGs Sentinel-2 L2A na AWS), lê só a janela da área e calcula os índices com as **definições do
+Satellite Hub** (`gold.satellite_hub_analytics_indices`). Funciona para qualquer área, cadastrada ou
+não no Satellite Hub. Código: `blocks.sathub.SatelliteHubLatestImageBlock` + pacote
+`blocks.sathub.imagery` (leitor de COG por HTTP Range, UTM, STAC, fórmulas, máscara, render).
+
+| Input | Tipo | |
+|---|---|---|
+| `geometry` | geometry, obrigatório | Polygon/MultiPolygon lon/lat (SIRGAS 2000, tratado como WGS 84); em geral `car-property-geometry.geometry` |
+| `indices` | string, opcional | slugs do Satellite Hub separados por vírgula; default `ndvi,evi,ndmi` |
+| `maxCloudPercent` | number, opcional | nuvem da cena (`eo:cloud_cover`); default 40 |
+| `maxAreaCloudPercent` | number, opcional | nuvem máxima **dentro da área**; acima disso a cena é pulada e a anterior tentada; default 30 |
+| `maxAgeDays` | number, opcional | janela de busca; default 120 |
+| `sizePx` | number, opcional | maior lado dos PNGs, 200 a 1600; default 800 |
+
+| Output | Tipo | Conteúdo |
+|---|---|---|
+| `found` | boolean | achou cena com poucas nuvens sobre a área |
+| `message` | string, opcional | por que não achou (em inglês, como os outros textos de Block) |
+| `scene` | object, opcional | `{id, acquiredAt, date, platform, mgrsTile, cloudCoverPercent, stacUrl}` |
+| `acquiredDate`, `daysAgo` | date / number, opcionais | data da aquisição (America/Sao_Paulo) e dias até hoje |
+| `coveragePercent`, `areaCloudPercent` | number, opcionais | parte da área dentro da cena; parte sob nuvem/sombra/sem dado |
+| `pixelSizeM`, `widthPx`, `heightPx` | number, opcionais | grade das imagens |
+| `trueColor` | string, opcional | PNG `data:` em cor verdadeira, com o contorno da área |
+| `indices` | array | na ordem pedida (vazia sem imagem): `{slug, name, description, image, mean, min, max, stddev, p10, p50, p90, validPixels, validPercent, rangeMin, rangeMax, legend [{color, value, label}]}` |
+| `candidatesTried` | number | cenas cuja nuvem sobre a área foi conferida |
+| `skipped` | array | cenas puladas por nuvem: `{id, date, areaCloudPercent}` |
+
+Regras:
+
+- **Mesma metodologia do Satellite Hub:** reflectância = DN × `scale` (0,0001) **sem** o offset;
+  nuvem pela banda SCL (4, 5, 6, 7 = limpo; o resto e "sem dado" contam como nuvem); fórmula,
+  `clamp_min/max` e `mask_clouds` do índice. Faixa de cores: `display_min/max`; sem ela, [0, 1] para
+  ndvi, evi, savi, gndvi, ndre e [-1, 1] para o resto. Paleta de água para ndwi/ndmi, de vegetação
+  para os outros.
+- **Escolha da cena:** busca até 20 cenas (mais novas primeiro); o `SceneSelector` prefere a mais nova
+  que cobre a área inteira; até 4 candidatas. De cada uma lê só a SCL (vizinho mais próximo) e mede a
+  nuvem dentro da área; da aceita, lê as bandas em paralelo (6 threads, bilinear).
+- **Grade:** UTM da cena (EPSG da cena), caixa da área + 5% (mínimo 100 m), pixel de 10 m ou múltiplo
+  de 10 para o maior lado caber em `sizePx`. Estatísticas sobre os pixels dentro da área e sem nuvem;
+  `validPercent` é sobre os pixels dentro da área.
+- **Sem imagem não é falha:** `found = false` com `message` e `skipped`, e o relatório renderiza.
+  Índice desconhecido ou desabilitado é falha, com a lista dos disponíveis. Erro de rede/leitura é
+  falha com mensagem legível.
+- Timeout próprio de 110 s (a execução tem 120 s). O gate do catálogo é a tabela de índices: o Block
+  aparece quando o Satellite Hub está instalado.
+- **Rede:** precisa de HTTPS de saída do host para `earth-search.aws.element84.com` (STAC, configurável
+  em `reports.sentinel.stac-url` / `REPORTS_SENTINEL_STAC_URL`) e `sentinel-cogs.s3.us-west-2.amazonaws.com`
+  (COGs). É o único Block que sai da rede da instância.
+- Teste unitário com STAC e COG falsos (`SatelliteHubLatestImageBlockTest`; as definições de índice
+  entram pelo método package-private `indexRows()`, porque não há banco em memória nos testes); teste
+  real com `SENTINEL_NETWORK_TEST=1` + `CAR_TEST_DB_*` (`SatelliteHubLatestImageNetworkTest`, grava os
+  PNGs em `reports/target/latest-image/`).
+- **Verificado com dados reais (2026-10-26):** em `AC-1200302-7ECA40E36E154380BC739F9CB7E33DE0`
+  (34.836 ha), as duas cenas de 25/10 tinham nuvem demais sobre o imóvel e foram puladas; a de 10/10
+  (S2B, 19MCM) entrou com 0% de nuvem na área, pixel de 40 m (618 x 667) e NDVI médio de 0,817. O Block
+  levou de 12 a 51 s e o PDF saiu com 7 páginas. Num imóvel de 3.097 ha
+  (`AC-1200179-BA98DAA4BFE841B9877C11E635B24695`), com pixel de 20 m e 3 cenas avaliadas, levou 32 s.
+  O tempo é dominado pela banda de rede até a AWS (us-west-2): daqui, cerca de 330 KB/s. Cada cena
+  avaliada lê a SCL, e a aceita lê as bandas dos índices (tiles de 1024 px; um imóvel pequeno em 10 m
+  ainda baixa de 1 a 4 tiles por banda).
