@@ -3,14 +3,14 @@
 Este documento responde a uma pergunta: o REPORTS consegue usar o Satellite Hub e, se não conseguir,
 rodar um script Python do Skills Lab como um Block? Ele diz o que já está feito, o que falta e como
 fazer. Parte do código em `reports/` (seção 47 do [ARCHITECTURE.md](ARCHITECTURE.md)) e do que o
-back oferece em 2026-10-26.
+back oferece em 2026-10-27.
 
 | Integração | Estado | Onde |
 |---|---|---|
 | Satellite Hub, **leitura** do que ele já publicou (séries de índices por área) | **feito** | `sathub-index-series` ([BLOCKS.md](BLOCKS.md) §4) e o pronto `sathub-vegetation-monitoring` |
 | **Última imagem Sentinel-2** de qualquer área (ex.: um imóvel CAR), na hora, com as fórmulas de índice do Satellite Hub | **feito** (§1.2) | `sathub-latest-image` ([BLOCKS.md](BLOCKS.md) §4) e o pronto `car-latest-satellite-image` |
 | Satellite Hub, **pedir processamento** (cadastrar a área e calcular a série) para uma área nova | desenhado (§1.3) | precisa de uma rota no Satellite Hub; a porta plugin-a-plugin do back já existe |
-| Script Python do Skills Lab como Block | desenhado (§2) | precisa de uma porta interna nova no back |
+| Script Python do Skills Lab como Block | **feito** (§2) | `skillslab-python` ([BLOCKS.md](BLOCKS.md) §5), sobre a porta de workflows do back (infinitestack-back#1280) |
 
 ---
 
@@ -81,85 +81,58 @@ O back não muda; o infra só muda se a instância restringir `allowed-targets`.
 
 ## 2. Script Python do Skills Lab como Block
 
-### 2.1 Por que ainda não dá
+### 2.1 Como funciona (feito em 2026-10-27)
 
-- O Skills Lab roda scripts pelo `PythonManager` do back, no venv do projeto
-  (`HOW_SKILLS_LAB_WORKS.md` no infra). As rotas REST (`POST /api/projects/{projectId}/scripts/execute/{scriptId}`)
-  exigem **sessão de usuário** (JWT + papel), e o REPORTS não tem token de usuário: ele só recebe os
-  headers `X-IS-*` do proxy.
-- O back não tem uma porta interna para um plugin **rodar** um script. As portas internas de hoje
-  são catálogo, LLM, WhatsApp e chamada plugin-a-plugin.
-- O run do Skills Lab responde em até 8 s e depois vira assíncrono. Um Block precisa da saída na
-  mesma chamada, com contrato de entradas e saídas.
+O desenho anterior pedia uma porta nova no back só para scripts. Não foi preciso: o back ganhou, em
+infinitestack-back#1280 (PR #1281, no `dev` em 2026-10-26), a porta interna
+`/api/extensions/internal/workflows`, com a qual o backend de um Agent App inicia, acompanha e para
+runs de workflows, passando `params` que chegam ao `--context` do primeiro script do run. O Block
+`skillslab-python` usa essa porta:
 
-### 2.2 Desenho
+1. `POST …/projects/{projectId}/workflows/{workflow}/runs` com `{params, onBehalfOf}`: `params` são o
+   `params` fixo do nó mais as entradas `text`, `number`, `date`, `geometry`, `data` e `items` ligadas;
+   `onBehalfOf` é o usuário que gera o relatório (o back confere se ele pode rodar o workflow).
+2. `GET …/runs/{triggerId}` a cada segundo até `done`, no máximo `timeoutSeconds` (5 a 110, padrão
+   100). Passou do tempo, ou a execução desistiu do Block: `POST …/runs/{triggerId}/stop`.
+3. `GET …/runs/{triggerId}/output` em fatias de 256 KB (só os últimos 8 MB de um log maior).
+4. A última linha `IS_REPORTS_RESULT <objeto JSON>` vira a saída `result`; o resto, `log`. Run que
+   não termina em `SUCCESS` ou `WARNING` falha o Block com o fim do log.
 
-**Contrato do script.** Um script vira Block com um manifesto ao lado, `reports-block.json`:
-
-```json
-{
-  "id": "py-ndvi-anomaly",
-  "name": "NDVI anomaly",
-  "version": "1.0.0",
-  "script": "ndvi_anomaly/main.py",
-  "inputs":  [ { "name": "series", "type": "array", "required": true, "description": "..." } ],
-  "outputs": [ { "name": "anomalies", "type": "array", "required": true, "description": "..." } ],
-  "dataRequirements": [ { "schema": "gold", "table": "satellite_hub_analytics_values", "columns": ["mean"] } ],
-  "timeoutSeconds": 60,
-  "docs": { "category": "Python (Skills Lab)", "summary": "...", "howItWorks": ["..."], "limitations": ["..."] }
-}
-```
-
-O script lê as entradas e escreve as saídas por um helper da `infinitestack-python-lib`:
+O script, em qualquer projeto do Skills Lab:
 
 ```python
-from infinitestack.reports import block
+import json
+from infinitestack.agent import resolve_agent_context   # ou json.loads do argumento após --context
 
-inputs = block.inputs()                 # JSON de IS_BLOCK_INPUTS_FILE
-anomalies = detect(inputs["series"])
-block.outputs({"anomalies": anomalies}) # escreve em IS_BLOCK_OUTPUTS_FILE
+context = resolve_agent_context()       # {"text": "AC-...", "geometry": {...}, ...} + o input salvo do bloco
+result = {"summary": "...", "total": 3}
+print("IS_REPORTS_RESULT " + json.dumps(result))
 ```
 
-O stdout fica só para log, para que um `print` perdido não quebre o contrato.
+**O que a instância precisa** (admin do IS):
 
-**Back: porta interna nova** (`PluginInternalScriptsController`):
+- Um workflow no projeto que rode o script (o de Schedules serve; o run é um run comum: Workloads,
+  `lsruns`, fila do `proclimits`).
+- A liberação desse workflow para o REPORTS em `/opt/infinitestack/etc/reports-workflows.json`
+  (`AppWorkflowAccess` do back, pares `projectId` + `workflow`). Sem o arquivo, nada roda (403).
+- O back com o #1281 (hoje só no `dev`).
+- No REPORTS, liberar o Block `skillslab-python` uma vez na tela de Blocks (ele não tem
+  `DataRequirement`, então está sempre disponível para liberar).
 
-| Rota | O que faz |
-|---|---|
-| `GET /api/extensions/internal/scripts/blocks` | lista os `reports-block.json` dos projetos permitidos, com o sha256 do script |
-| `POST /api/extensions/internal/scripts/run` | `{projectId, manifestPath, inputs, timeoutSeconds}`: grava as entradas em arquivo temporário, roda o script pelo `PythonManager` como run rastreado (`workflowType: reports`, aparece em Workloads), espera até o timeout, lê o arquivo de saída e devolve `{exitCode, outputs, logTail, triggerId, scriptSha256}` |
+**Limites e diferenças em relação ao desenho anterior:**
 
-Autenticada pelo mesmo par `X-IS-Plugin-Id` + `X-IS-Plugin-Internal-Token`, desligada por padrão
-(`extensions.internal.scripts.enabled`) e com **allow-list** de projetos/pastas
-(`extensions.internal.scripts.allowed`). O run passa pelo vigia de recursos e pelos limites de
-processo (`proclimits`) que já existem.
+- Síncrono: o relatório espera o script, que precisa terminar dentro dos 120 s da execução. Script
+  longo segue a alternativa do §2.3.
+- `--context` de até 64 KB (limite do back): passe uma chave (código do imóvel, id de área), não os dados.
+- Um Block genérico, não um Block por script: as entradas e saídas são livres (`result` é um objeto) e
+  não há manifesto com contrato por script. O template lê `{{nó.result.campo}}`.
+- **Sem fixar o código na liberação:** a porta não informa o sha256 do script, então liberar o Block
+  não congela a versão do script. O controle fica na liberação do workflow no arquivo da instância.
+  Fixar por sha256 continua pendente e precisa de um campo novo na resposta do run, no back.
+- Resultado pelo stdout (linha marcada), porque a porta só devolve o log. `json.dumps` padrão (só ASCII)
+  e em uma linha.
 
-**REPORTS: Blocks dinâmicos.**
-
-- Hoje o `BlockRegistry` só conhece beans Spring. Entraria uma interface `ReportBlockProvider`, com um
-  provider que lê `GET .../scripts/blocks` (com cache, como o catálogo) e cria um `PythonScriptBlock`
-  por manifesto. O `PythonScriptBlock` chama `POST .../scripts/run` e confere as saídas contra o
-  contrato (o `FlowExecutor` já faz isso para qualquer Block).
-- **Liberação fixa o código:** ao liberar um `py-*`, o admin libera aquele sha256. Se o script mudar,
-  o Block volta para "alterado, libere de novo" e não roda até lá, porque o script pode fazer
-  qualquer coisa no venv do projeto (inclusive escrever no banco pela lib). É a diferença em relação
-  aos Blocks Java, revisados em PR.
-- A execução guarda `blockVersion` = versão do manifesto + sha256, o que mantém a reexecução honesta.
-- Na paleta do editor, o grupo "Python (Skills Lab)" vem do `docs.category` do manifesto.
-
-**Limites:**
-
-- Síncrono, até o timeout do Block (no máximo os 120 s da execução). Script longo (treino, download
-  grande) não é Block: ele roda agendado no Skills Lab e grava uma tabela gold, e um Block Java
-  normal lê essa tabela.
-- Saídas pequenas (JSON de até alguns MB); imagens como `data:` URI, como o mapa.
-
-**PRs, nesta ordem:** back (porta + allow-list + listagem de manifestos + testes), infra (flags na
-instância, doc em `HOW_SKILLS_LAB_WORKS.md`), python-lib (`infinitestack.reports.block`), reports
-(`ReportBlockProvider`, `PythonScriptBlock`, liberação por sha256, docs). Estimativa: uma semana, a
-maior parte no back e na segurança da liberação.
-
-### 2.3 Alternativa que já funciona hoje
+### 2.3 Alternativa para scripts longos
 
 Para um cálculo Python que não precisa rodar na hora do relatório: o script roda **agendado** no
 Skills Lab e grava o resultado numa tabela gold (`register_gold_table` da python-lib). Um Block Java
