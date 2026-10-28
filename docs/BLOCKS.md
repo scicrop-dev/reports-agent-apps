@@ -298,6 +298,9 @@ não no Satellite Hub. Código: `blocks.sathub.SatelliteHubLatestImageBlock` + p
 | `coveragePercent`, `areaCloudPercent` | number, opcionais | parte da área dentro da cena; parte sob nuvem/sombra/sem dado |
 | `pixelSizeM`, `widthPx`, `heightPx` | number, opcionais | grade das imagens |
 | `trueColor` | string, opcional | PNG `data:` em cor verdadeira, com o contorno da área |
+| `imageCrs` | string, opcional | CRS dos PNGs: a zona UTM da cena, ex. `EPSG:32721` |
+| `imageTransform` | array, opcional | transformação afim dos PNGs em `imageCrs`, ordem GDAL/rasterio `[pixelSizeM, 0, minX, 0, -pixelSizeM, maxY]` (canto superior esquerdo do pixel); serve para georreferenciar o recorte (world file, GeoTIFF) |
+| `imageBounds` | array, opcional | `[minLon, minLat, maxLon, maxLat]` em graus (WGS 84): caixa em torno dos quatro cantos dos PNGs, para sobrepor a imagem num mapa lon/lat (ex. `L.imageOverlay`) |
 | `indices` | array | na ordem pedida (vazia sem imagem): `{slug, name, description, image, mean, min, max, stddev, p10, p50, p90, validPixels, validPercent, rangeMin, rangeMax, legend [{color, value, label}]}` |
 | `candidatesTried` | number | cenas cuja nuvem sobre a área foi conferida |
 | `skipped` | array | cenas puladas por nuvem: `{id, date, areaCloudPercent}` |
@@ -337,3 +340,36 @@ Regras:
   O tempo é dominado pela banda de rede até a AWS (us-west-2): daqui, cerca de 330 KB/s. Cada cena
   avaliada lê a SCL, e a aceita lê as bandas dos índices (tiles de 1024 px; um imóvel pequeno em 10 m
   ainda baixa de 1 a 4 tiles por banda).
+
+## 5. Block do Skills Lab (fonte: scripts Python dos projetos do Skills Lab)
+
+### `skillslab-python` — Script Python (Skills Lab)
+
+Roda **qualquer** script Python do Skills Lab na hora do relatório, por um workflow do projeto, e
+devolve o objeto JSON que o script imprimiu. Código: `blocks.skillslab.SkillsLabPythonBlock`; como
+funciona, o que a instância precisa e os limites em [INTEGRATIONS.md](INTEGRATIONS.md) §2.
+
+| Input | Tipo | |
+|---|---|---|
+| `projectId` | string, obrigatório | projeto do Skills Lab |
+| `workflow` | string, obrigatório | id do workflow do projeto que roda o script, liberado para o app em `reports-workflows.json` |
+| `params` | object, opcional | JSON fixo mesclado no `--context` do script |
+| `text`, `number`, `date`, `geometry`, `data`, `items` | string, number, date, geometry, object, array; opcionais | cada um, se ligado, entra no `--context` com o próprio nome (e vence a chave igual de `params`) |
+| `timeoutSeconds` | number, opcional | 5 a 110, padrão 100; depois disso o run é parado e o Block falha |
+
+| Output | Tipo | Conteúdo |
+|---|---|---|
+| `result` | object, opcional | o objeto da última linha `IS_REPORTS_RESULT <json>` do stdout |
+| `hasResult` | boolean | o script imprimiu um resultado |
+| `status` | string | `SUCCESS` ou `WARNING`; qualquer outro final falha o Block com o fim do log |
+| `triggerId` | string | id do run (Workloads) |
+| `log` | string | últimos 4.000 caracteres da saída, sem as linhas de resultado |
+| `durationSeconds` | number | do pedido ao fim do run, com a fila |
+
+Antes de iniciar o run, o Block confere na lista do host (`GET …/workflows`) se o workflow está
+liberado para o app e ainda existe no projeto; se não, falha dizendo o arquivo a editar e o que o
+projeto tem liberado, sem iniciar nada.
+
+Sem `DataRequirement`: está sempre disponível para liberar. O que controla o que roda é a liberação
+do workflow na instância e o acesso do usuário ao workflow (`onBehalfOf`, conferido pelo back).
+Timeout próprio de 118 s, acima do `timeoutSeconds`, para o Block ainda parar o run e ler o log.

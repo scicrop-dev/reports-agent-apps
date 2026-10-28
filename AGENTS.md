@@ -50,11 +50,16 @@ mvn -q test                  # testes (nem todo app tem; ver src/test)
   só em `src/test`). Passe o banco por `IS_DATASOURCE_URL`/`IS_DATASOURCE_USERNAME`/`IS_DATASOURCE_PASSWORD`
   e `REPORTS_LOCAL_ROLE=ADMIN` para ver a tela de liberação. Sem o token do host, o catálogo vem do
   `information_schema` (schemas bronze/silver/gold do banco).
-- **Blocks de produto** ficam em `blocks/<fonte>/` (hoje `blocks/car`, `blocks/brgeo`, `blocks/brweather`, `blocks/sathub`), um por
+- **Blocks de produto** ficam em `blocks/<fonte>/` (hoje `blocks/car`, `blocks/brgeo`, `blocks/sathub`, `blocks/skillslab`), um por
   arquivo, com o contrato em [docs/BLOCKS.md](docs/BLOCKS.md) (regras na seção 1: dados só via `BlockQueries`,
   pool somente leitura, e `docs()` com a documentação que o editor mostra).
   Os Blocks de `src/test/.../support/TestBlocks` são só de teste e não entram no `.ispz`.
 - Integrações com outros apps (Satellite Hub, scripts Python do Skills Lab): [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md).
+- **Skills Lab:** o Block `skillslab-python` roda um script Python do Skills Lab por um workflow do
+  projeto, pela porta interna `/api/extensions/internal/workflows` do back (infinitestack-back#1280,
+  `HostWorkflowClient`). Cada workflow precisa estar liberado para o app em
+  `/opt/infinitestack/etc/reports-workflows.json` na instância; fora do IS (sem token) o Block falha.
+  O script devolve o resultado imprimindo `IS_REPORTS_RESULT <json>` (INTEGRATIONS.md §2).
 - **Rede de saída:** o Block `sathub-latest-image` lê Sentinel-2 na hora e precisa de HTTPS do host
   para `earth-search.aws.element84.com` (STAC; `reports.sentinel.stac-url` / `REPORTS_SENTINEL_STAC_URL`)
   e `sentinel-cogs.s3.us-west-2.amazonaws.com` (COGs). O resto do app não sai da rede.
@@ -155,11 +160,22 @@ do design.md ("sem links voltar") e prevalece sobre ela. O `reports` cumpre a re
 
 ## Versionamento e release
 
-Uma mudança que vai para o IS gera nova versão (semver) **nos três lugares, juntos**:
+**Todo build de `.ispz` para entregar (instalar no IS, publicar, mandar para alguém) leva bump de
+versão antes.** Nunca gere dois pacotes diferentes com o mesmo número. O IS e quem instala
+distinguem os pacotes pela versão, e um `.ispz` novo com versão repetida não é reconhecido como
+atualização. Isso também confunde qual código está em qual pacote. A exceção é o build local só
+para validar (`build-all.sh` do checklist), que não sai da máquina.
+
+O bump é semver e vai **nos três lugares, juntos**:
 
 1. `<app>/pom.xml` (`<version>` do projeto, não do parent)
 2. `<app>/plugin-manifest.json`
 3. `<app>/package-layout/<plugin_id>/plugin-manifest.json`
+
+Use patch (`x.y.Z`) para correção e minor (`x.Y.0`) para funcionalidade nova. Gere o pacote a partir
+da `main` atualizada (`origin/main`), não da branch de uma feature ainda não mergeada, para não
+publicar um jar sem o trabalho de outros PRs. Depois do build, confira que o arquivo saiu com a
+versão nova em `out/<plugin_id>-<versão>.ispz`.
 
 O nome do `.ispz` sai do manifest do package-layout. Algumas versões estão dessincronizadas hoje
 (`barry-gestor-produtor`: pom 1.0.0 × manifest 1.11.2; `chatbot-whatsapp-manager`: root 1.2.0 ×
@@ -182,4 +198,4 @@ O histórico do repo separa a feature do bump de versão:
 - [ ] Nenhum CDN/URL externa adicionada ao front
 - [ ] Templates em `src/main/resources/templates/` e `package-layout/` idênticos
 - [ ] `mvn -q test` e `./scripts/build-all.sh` passam no app
-- [ ] Versão bumpada nos três lugares, se for release
+- [ ] Versão bumpada nos três lugares, se for gerar `.ispz` para entregar

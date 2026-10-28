@@ -11,4 +11,5 @@ As instruções do projeto ficam em [AGENTS.md](AGENTS.md), compartilhadas com o
 - Para validar uma mudança de UI no app rodando, suba o app localmente com
   `mvn spring-boot:run` dentro do diretório do app. Ele usa os defaults `${VAR:default}` do
   `application.properties`, que exigem um Postgres local. Abra `http://localhost:8080{base_path}/`.
-- Não faça commit, push nem bump de versão sem pedido explícito.
+- Não faça commit nem push sem pedido explícito. Quando pedirem para buildar o `.ispz`, faça o bump
+  de versão antes (ver "Versionamento e release" no AGENTS.md).
