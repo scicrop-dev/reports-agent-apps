@@ -108,12 +108,13 @@ alterado a cópia, o diff mostra o que ele perderia; um merge automático fica f
 | 9 | `area-climate-event` | Laudo de evento climático | CAR **ou** polígono, `from`, `to`, `crop?`, `index?` | `report-area`, `car-property`, `brgeo-municipalities`, `brweather-*`, `sathub-index-series`, `brgeo-zarc-risk`, `sathub-latest-image` | **1.0.0** |
 | 10 | `area-rural-credit-dossier` | Dossiê para crédito rural | CAR **ou** polígono, `crop`, `season?` | `report-area`, os 5 do CAR (opcionais), 5 do BR Geo, `brgeo-zarc-risk`, `brgeo-crop-production`, `brgeo-crop-progress`, `brweather-rainfall`, `sathub-latest-image` | **1.0.0** |
 | 11 | `municipality-agri-bulletin` | Boletim agrícola do município | `municipalityIbge`, `crop?`, `season?` | `brgeo-crop-production`, `brgeo-crop-progress`, `brgeo-zarc-risk` | **1.0.0** |
+| 12 | `area-field-candidates` | Candidatos a talhão por segmentação de imagem (imóvel CAR ou polígono) | CAR **ou** polígono | `report-area`, `car-property` (opcional), `sathub-latest-image`, `isgeosam-field-candidates` (opcional) | **1.0.0**. Lê Sentinel-2 na hora e roda o is-geo-sam no Skills Lab |
 
-Os prontos 2 a 11 usam o CSS comum `report-base.css` (o 1 mantém o seu). Um pronto só roda quando
+Os prontos 2 a 12 usam o CSS comum `report-base.css` (o 1 mantém o seu). Um pronto só roda quando
 **todos** os seus Blocks estão utilizáveis, inclusive os opcionais. Por isso os prontos só do CAR (1)
 e só do BR Geo (3) continuam existindo: rodam onde só há uma das fontes.
 
-**CAR ou polígono.** Os prontos 2 e 5 a 10 têm os inputs opcionais `codImovel`, `area` (geometry) e
+**CAR ou polígono.** Os prontos 2, 5 a 10 e 12 têm os inputs opcionais `codImovel`, `area` (geometry) e
 `areaName`; quem roda preenche o código **ou** o polígono. O Block `report-area` resolve a área, os
 Blocks do CAR são nós opcionais ligados a `area.codImovel` (pulados para polígono) e o template mostra
 as seções do CAR em `{{#area.isCar}}`. Município e UF, para ZARC, CONAB e PAM, são os do município
@@ -221,7 +222,18 @@ Para um código IBGE: lavouras do município (PAM), ZARC da cultura (se informad
 safra no estado. A UF sai de `brgeo-crop-production.uf`; o nome do município, do ZARC, quando há
 cultura.
 
-### 5.12 Ideias (não decididas)
+### 5.12 Candidatos a talhão (`area-field-candidates`, 1.0.0)
+
+Entradas: `codImovel` **ou** `area`. `report-area.geometry` vai para `sathub-latest-image` (valores
+fixos `indices = ndvi`, `sizePx = 1024`, um bloco do SAM) e as saídas da imagem, mais a área e o
+código do CAR, vão para `isgeosam-field-candidates` (nó opcional). Seções: capa com o aviso de que os
+polígonos são propostas para revisão, a imagem e o resumo da segmentação, o mapa com os candidatos
+numerados, a tabela (área, scores, pontos de atenção) e a metodologia. A primeira execução para uma
+imagem nova costuma sair "em andamento"; a seguinte reaproveita o resultado guardado
+([BLOCKS.md](BLOCKS.md), `isgeosam-field-candidates`). Precisa do is-geo-sam instalado e liberado na
+instância ([INTEGRATIONS.md](INTEGRATIONS.md) §3).
+
+### 5.13 Ideias (não decididas)
 
 Possibilidades levantadas para conversar com o produto. **Nenhuma está decidida nem priorizada.**
 

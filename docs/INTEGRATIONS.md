@@ -152,3 +152,55 @@ Para um cálculo Python que não precisa rodar na hora do relatório: o script r
 Skills Lab e grava o resultado numa tabela gold (`register_gold_table` da python-lib). Um Block Java
 lê essa tabela com o gate de catálogo de sempre. É o mesmo padrão do BR Geo e do Satellite Hub
 (ingestão em Python, leitura nos Blocks) e não exige nada novo do back.
+
+## 3. is-geo-sam (candidatos a talhão com SAM)
+
+### 3.1 O que é (feito em 2026-10-28)
+
+O is-geo-sam (`scripts/is-geo-sam` no workspace, repo `scicrop-dev/is-geo-sam`) é um pacote Python
+do Skills Lab que, a partir do JSON de workflow com o bloco `sathub-latest-image`, propõe candidatos
+a talhão com o SAM 2.1 em CPU e grava cena, run e candidatos em `gold.is_geo_sam_*`, todos
+`PENDING_REVIEW`. O JSON que ele lê é o mesmo formato das execuções do REPORTS (`block_id` +
+`outputs`), então o Block `isgeosam-field-candidates` monta esse JSON a partir das saídas de
+`sathub-latest-image` e da área. Ele junta os dois padrões deste documento: pede o run pela porta de
+workflows (§2.1) e lê o resultado do gold (§2.3).
+
+**Por que não síncrono como o `skillslab-python`:** o SAM leva cerca de 1 min por bloco de 1024 px,
+mais carregar o modelo e a fila; com os ~20 s da imagem, não cabe com folga nos 120 s da execução.
+Então o Block espera até `waitSeconds` (padrão 60) e, se não acabou, deixa o run seguir e responde
+`PROCESSING`. A próxima execução do relatório acha o run concluído no gold e mostra na hora, porque a
+cena tem identidade fixa: o JSON é determinístico e o script identifica a cena por
+sha256(nome do arquivo + conteúdo), que o Block calcula igual (`SceneRequest.sceneSha256`, testado
+contra um vetor gerado pelo `scene._sha256` do script).
+
+**Por que o JSON vai por arquivo:** o `trueColor` passa de 250 KB e a porta aceita só 64 KB de
+`params`. O Block grava `reports-isgeosam-<sha>.json` em `reports.isgeosam.staging-dir` (padrão
+`/opt/infinitestack/var/lake/staging`, o `ISGEOSAM_STAGING_DIR` do script), como `.part` + rename, e
+passa só o nome: `params = {"file": "<nome>"}`. O script apaga o arquivo quando termina. É o primeiro
+Block que **escreve** no disco do host; o resto do app só lê.
+
+### 3.2 O que a instância precisa (admin do IS)
+
+1. O is-geo-sam instalado num projeto do Skills Lab (README do pacote: zip, dependências pelo botão
+   verde do `requirements.txt`), com `ISGEOSAM_APP_ID=reports` no `.env`, para as tabelas entrarem no
+   catálogo na fonte do REPORTS.
+2. Um workflow nesse projeto com um único bloco `Script` (`is-geo-sam/main.py`), por padrão de id
+   `is-geo-sam`.
+3. A liberação desse workflow para o REPORTS em `/opt/infinitestack/etc/reports-workflows.json`
+   (como no §2.1).
+4. No REPORTS: `REPORTS_ISGEOSAM_PROJECT_ID=<projectId>` (ou o input `projectId` do nó) e, se
+   diferente do padrão, `REPORTS_ISGEOSAM_WORKFLOW` e `REPORTS_ISGEOSAM_STAGING_DIR`. O processo do app
+   precisa poder escrever no staging do lake.
+5. Rodar o script uma vez (`main.py --schema` basta) para criar e registrar as tabelas; só então o
+   gate de catálogo deixa liberar o Block na tela de Blocks.
+
+### 3.3 Limites
+
+- Uma segmentação por vez na instância (lock do script): pedidos de imagens diferentes fazem fila, e
+  cada um conta no `waitSeconds` de quem pediu.
+- A primeira execução para uma imagem nova normalmente sai `PROCESSING`.
+- O Block procura o run pela cena, não pelos parâmetros de segmentação (`params_hash`): se o admin
+  mudar modelo ou parâmetros no `.env`, o relatório continua mostrando o run antigo da mesma imagem
+  até uma imagem nova aparecer.
+- Um `RUNNING` ou um arquivo no staging com mais de 30 min é dado como morto (backend reiniciado) e o
+  Block pede de novo.

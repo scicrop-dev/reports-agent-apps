@@ -1,0 +1,40 @@
+{
+  "id": "area-field-candidates",
+  "version": "1.0.0",
+  "name": "Candidatos a talhão por segmentação de imagem (imóvel CAR ou polígono)",
+  "description": "Os talhões que o SAM (Segment Anything) propõe sobre a imagem Sentinel-2 mais recente de um imóvel do CAR ou de um polígono, numerados sobre a imagem, com área e sinais para revisão. São propostas para revisão humana, não limites de talhão aprovados.",
+  "category": "Monitoramento",
+  "inputs": [
+    { "name": "codImovel", "type": "string", "required": false, "label": "Código do imóvel no CAR (ou deixe em branco e informe o polígono)" },
+    { "name": "area", "type": "geometry", "required": false, "label": "Polígono da área em GeoJSON, no lugar do código CAR" },
+    { "name": "areaName", "type": "string", "required": false, "label": "Nome da área (só para polígono)" }
+  ],
+  "flow": {
+    "nodes": [
+      { "id": "area", "block": "report-area" },
+      { "id": "property", "block": "car-property", "optional": true },
+      { "id": "image", "block": "sathub-latest-image", "values": {"indices": "ndvi", "sizePx": 1024} },
+      { "id": "fields", "block": "isgeosam-field-candidates", "optional": true }
+    ],
+    "connections": [
+      { "from": "inputs.codImovel", "to": "area.codImovel" },
+      { "from": "inputs.area", "to": "area.geometry" },
+      { "from": "inputs.areaName", "to": "area.name" },
+      { "from": "area.codImovel", "to": "property.codImovel" },
+      { "from": "area.geometry", "to": "image.geometry" },
+      { "from": "image.trueColor", "to": "fields.trueColor" },
+      { "from": "image.imageCrs", "to": "fields.imageCrs" },
+      { "from": "image.imageTransform", "to": "fields.imageTransform" },
+      { "from": "image.imageBounds", "to": "fields.imageBounds" },
+      { "from": "image.widthPx", "to": "fields.widthPx" },
+      { "from": "image.heightPx", "to": "fields.heightPx" },
+      { "from": "image.pixelSizeM", "to": "fields.pixelSizeM" },
+      { "from": "image.scene", "to": "fields.scene" },
+      { "from": "area.geometry", "to": "fields.geometry" },
+      { "from": "area.codImovel", "to": "fields.codImovel" }
+    ]
+  },
+  "templateHtmlFile": "area-field-candidates.html",
+  "templateCssFile": "report-base.css",
+  "page": { "size": "A4", "orientation": "portrait", "marginMm": 18 }
+}

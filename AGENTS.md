@@ -50,7 +50,7 @@ mvn -q test                  # testes (nem todo app tem; ver src/test)
   só em `src/test`). Passe o banco por `IS_DATASOURCE_URL`/`IS_DATASOURCE_USERNAME`/`IS_DATASOURCE_PASSWORD`
   e `REPORTS_LOCAL_ROLE=ADMIN` para ver a tela de liberação. Sem o token do host, o catálogo vem do
   `information_schema` (schemas bronze/silver/gold do banco).
-- **Blocks de produto** ficam em `blocks/<fonte>/` (hoje `blocks/car`, `blocks/brgeo`, `blocks/brweather`, `blocks/sathub`, `blocks/skillslab`), um por
+- **Blocks de produto** ficam em `blocks/<fonte>/` (hoje `blocks/car`, `blocks/brgeo`, `blocks/brweather`, `blocks/sathub`, `blocks/skillslab`, `blocks/isgeosam`), um por
   arquivo, com o contrato em [docs/BLOCKS.md](docs/BLOCKS.md) (regras na seção 1: dados só via `BlockQueries`,
   pool somente leitura, e `docs()` com a documentação que o editor mostra).
   Os Blocks de `src/test/.../support/TestBlocks` são só de teste e não entram no `.ispz`.
@@ -60,6 +60,14 @@ mvn -q test                  # testes (nem todo app tem; ver src/test)
   `HostWorkflowClient`). Cada workflow precisa estar liberado para o app em
   `/opt/infinitestack/etc/reports-workflows.json` na instância; fora do IS (sem token) o Block falha.
   O script devolve o resultado imprimindo `IS_REPORTS_RESULT <json>` (INTEGRATIONS.md §2).
+- **is-geo-sam:** o Block `isgeosam-field-candidates` pede ao pacote is-geo-sam (`scripts/is-geo-sam`,
+  SAM no Skills Lab) candidatos a talhão sobre a imagem de `sathub-latest-image` e lê o resultado em
+  `gold.is_geo_sam_*`. É o único Block que **escreve** no disco do host: grava o JSON do pedido em
+  `reports.isgeosam.staging-dir` (`REPORTS_ISGEOSAM_STAGING_DIR`, padrão `/opt/infinitestack/var/lake/staging`).
+  Projeto e workflow: `REPORTS_ISGEOSAM_PROJECT_ID` e `REPORTS_ISGEOSAM_WORKFLOW` (padrão `is-geo-sam`).
+  Não cabe nos 120 s: espera até `waitSeconds`, deixa o run seguir e responde `PROCESSING`; a próxima
+  execução acha o resultado pela identidade da cena (sha256 do nome + conteúdo do JSON, a mesma do
+  script). Desenho e requisitos da instância em INTEGRATIONS.md §3.
 - **Rede de saída:** o Block `sathub-latest-image` lê Sentinel-2 na hora e precisa de HTTPS do host
   para `earth-search.aws.element84.com` (STAC; `reports.sentinel.stac-url` / `REPORTS_SENTINEL_STAC_URL`)
   e `sentinel-cogs.s3.us-west-2.amazonaws.com` (COGs). O resto do app não sai da rede.
@@ -164,11 +172,20 @@ do design.md ("sem links voltar") e prevalece sobre ela. O `reports` cumpre a re
 
 ## Versionamento e release
 
-**Todo build de `.ispz` para entregar (instalar no IS, publicar, mandar para alguém) leva bump de
-versão antes.** Nunca gere dois pacotes diferentes com o mesmo número. O IS e quem instala
-distinguem os pacotes pela versão, e um `.ispz` novo com versão repetida não é reconhecido como
-atualização. Isso também confunde qual código está em qual pacote. A exceção é o build local só
-para validar (`build-all.sh` do checklist), que não sai da máquina.
+**Todo PR leva bump de versão e gera a versão nova antes de ser aberto.** Antes do `gh pr create`:
+
+1. bump da versão nos três lugares (abaixo), no próprio PR, em um commit `chore(<app>): versão X.Y.Z`;
+2. `mvn -q test` e `./scripts/build-all.sh`, que gera `out/<plugin_id>-<X.Y.Z>.ispz`;
+3. confira que o arquivo saiu com a versão nova e cite a versão e o `.ispz` no corpo do PR.
+
+Um PR sem bump, ou aberto sem o `.ispz` da versão nova gerado, não está pronto. Não existe mais PR
+só de versão separado da feature.
+
+Nunca gere dois pacotes diferentes com o mesmo número. O IS e quem instala distinguem os pacotes
+pela versão, e um `.ispz` novo com versão repetida não é reconhecido como atualização. Isso também
+confunde qual código está em qual pacote. Por isso a versão do PR tem de ser maior que a da
+`origin/main` **e** que a de qualquer PR aberto que já tenha bump (`gh pr list`): dois PRs abertos
+nunca usam o mesmo número.
 
 O bump é semver e vai **nos três lugares, juntos**:
 
@@ -176,17 +193,17 @@ O bump é semver e vai **nos três lugares, juntos**:
 2. `<app>/plugin-manifest.json`
 3. `<app>/package-layout/<plugin_id>/plugin-manifest.json`
 
-Use patch (`x.y.Z`) para correção e minor (`x.Y.0`) para funcionalidade nova. Gere o pacote a partir
-da `main` atualizada (`origin/main`), não da branch de uma feature ainda não mergeada, para não
-publicar um jar sem o trabalho de outros PRs. Depois do build, confira que o arquivo saiu com a
-versão nova em `out/<plugin_id>-<versão>.ispz`.
+Use patch (`x.y.Z`) para correção e minor (`x.Y.0`) para funcionalidade nova. A branch parte da
+`origin/main` atualizada (`git fetch` antes), para o pacote levar o trabalho dos PRs já mergeados.
+Se a `main` andar antes do merge (outro PR entrou), faça rebase, suba a versão acima da nova `main`
+se preciso e gere o `.ispz` de novo: o pacote que vale é o gerado sobre a `main` mais recente.
 
 O nome do `.ispz` sai do manifest do package-layout. Algumas versões estão dessincronizadas hoje
 (`barry-gestor-produtor`: pom 1.0.0 × manifest 1.11.2; `chatbot-whatsapp-manager`: root 1.2.0 ×
 layout 1.1.0). Não corrija isso de carona. Só alinhe se for pedido.
 
-O histórico do repo separa a feature do bump de versão:
-`feat(<app>): ...` em um PR e `chore(<app>): versão X.Y.Z` em outro.
+Até a 0.4.0 o histórico separava a feature (`feat(<app>): ...`) do bump (`chore(<app>): versão X.Y.Z`)
+em PRs diferentes. Desde 2026-10-28 os dois vão no mesmo PR, em commits separados.
 
 ## Git
 
@@ -202,4 +219,4 @@ O histórico do repo separa a feature do bump de versão:
 - [ ] Nenhum CDN/URL externa adicionada ao front
 - [ ] Templates em `src/main/resources/templates/` e `package-layout/` idênticos
 - [ ] `mvn -q test` e `./scripts/build-all.sh` passam no app
-- [ ] Versão bumpada nos três lugares, se for gerar `.ispz` para entregar
+- [ ] Versão bumpada nos três lugares e `.ispz` da versão nova gerado (todo PR, antes de abrir)
