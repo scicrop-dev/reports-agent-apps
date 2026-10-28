@@ -62,8 +62,15 @@ mvn -q test                  # testes (nem todo app tem; ver src/test)
   O script devolve o resultado imprimindo `IS_REPORTS_RESULT <json>` (INTEGRATIONS.md §2).
 - **Rede de saída:** o Block `sathub-latest-image` lê Sentinel-2 na hora e precisa de HTTPS do host
   para `earth-search.aws.element84.com` (STAC; `reports.sentinel.stac-url` / `REPORTS_SENTINEL_STAC_URL`)
-  e `sentinel-cogs.s3.us-west-2.amazonaws.com` (COGs). O resto do app não sai da rede. O teste real
+  e `sentinel-cogs.s3.us-west-2.amazonaws.com` (COGs). O resto do app não sai da rede.
+- **Arquivos do lake:** o Block `brweather-rainfall` lê os recortes diários do CHIRPS que o BR Weather
+  grava no disco do host. Só lê sob `reports.brweather.chirps-dir` (`REPORTS_CHIRPS_DIR`, padrão
+  `/opt/infinitestack/var/lake/bronze/br-weather-agent-app/chirps`, o mesmo `BRWEATHER_CHIRPS_DIR`). O teste real
   (`SatelliteHubLatestImageNetworkTest`) roda com `SENTINEL_NETWORK_TEST=1` + `CAR_TEST_DB_*`.
+- **Blocks de ZARC, CONAB e BR Weather:** `SourceBlocksSyntheticDbTest` roda o SQL deles contra tabelas
+  sintéticas num PostGIS descartável, com as mesmas variáveis do teste de ponta a ponta
+  (`REPORTS_TEST_DB_*`; ex.: `docker run -p 55439:5432 -e POSTGRES_PASSWORD=pg postgis/postgis:16-3.4`).
+  Se as tabelas `gold.br_geo_agent_app_zarc_risk` etc. já existirem no banco, ele é pulado.
 - **Testes contra o banco de dev** (somente leitura, consultas por imóvel): `CarBlocksDevDbTest`,
   `CarPropertyMapDevDbTest`, `BrGeoBlocksDevDbTest` e `SatelliteHubDevDbTest` rodam com
   `CAR_TEST_DB_URL`/`CAR_TEST_DB_USER`/`CAR_TEST_DB_PASSWORD`.

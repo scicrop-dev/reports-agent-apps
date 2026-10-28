@@ -17,7 +17,9 @@ import com.infinitestack.reports.blocks.car.PropertyMapRenderer;
 
 /**
  * Draws a vegetation index time series as a PNG for the PDF: a band (the 10th to 90th percentile), the
- * pixel-weighted mean as a line with points, horizontal grid with values and month ticks. Like the
+ * pixel-weighted mean as a line with points, horizontal grid with values and month ticks (day ticks
+ * for a series of two months or less). The BR Weather daily Block draws temperatures with it too
+ * (mean line, minimum to maximum band), in its own color and label format. Like the
  * property map, every label is optional: a host JRE without fonts gets the chart without text.
  */
 public class IndexSeriesChart {
@@ -25,8 +27,7 @@ public class IndexSeriesChart {
     /** One acquisition date of the series: the mean and the band around it. */
     public record Point(LocalDate date, double mean, double min, double max) {}
 
-    private static final Color LINE = new Color(0x2E7D32);
-    private static final Color BAND = new Color(46, 125, 50, 45);
+    private static final Color GREEN = new Color(0x2E7D32);
     private static final Color GRID = new Color(0xE0E0E0);
     private static final Color AXIS = new Color(0x9E9E9E);
     private static final Color TEXT = new Color(0x424242);
@@ -37,13 +38,28 @@ public class IndexSeriesChart {
     private static final int BOTTOM = 30;
 
     private final boolean drawText;
+    private final Color line;
+    private final Color band;
+    private final String valueFormat;
 
     public IndexSeriesChart() {
         this(true);
     }
 
+    /** @param valueFormat axis label format, e.g. "%.0f" for temperatures */
+    public IndexSeriesChart(Color line, String valueFormat) {
+        this(true, line, valueFormat);
+    }
+
     IndexSeriesChart(boolean drawText) {
+        this(drawText, GREEN, "%.2f");
+    }
+
+    private IndexSeriesChart(boolean drawText, Color line, String valueFormat) {
         this.drawText = drawText;
+        this.line = line;
+        this.band = new Color(line.getRed(), line.getGreen(), line.getBlue(), 45);
+        this.valueFormat = valueFormat;
     }
 
     public byte[] render(List<Point> points, int width, int height) {
@@ -76,14 +92,23 @@ public class IndexSeriesChart {
                 int y = TOP + (int) Math.round(plotH * (hi - v) / (hi - lo));
                 g.setColor(GRID);
                 g.drawLine(LEFT, y, LEFT + plotW, y);
-                text(g, String.format(Locale.ROOT, "%.2f", v), LEFT - 6, y + 4, false);
+                text(g, String.format(Locale.ROOT, valueFormat, v), LEFT - 6, y + 4, false);
             }
-            // Month ticks
+            // Month ticks; a short series gets a tick every few days instead
             g.setColor(AXIS);
             g.drawLine(LEFT, TOP + plotH, LEFT + plotW, TOP + plotH);
+            if (days <= 62) {
+                int stepDays = days <= 16 ? 2 : 7;
+                for (LocalDate day = first; !day.isAfter(last); day = day.plusDays(stepDays)) {
+                    int x = LEFT + (int) Math.round(plotW * ChronoUnit.DAYS.between(first, day) / (double) days);
+                    g.setColor(AXIS);
+                    g.drawLine(x, TOP + plotH, x, TOP + plotH + 4);
+                    text(g, String.format(Locale.ROOT, "%02d/%02d", day.getDayOfMonth(), day.getMonthValue()), x, TOP + plotH + 18, true);
+                }
+            }
             LocalDate month = first.withDayOfMonth(1).plusMonths(1);
             int every = days > 500 ? 3 : 1;
-            for (int i = 0; !month.isAfter(last); month = month.plusMonths(1), i++) {
+            for (int i = 0; days > 62 && !month.isAfter(last); month = month.plusMonths(1), i++) {
                 int x = LEFT + (int) Math.round(plotW * ChronoUnit.DAYS.between(first, month) / (double) days);
                 g.setColor(AXIS);
                 g.drawLine(x, TOP + plotH, x, TOP + plotH + 4);
@@ -107,9 +132,9 @@ public class IndexSeriesChart {
                 band.lineTo(x(p.date(), first, days, plotW), y(p.min(), lo, hi, plotH));
             }
             band.closePath();
-            g.setColor(BAND);
+            g.setColor(this.band);
             g.fill(band);
-            g.setColor(LINE);
+            g.setColor(this.line);
             g.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
             g.draw(line);
             for (Point p : points) {

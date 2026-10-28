@@ -159,6 +159,8 @@ medem tudo em hectares geodésicos. Timeout de 30 s (consulta 25 s).
 | `brgeo-deter-alerts` | `geometry`, `dateFrom?`, `dateTo?` | `alerts[]` (até 200, mais novos primeiro), `byClass[] {className, count, overlapHa, firstDate, lastDate}`, `count`, `totalOverlapHa`, `lastAlertDate`, `monitored`, `coverage[]`, `truncated` | `inpe_deter_alert`, `ibge_biome` |
 | `brgeo-prodes` | `geometry`, `yearFrom?` | `byYear[] {product, productName, year, polygons, deforestedHa}`, `byProduct[] {..., firstYear, lastYear, deforestedHa, sinceCutoffHa}`, `count`, `maxDeforestedHa`, `lastYear`, `monitored`, `coverage[]` (com `lastYear` carregado) | `inpe_prodes_increment`, `ibge_biome` |
 | `brgeo-crop-production` | `municipalityIbge` (number), `year?`, `limit?` (15) | `year`, `crops[] {product, plantedHa, harvestedHa, quantity, quantityUnit, yieldKgHa, valueThousandBrl, shareOfHarvestedPercent}`, `count`, `totalHarvestedHa`, `totalValueThousandBrl`, `truncated` | `ibge_pam_value`, `ibge_pam_product` (SIDRA 5457) |
+| `brgeo-zarc-risk` | `municipalityIbge` (number), `crop`, `season?` (a mais recente), `soil?`, `cultivarGroup?`, `limit?` (30) | `found`, `message`, `crop`, `season`, `uf`, `municipality`, `ordinance`, `ordinanceDate`, `rows[] {croppingSystem, climateType, cultivarGroup, soil, risk[36], cells[36] {period, risk, label}, indicatedPeriods, lowestRisk, windows[] {risk, fromPeriod, toPeriod, from, to, label}}`, `count`, `truncated`, `periods[36] {period, from, to, label}`, `availableCrops` | `zarc_risk` (SISZARC) |
+| `brgeo-crop-progress` | `uf` (sigla ou nome), `crop?`, `operation?` (`sowing`/`harvest`), `maxAgeDays?` (60) | `found`, `message`, `state`, `latestWeekEnd`, `items[] {crop, season, operation, operationLabel, weekEnd, pctDone, previousWeekPct, weekChangePoints, lastYearPct, avg5yPct, vsAvg5yPoints, series[] {weekEnd, pctDone}}`, `count`, `availableStates` | `conab_crop_progress` |
 
 Regras de cada um:
 
@@ -173,6 +175,20 @@ Regras de cada um:
 - **PRODES: produtos nunca são somados.** Só os produtos por bioma entram; `prodes_legal_amz` fica de
   fora porque repete o `prodes_amazon`. `sinceCutoffHa` soma os anos PRODES a partir de 2009, que
   começa em agosto de 2008, logo depois do marco do Código Florestal (22/07/2008).
+- **ZARC.** Risco por decêndio do ano (1 = 1 a 10/jan ... 36 = 21 a 31/dez): 0 é "não indicado"; 20,
+  30 ou 40 é a probabilidade (%) de perda. Uma linha por manejo, tipo de clima, grupo de cultivar e
+  classe de solo (AD1 a AD6). `windows` junta decêndios seguidos com o mesmo risco, inclusive através
+  da virada do ano (soja: outubro a janeiro). A cultura é casada sem acento nem caixa ("milho 2a
+  safra" acha "Milho 2ª safra"). Sem `season`, vale a safra mais recente que tem a cultura no
+  município: as de calendário (`2026/2027`) primeiro, depois `Sem Safra`, `Perenes`... **Consulta:** a
+  tabela não tem índice por município, então o Block lista os pares (safra, cultura) com um *skip
+  scan* recursivo no índice de escopo `(season, crop, ...)` e lê a cultura nas suas safras e na UF do
+  município (dois primeiros dígitos do código IBGE), que esse índice restringe.
+- **CONAB.** A CONAB grava frações (0,452) e nomeia a UF por extenso: o Block devolve percentuais com 1
+  casa e aceita a sigla do CAR. Por cultura e operação vale a safra mais nova; `previousWeekPct` é a
+  semana anterior (até 10 dias antes), `lastYearPct` a mesma semana um ano antes (357 a 371 dias) e
+  `avg5yPct` a média de 5 anos que a CONAB imprime para a semana. Operações sem semana nos últimos
+  `maxAgeDays` dias saem (uma colheita que acabou em julho). Só os principais estados produtores.
 - **PAM.** Tabela 5457 (lavouras temporárias e permanentes). Os totais vêm da linha `Total` (produto
   0). Subtotais como `Café (em grão) Total` são pulados para a mesma lavoura não contar duas vezes.
   Valores sigilosos ou ausentes (`X`, `...`, `-`) saem vazios.
@@ -185,24 +201,62 @@ em Envira/AM, 100% Amazônia, 28 termos de embargo (24 ativos, 760 ha), 76 alert
 Estado dos dados no dev nessa data: DETER só `deter_amz`; PRODES só `prodes_amazon` de 2008 a 2014
 (carga parcial). O `coverage[].lastYear` mostra isso no relatório.
 
+## 3.1 Blocks do BR Weather (fonte: `apps/br-weather-agent-app`, tabelas `gold.br_weather_agent_app_*`)
+
+Clima da área: NASA POWER (temperatura, umidade, vento, radiação) e CHIRPS v3 (chuva). Recebem a
+área (`geometry`) e um período: `from`/`to`, ou os últimos `days` dias (padrão 30, até 366) até o
+último dia carregado. Código em `blocks.brweather`.
+
+| Block | Entradas | Saídas principais | Tabelas / arquivos |
+|---|---|---|---|
+| `brweather-daily-weather` | `geometry`, `from?`, `to?`, `days?` | `found`, `message`, `from`, `to`, `latestDay`, `cells[] {lat, lon, elevationM, weightPercent}`, `nearestCell`, `days[] {date, t2m, t2mMax, t2mMin, rh2m, ws2m, radiation, precipitation}`, `daysWithData`, `meanT2m`, `maxT2m`/`maxT2mDate`, `minT2m`/`minT2mDate`, `meanRh2m`, `meanWs2m`, `meanRadiation`, `powerPrecipitationMm`, `degreeDays` (base 10 °C), `hotDays` (máx. ≥ 35 °C), `coldNights` (mín. ≤ 3 °C), `chart` (PNG 900 × 300) | `nasa_power_cell`, `nasa_power_daily` |
+| `brweather-rainfall` | `geometry`, `from?`, `to?`, `days?` | `found`, `message`, `from`, `to`, `latestDay`, `pixels`, `wholePixels`, `days[] {date, rainMm, preliminary}`, `daysWithData`, `missingDays`, `totalMm`, `meanDailyMm`, `maxDayMm`/`maxDayDate`, `rainyDays` (≥ 1 mm), `longestDrySpell`, `preliminaryDays`, `chart` (barras, PNG 900 × 260) | `chirps_day` + os recortes GeoTIFF no lake |
+
+Regras:
+
+- **NASA POWER.** As células (0,5° × 0,625°, uns 55 × 65 km) que tocam a área entram com peso igual à
+  parte da área em cada uma; área que não toca célula nenhuma usa a mais próxima até 1° (`nearestCell`).
+  Até 60 células. Média ponderada por dia, ignorando o valor ausente (não vira zero). Unidades:
+  °C, %, m/s, MJ/m²/dia, mm. A chuva do POWER (`powerPrecipitationMm`, MERRA-2) é só conferência: a
+  chuva do relatório é a do CHIRPS, como no BR Weather.
+- **CHIRPS.** O gold guarda só o catálogo (um recorte do Brasil por dia, 0,05°, EPSG:4326); os pixels
+  estão em GeoTIFF no lake do host (`BRWEATHER_CHIRPS_DIR`). O Block abre o arquivo de cada dia e lê
+  só os pixels da área com o mesmo leitor dos COGs do Sentinel-2 (`HttpCogReader` sobre
+  `LocalFileRangeFetcher`, que agora lê float32 com predictor 3 e CRS geográfico). Média dos pixels
+  com centro dentro da área; área menor que um pixel usa os pixels da caixa dela (`wholePixels =
+  false`). Dia sem arquivo conta em `missingDays`; um buraco nos dados interrompe a contagem do
+  veranico (`longestDrySpell`). `preliminary` marca dias da série preliminar, trocados pela final
+  depois.
+- **Segurança:** só arquivos sob `reports.brweather.chirps-dir` (`REPORTS_CHIRPS_DIR`, padrão
+  `/opt/infinitestack/var/lake/bronze/br-weather-agent-app/chirps`, o mesmo do BR Weather) são lidos;
+  um `path` da tabela fora dele falha o Block. Assim o Block não vira um leitor de arquivos do host.
+- Timeouts: 30 s (POWER) e 60 s (CHIRPS, um arquivo por dia; um ano leva alguns segundos).
+
+**Teste:** `SourceBlocksSyntheticDbTest` roda o SQL dos Blocks de ZARC, CONAB e BR Weather contra
+tabelas sintéticas com as colunas dos apps de origem, num PostGIS descartável
+(`REPORTS_TEST_DB_URL`); o CHIRPS lê o recorte de teste `cog/rain-4326.tif` (float32, predictor 3,
+gerado com GDAL 3.8). Se as tabelas já existem no banco, o teste é pulado em vez de mexer nelas.
+
 ## 4. Blocks do Satellite Hub (fonte: agent app `satellite-hub`, tabelas `gold.satellite_hub_*`)
 
 ### `sathub-index-series` — Série de índice de vegetação
 
-Lê o que o Satellite Hub **já calculou e publicou** no gold (estatísticas por imagem Sentinel-2 e
-por área cadastrada nele). Não pede processamento novo (ver [INTEGRATIONS.md](INTEGRATIONS.md)).
+Lê o que o Satellite Hub **já calculou e publicou** no gold (estatísticas por imagem e por área
+cadastrada nele). Cada índice é de uma coleção: Sentinel-2 L2A (`ndvi`, `evi`...), Landsat 8/9
+(`ndvi_landsat`, `ndmi_landsat`) ou Sentinel-1 RTC (`rvi_s1`, radar, escala 0 a 4); só existem
+os que o admin do Satellite Hub habilitou. Não pede processamento novo (ver [INTEGRATIONS.md](INTEGRATIONS.md)).
 
 | Input | Tipo | |
 |---|---|---|
 | `geometry` | geometry, opcional | combina as áreas do Satellite Hub que tocam a geometria (até 50, maior parte dentro primeiro) |
 | `areaId` | number, opcional | uma área do Satellite Hub pelo id (no lugar da geometria) |
-| `index` | string, opcional | `ndvi` (default), `evi`, `savi`, `ndre`, `gndvi`, `ndmi`, `ndwi`, `nbr` |
+| `index` | string, opcional | `ndvi` (default), `evi`, `savi`, `ndre`, `gndvi`, `ndmi`, `ndwi`, `nbr` (Sentinel-2), `ndvi_landsat`, `ndmi_landsat` (Landsat), `rvi_s1` (Sentinel-1) ou outro habilitado |
 | `days` | number, opcional | tamanho da série, contado a partir da imagem mais recente; default 365 |
 | `minValidPercent` | number, opcional | descarta imagens com menos desse % de área sem nuvem; default 50 |
 
 | Output | Tipo | Conteúdo |
 |---|---|---|
-| `index` | object | `{slug, name, description}` |
+| `index` | object | `{slug, name, description, collection, collectionName}`; `collection` é o id do Satellite Hub (`sentinel-2-l2a`, `landsat-c2-l2`, `sentinel-1-rtc`; vazio no banco = `sentinel-2-l2a`) |
 | `areas` / `areaCount` | array / number | `{id, farmName, blockName, parcelName, areaHa, insideHa}` |
 | `series` | array | um ponto por data de imagem: `{date, mean, min, max, p10, p90, validAreaPercent, areas}` |
 | `count`, `latestDate`, `latestMean`, `periodMean`, `periodMin`, `periodMax` | | resumo da série |
@@ -229,7 +283,7 @@ não no Satellite Hub. Código: `blocks.sathub.SatelliteHubLatestImageBlock` + p
 | Input | Tipo | |
 |---|---|---|
 | `geometry` | geometry, obrigatório | Polygon/MultiPolygon lon/lat (SIRGAS 2000, tratado como WGS 84); em geral `car-property-geometry.geometry` |
-| `indices` | string, opcional | slugs do Satellite Hub separados por vírgula; default `ndvi,evi,ndmi` |
+| `indices` | string, opcional | slugs do Satellite Hub **da coleção Sentinel-2** separados por vírgula; default `ndvi,evi,ndmi` |
 | `maxCloudPercent` | number, opcional | nuvem da cena (`eo:cloud_cover`); default 40 |
 | `maxAreaCloudPercent` | number, opcional | nuvem máxima **dentro da área**; acima disso a cena é pulada e a anterior tentada; default 30 |
 | `maxAgeDays` | number, opcional | janela de busca; default 120 |
@@ -265,7 +319,9 @@ Regras:
   de 10 para o maior lado caber em `sizePx`. Estatísticas sobre os pixels dentro da área e sem nuvem;
   `validPercent` é sobre os pixels dentro da área.
 - **Sem imagem não é falha:** `found = false` com `message` e `skipped`, e o relatório renderiza.
-  Índice desconhecido ou desabilitado é falha, com a lista dos disponíveis. Erro de rede/leitura é
+  Índice desconhecido ou desabilitado é falha, com a lista dos disponíveis. Índice de outra coleção
+  (`ndvi_landsat`, `rvi_s1`) também: a fórmula dele usa bandas de outro sensor (o `nir08` do Landsat
+  não é o `nir08` do Sentinel-2), então só os de `collection = sentinel-2-l2a` (ou vazia) entram. Erro de rede/leitura é
   falha com mensagem legível.
 - Timeout próprio de 110 s (a execução tem 120 s). O gate do catálogo é a tabela de índices: o Block
   aparece quando o Satellite Hub está instalado.

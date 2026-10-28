@@ -165,7 +165,8 @@ public final class GeoBlockContractStubs {
         }
         String chart = "data:image/png;base64," + Base64.getEncoder().encodeToString(new IndexSeriesChart().render(points, 900, 300));
         Map<String, Object> last = series.isEmpty() ? null : series.get(series.size() - 1);
-        return map("index", map("slug", "ndvi", "name", "NDVI", "description", "Normalized Difference Vegetation Index"),
+        return map("index", map("slug", "ndvi", "name", "NDVI", "description", "Normalized Difference Vegetation Index",
+                        "collection", "sentinel-2-l2a", "collectionName", "Sentinel-2 L2A"),
                 "areas", bare ? List.of() : List.of(map("id", 16991L, "farmName", "Fazenda Exemplo", "blockName", "Bloco 2",
                         "parcelName", "Talhão 7", "areaHa", 26.79, "insideHa", 26.79)),
                 "areaCount", bare ? 0 : 1, "series", series, "count", series.size(),

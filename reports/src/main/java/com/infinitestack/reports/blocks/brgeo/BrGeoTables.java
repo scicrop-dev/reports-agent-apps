@@ -21,6 +21,8 @@ public final class BrGeoTables {
     public static final String PRODES_INCREMENT = "br_geo_agent_app_inpe_prodes_increment";
     public static final String PAM_VALUE = "br_geo_agent_app_ibge_pam_value";
     public static final String PAM_PRODUCT = "br_geo_agent_app_ibge_pam_product";
+    public static final String ZARC_RISK = "br_geo_agent_app_zarc_risk";
+    public static final String CONAB_PROGRESS = "br_geo_agent_app_conab_crop_progress";
 
     public static final String Q_MUNICIPALITY = SCHEMA + "." + MUNICIPALITY;
     public static final String Q_BIOME = SCHEMA + "." + BIOME;
@@ -30,6 +32,8 @@ public final class BrGeoTables {
     public static final String Q_PRODES_INCREMENT = SCHEMA + "." + PRODES_INCREMENT;
     public static final String Q_PAM_VALUE = SCHEMA + "." + PAM_VALUE;
     public static final String Q_PAM_PRODUCT = SCHEMA + "." + PAM_PRODUCT;
+    public static final String Q_ZARC_RISK = SCHEMA + "." + ZARC_RISK;
+    public static final String Q_CONAB_PROGRESS = SCHEMA + "." + CONAB_PROGRESS;
 
     /** A requirement on one of the BR Geo tables, listing the columns the Block's SQL reads. */
     public static DataRequirement requirement(String table, String... columns) {
