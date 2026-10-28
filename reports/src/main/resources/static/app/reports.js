@@ -620,7 +620,7 @@
             el('tbody', null, blocks.map((b) => el('tr', null,
                 el('td', null, b.nodeId),
                 el('td', null, b.blockId + ' ' + b.blockVersion),
-                el('td', null, el('span.chip.' + (b.status === 'COMPLETED' ? 'ok' : 'error'), null, b.status)),
+                el('td', null, el('span.chip.' + (b.status === 'COMPLETED' ? 'ok' : b.status === 'SKIPPED' ? 'muted' : 'error'), null, b.status)),
                 el('td', null, b.durationMs + ' ms'),
                 el('td', null, b.error ? el('span.error-text', null, b.error) : el('code.json', null, shortJson(b.outputs)))))));
     }

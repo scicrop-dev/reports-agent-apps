@@ -23,13 +23,16 @@ import com.infinitestack.reports.blocks.brgeo.BrGeoCropProgressBlock;
 import com.infinitestack.reports.blocks.brgeo.BrGeoZarcRiskBlock;
 import com.infinitestack.reports.blocks.brweather.BrWeatherDailyBlock;
 import com.infinitestack.reports.blocks.brweather.BrWeatherRainfallBlockAccess;
+import com.infinitestack.reports.blocks.car.ReportAreaBlock;
+import com.infinitestack.reports.blocks.sathub.SatelliteHubIndexSeriesBlock;
 import com.infinitestack.reports.engine.block.BlockPort;
 import com.infinitestack.reports.engine.block.BlockQueries;
 import com.infinitestack.reports.engine.block.ReportBlock;
 import com.zaxxer.hikari.HikariDataSource;
 
 /**
- * The SQL of the ZARC, CONAB and BR Weather Blocks against synthetic tables with the columns the
+ * The SQL of the ZARC, CONAB, BR Weather and Satellite Hub series Blocks, and the polygon path of
+ * report-area, against synthetic tables with the columns the
  * source apps create (br-geo-agent-app, br-weather-agent-app), in a disposable PostGIS. Runs only
  * with REPORTS_TEST_DB_URL (+ _USER, _PASSWORD), like the end-to-end test. It creates the gold tables
  * only when none of them exists, and drops what it created: pointed at a database that has the real
@@ -38,7 +41,8 @@ import com.zaxxer.hikari.HikariDataSource;
 class SourceBlocksSyntheticDbTest {
 
     static final List<String> TABLES = List.of("br_geo_agent_app_zarc_risk", "br_geo_agent_app_conab_crop_progress",
-            "br_weather_agent_app_nasa_power_cell", "br_weather_agent_app_nasa_power_daily", "br_weather_agent_app_chirps_day");
+            "br_weather_agent_app_nasa_power_cell", "br_weather_agent_app_nasa_power_daily", "br_weather_agent_app_chirps_day",
+            "satellite_hub_areas", "satellite_hub_analytics_indices", "satellite_hub_analytics_values");
 
     static HikariDataSource dataSource;
     static JdbcTemplate jdbc;
@@ -84,6 +88,13 @@ class SourceBlocksSyntheticDbTest {
                 + " sha256 text NOT NULL, width integer NOT NULL, height integer NOT NULL, west double precision NOT NULL,"
                 + " south double precision NOT NULL, east double precision NOT NULL, north double precision NOT NULL, crs text NOT NULL,"
                 + " nodata double precision NOT NULL, valid_to timestamptz)");
+        jdbc.execute("CREATE TABLE gold.satellite_hub_areas (id bigserial PRIMARY KEY, farm_name text, block_name text, parcel_name text,"
+                + " area_ha numeric, geom geometry(MultiPolygon, 4326))");
+        jdbc.execute("CREATE TABLE gold.satellite_hub_analytics_indices (id bigserial PRIMARY KEY, slug text, name text, description text,"
+                + " collection text, enabled boolean)");
+        jdbc.execute("CREATE TABLE gold.satellite_hub_analytics_values (index_id bigint, area_id bigint, acquired_at timestamptz, mean double precision,"
+                + " min_value double precision, max_value double precision, p10 double precision, p90 double precision, valid_pixels integer,"
+                + " valid_area_pct double precision)");
         queries = new BlockQueries(dataSource);
         lake = Files.createTempDirectory("chirps-lake");
     }
@@ -309,6 +320,60 @@ class SourceBlocksSyntheticDbTest {
                 () -> block.execute(Map.of("geometry", box(-70.02, -2.02, -69.93, -1.93)), null));
         assertTrue(e.getMessage().contains("outside reports.brweather.chirps-dir"), e.getMessage());
         jdbc.update("DELETE FROM gold.br_weather_agent_app_chirps_day WHERE day = '2026-10-06'");
+    }
+
+    @Test
+    void reportAreaCleansAPolygonAndRefusesWhatIsNotOne() throws Exception {
+        ReportAreaBlock block = new ReportAreaBlock(queries);
+        // Two overlapping squares in a FeatureCollection: merged into one area, not counted twice.
+        Map<String, Object> collection = Map.of("type", "FeatureCollection", "features", List.of(
+                Map.of("type", "Feature", "properties", Map.of(), "geometry", box(-52.21, -12.64, -52.17, -12.61)),
+                Map.of("type", "Feature", "properties", Map.of(), "geometry", box(-52.19, -12.64, -52.15, -12.61))));
+        Map<String, Object> out = run(block, Map.of("geometry", collection, "name", "Fazenda Teste"));
+        assertEquals("polygon", out.get("source"));
+        assertEquals(false, out.get("isCar"));
+        assertEquals("Fazenda Teste", out.get("label"));
+        double merged = (Double) out.get("areaHa");
+        double single = (Double) run(block, Map.of("geometry", box(-52.21, -12.64, -52.17, -12.61))).get("areaHa");
+        assertTrue(merged > single && merged < 2 * single, merged + " vs " + single);
+        assertEquals(-52.15, ((Map<String, Object>) cast(out.get("bbox"))).get("maxLon"));
+        // A self-crossing "bow tie" is made valid instead of failing.
+        Map<String, Object> bowTie = Map.of("type", "Polygon", "coordinates", List.of(List.of(List.of(-52.2, -12.6), List.of(-52.1, -12.7),
+                List.of(-52.1, -12.6), List.of(-52.2, -12.7), List.of(-52.2, -12.6))));
+        assertTrue((Double) run(block, Map.of("geometry", bowTie)).get("areaHa") > 0);
+
+        assertThrows(IllegalArgumentException.class, () -> block.execute(Map.of("geometry", box(654770, 8596060, 655770, 8597060)), null));
+        assertThrows(IllegalArgumentException.class, () -> block.execute(Map.of("geometry",
+                Map.of("type", "LineString", "coordinates", List.of(List.of(-52.2, -12.6), List.of(-52.1, -12.7)))), null));
+        assertThrows(IllegalArgumentException.class, () -> block.execute(Map.of(), null));
+        assertThrows(IllegalArgumentException.class, () -> block.execute(Map.of("codImovel", "MT-1", "geometry", box(-52.2, -12.7, -52.1, -12.6)), null));
+    }
+
+    @Test
+    void indexSeriesTakesAFromToWindow() throws Exception {
+        jdbc.update("INSERT INTO gold.satellite_hub_areas (id, farm_name, block_name, parcel_name, area_ha, geom)"
+                + " VALUES (1, 'F', 'B', 'T1', 100, ST_Multi(ST_MakeEnvelope(-52.2, -12.7, -52.1, -12.6, 4326)))");
+        jdbc.update("INSERT INTO gold.satellite_hub_analytics_indices (id, slug, name, description, collection, enabled)"
+                + " VALUES (1, 'ndvi', 'NDVI', 'Normalized Difference Vegetation Index', NULL, true)");
+        for (int month = 1; month <= 6; month++) {
+            jdbc.update("INSERT INTO gold.satellite_hub_analytics_values VALUES (1, 1, ?::timestamptz, ?, 0, 1, 0.1, 0.9, 1000, 95)",
+                    String.format("2026-%02d-15T13:30:00Z", month), month / 10.0);
+        }
+        SatelliteHubIndexSeriesBlock block = new SatelliteHubIndexSeriesBlock(queries);
+        Map<String, Object> geometry = box(-52.2, -12.7, -52.1, -12.6);
+
+        Map<String, Object> window = run(block, Map.of("geometry", geometry, "from", "2026-02-01", "to", "2026-04-15"));
+        assertEquals(List.of("2026-02-15", "2026-03-15", "2026-04-15"), dates(window));
+        // 'to' alone counts 'days' back from it; nothing set keeps the old behaviour (back from the latest image).
+        assertEquals(List.of("2026-03-15", "2026-04-15"), dates(run(block, Map.of("geometry", geometry, "to", "2026-04-15", "days", 40))));
+        assertEquals(List.of("2026-05-15", "2026-06-15"), dates(run(block, Map.of("geometry", geometry, "days", 40))));
+        assertEquals(List.of("2026-05-15", "2026-06-15"), dates(run(block, Map.of("geometry", geometry, "from", "2026-05-01"))));
+        assertThrows(IllegalArgumentException.class, () -> block.execute(Map.of("geometry", geometry, "from", "2026-05-01", "to", "2026-04-01"), null));
+    }
+
+    private static List<Object> dates(Map<String, Object> out) {
+        List<Map<String, Object>> series = cast(out.get("series"));
+        return series.stream().map(p -> p.get("date")).toList();
     }
 
     @SuppressWarnings("unchecked")

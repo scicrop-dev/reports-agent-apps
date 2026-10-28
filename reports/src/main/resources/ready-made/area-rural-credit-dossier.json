@@ -1,0 +1,60 @@
+{
+  "id": "area-rural-credit-dossier",
+  "version": "1.0.0",
+  "name": "Dossiê para crédito rural (imóvel CAR ou polígono)",
+  "description": "Verificações socioambientais (CAR, Reserva Legal, embargos, PRODES, DETER) e de aptidão (ZARC da cultura, imagem recente, chuva de 12 meses, produção do município e andamento da safra) de um imóvel do CAR ou polígono, para crédito e seguro rural.",
+  "category": "Crédito rural",
+  "inputs": [
+    { "name": "codImovel", "type": "string", "required": false, "label": "Código do imóvel no CAR (ou deixe em branco e informe o polígono)" },
+    { "name": "area", "type": "geometry", "required": false, "label": "Polígono da área em GeoJSON, no lugar do código CAR" },
+    { "name": "areaName", "type": "string", "required": false, "label": "Nome da área (só para polígono)" },
+    { "name": "crop", "type": "string", "required": true, "label": "Cultura, como o ZARC escreve: Soja, Milho 2ª safra, Trigo..." },
+    { "name": "season", "type": "string", "required": false, "label": "Safra do ZARC (opcional, ex.: 2026/2027; padrão a mais recente)" }
+  ],
+  "flow": {
+    "nodes": [
+      { "id": "area", "block": "report-area" },
+      { "id": "property", "block": "car-property", "optional": true },
+      { "id": "layers", "block": "car-environmental-layers", "optional": true },
+      { "id": "overlaps", "block": "car-overlaps", "optional": true },
+      { "id": "history", "block": "car-history", "optional": true },
+      { "id": "map", "block": "car-property-map", "optional": true },
+      { "id": "biomes", "block": "brgeo-biomes" },
+      { "id": "municipalities", "block": "brgeo-municipalities" },
+      { "id": "embargoes", "block": "brgeo-embargoes" },
+      { "id": "deter", "block": "brgeo-deter-alerts" },
+      { "id": "prodes", "block": "brgeo-prodes" },
+      { "id": "zarc", "block": "brgeo-zarc-risk", "optional": true },
+      { "id": "crops", "block": "brgeo-crop-production", "optional": true },
+      { "id": "progress", "block": "brgeo-crop-progress", "optional": true },
+      { "id": "rain", "block": "brweather-rainfall", "values": {"days": 365}, "optional": true },
+      { "id": "image", "block": "sathub-latest-image", "values": {"indices": "ndvi,ndmi"}, "optional": true }
+    ],
+    "connections": [
+      { "from": "inputs.codImovel", "to": "area.codImovel" },
+      { "from": "inputs.area", "to": "area.geometry" },
+      { "from": "inputs.areaName", "to": "area.name" },
+      { "from": "area.codImovel", "to": "property.codImovel" },
+      { "from": "area.geometry", "to": "municipalities.geometry" },
+      { "from": "area.codImovel", "to": "layers.codImovel" },
+      { "from": "area.codImovel", "to": "overlaps.codImovel" },
+      { "from": "area.codImovel", "to": "history.codImovel" },
+      { "from": "area.codImovel", "to": "map.codImovel" },
+      { "from": "area.geometry", "to": "biomes.geometry" },
+      { "from": "area.geometry", "to": "embargoes.geometry" },
+      { "from": "area.geometry", "to": "deter.geometry" },
+      { "from": "area.geometry", "to": "prodes.geometry" },
+      { "from": "municipalities.mainIbgeCode", "to": "zarc.municipalityIbge" },
+      { "from": "inputs.crop", "to": "zarc.crop" },
+      { "from": "inputs.season", "to": "zarc.season" },
+      { "from": "municipalities.mainIbgeCode", "to": "crops.municipalityIbge" },
+      { "from": "municipalities.mainUf", "to": "progress.uf" },
+      { "from": "inputs.crop", "to": "progress.crop" },
+      { "from": "area.geometry", "to": "rain.geometry" },
+      { "from": "area.geometry", "to": "image.geometry" }
+    ]
+  },
+  "templateHtmlFile": "area-rural-credit-dossier.html",
+  "templateCssFile": "report-base.css",
+  "page": { "size": "A4", "orientation": "portrait", "marginMm": 18 }
+}

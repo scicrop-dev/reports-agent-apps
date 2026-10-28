@@ -187,11 +187,13 @@
         .fg-inputs .fg-head { background: #13201a; color: var(--accent); }
         .fg-node.ran-ok .fg-head { box-shadow: inset 3px 0 0 var(--accent); }
         .fg-node.ran-failed .fg-head { box-shadow: inset 3px 0 0 var(--danger); }
+        .fg-node.ran-skipped .fg-head { box-shadow: inset 3px 0 0 var(--muted); }
         .fg-title { font-size: 12px; font-weight: 600; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .fg-order { min-width: 18px; height: 18px; border-radius: 9px; background: var(--bg); border: 1px solid var(--border); font-size: 10px; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); }
         .fg-run { font-size: 10px; padding: 0 6px; border-radius: 8px; }
         .fg-run.ok { background: #13201a; color: var(--accent); }
         .fg-run.failed { background: #2a1414; color: var(--danger); }
+        .fg-run.skipped { background: var(--bg); color: var(--muted); }
         .fg-meta { height: 20px; line-height: 20px; padding: 0 8px; font-size: 10px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .fg-meta code { font-size: 10px; color: var(--text); }
         .fg-label { height: 18px; line-height: 18px; padding: 0 12px; font-size: 9px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #555; }

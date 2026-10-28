@@ -46,10 +46,10 @@ Um arquivo `ready-made/<id>.json` por relatório. O nome do arquivo tem de ser o
 
 | Campo | Regra |
 |---|---|
-| `id` | kebab-case, único, igual ao nome do arquivo. Prefixo pela fonte principal (`car-`, `brgeo-`). |
+| `id` | kebab-case, único, igual ao nome do arquivo. Prefixo pela fonte principal (`car-`, `brgeo-`) ou pelo que o relatório recebe (`area-` para CAR ou polígono, `municipality-`). Um id não muda depois de publicado: as cópias guardam a origem por ele. |
 | `version` | semver `x.y.z` (ver §4). |
 | `name`, `description`, `category` | Texto do catálogo, no idioma do relatório (o laudo é em português). `name` vira o nome padrão da cópia (até 200 caracteres). |
-| `inputs`, `flow`, `page` | Mesmo JSON que a API de versões usa (`InputDefinition`, `FlowDefinition`, `PageSettings`). Os ids dos nós são os namespaces do template. |
+| `inputs`, `flow`, `page` | Mesmo JSON que a API de versões usa (`InputDefinition`, `FlowDefinition`, `PageSettings`). Os ids dos nós são os namespaces do template. Um nó com `"optional": true` é pulado quando lhe falta um input obrigatório e não derruba o relatório se falhar (ARCHITECTURE §47.5.1). |
 | `templateHtml` / `templateHtmlFile` | O HTML inline **ou** o nome de um arquivo irmão (`<id>.html`). Um ou outro. |
 | `templateCss` / `templateCssFile` | Idem para o CSS (`<id>.css`). |
 
@@ -95,17 +95,33 @@ alterado a cópia, o diff mostra o que ele perderia; um merge automático fica f
 
 ## 5. Catálogo
 
-| # | Id | Nome | Blocks | Estado |
-|---|---|---|---|---|
-| 1 | `car-socioenvironmental` | Laudo socioambiental do imóvel CAR | `car-property`, `car-property-geometry`, `car-environmental-layers`, `car-overlaps`, `car-history`, `car-property-map` | **1.0.0**. Só CAR: roda numa instância sem o BR Geo |
-| 2 | `car-socioenvironmental-complete` | Laudo socioambiental completo do imóvel CAR | os 6 do CAR + `brgeo-biomes`, `brgeo-municipalities`, `brgeo-embargoes`, `brgeo-deter-alerts`, `brgeo-prodes`, `brgeo-crop-production` | **1.0.0**. Validado no dev: 12 nós, cerca de 3 s, 8 páginas |
-| 3 | `brgeo-area-diagnosis` | Diagnóstico socioambiental de uma área | `brgeo-municipalities`, `brgeo-biomes`, `brgeo-embargoes`, `brgeo-deter-alerts`, `brgeo-prodes` | **1.0.0**. Qualquer polígono (input `geometry`), sem CAR |
-| 4 | `sathub-vegetation-monitoring` | Monitoramento de vegetação de um talhão | `sathub-index-series` | **1.0.0**. Input `areaId` do Satellite Hub; `index` e `days` opcionais |
-| 5 | `car-latest-satellite-image` | Imagem de satélite mais recente do imóvel CAR | `car-property`, `car-property-geometry`, `sathub-latest-image` | **1.0.0**. Lê Sentinel-2 na hora (saída HTTPS para a AWS) |
+| # | Id | Nome | Entrada | Blocks | Estado |
+|---|---|---|---|---|---|
+| 1 | `car-socioenvironmental` | Laudo socioambiental do imóvel CAR | `codImovel` | os 6 do CAR | **1.0.0**. Só CAR: roda numa instância sem o BR Geo |
+| 2 | `car-socioenvironmental-complete` | Laudo socioambiental completo (imóvel CAR ou polígono) | CAR **ou** polígono, `crop?` | `report-area`, os 5 do CAR (opcionais), 6 do BR Geo, `brgeo-zarc-risk`, `brweather-rainfall`, `brweather-daily-weather`, `sathub-latest-image` | **2.0.0** |
+| 3 | `brgeo-area-diagnosis` | Diagnóstico socioambiental de uma área | polígono | `brgeo-municipalities`, `brgeo-biomes`, `brgeo-embargoes`, `brgeo-deter-alerts`, `brgeo-prodes` | **1.0.0**. Só BR Geo |
+| 4 | `sathub-vegetation-monitoring` | Monitoramento de vegetação de um talhão | `areaId` do Satellite Hub | `sathub-index-series` | **1.0.0** |
+| 5 | `car-latest-satellite-image` | Imagem de satélite mais recente (imóvel CAR ou polígono) | CAR **ou** polígono | `report-area`, `car-property` (opcional), `sathub-latest-image` | **2.0.0**. Lê Sentinel-2 na hora (saída HTTPS para a AWS) |
+| 6 | `area-climate` | Clima da área | CAR **ou** polígono, `from?`, `to?`, `days?` | `report-area`, `car-property`, `brgeo-municipalities`, `brweather-rainfall`, `brweather-daily-weather` | **1.0.0** |
+| 7 | `area-planting-window` | Janela de plantio | CAR **ou** polígono, `crop`, `season?` | `report-area`, `car-property`, `brgeo-municipalities`, `brgeo-zarc-risk`, `brweather-*`, `brgeo-crop-progress`, `brgeo-crop-production` | **1.0.0** |
+| 8 | `area-crop-monitoring` | Acompanhamento de safra | CAR **ou** polígono, `from` (plantio), `to?`, `crop?`, `index?` | `report-area`, `car-property`, `brgeo-municipalities`, `sathub-index-series`, `brweather-*`, `brgeo-crop-progress`, `sathub-latest-image` | **1.0.0** |
+| 9 | `area-climate-event` | Laudo de evento climático | CAR **ou** polígono, `from`, `to`, `crop?`, `index?` | `report-area`, `car-property`, `brgeo-municipalities`, `brweather-*`, `sathub-index-series`, `brgeo-zarc-risk`, `sathub-latest-image` | **1.0.0** |
+| 10 | `area-rural-credit-dossier` | Dossiê para crédito rural | CAR **ou** polígono, `crop`, `season?` | `report-area`, os 5 do CAR (opcionais), 5 do BR Geo, `brgeo-zarc-risk`, `brgeo-crop-production`, `brgeo-crop-progress`, `brweather-rainfall`, `sathub-latest-image` | **1.0.0** |
+| 11 | `municipality-agri-bulletin` | Boletim agrícola do município | `municipalityIbge`, `crop?`, `season?` | `brgeo-crop-production`, `brgeo-crop-progress`, `brgeo-zarc-risk` | **1.0.0** |
 
-Os prontos 2 a 5 usam o CSS comum `report-base.css` (o 1 mantém o seu). Um pronto só roda quando
-**todos** os seus Blocks estão utilizáveis. Por isso o laudo só do CAR continua existindo ao lado do
-completo: numa instância sem o BR Geo, o completo não roda.
+Os prontos 2 a 11 usam o CSS comum `report-base.css` (o 1 mantém o seu). Um pronto só roda quando
+**todos** os seus Blocks estão utilizáveis, inclusive os opcionais. Por isso os prontos só do CAR (1)
+e só do BR Geo (3) continuam existindo: rodam onde só há uma das fontes.
+
+**CAR ou polígono.** Os prontos 2 e 5 a 10 têm os inputs opcionais `codImovel`, `area` (geometry) e
+`areaName`; quem roda preenche o código **ou** o polígono. O Block `report-area` resolve a área, os
+Blocks do CAR são nós opcionais ligados a `area.codImovel` (pulados para polígono) e o template mostra
+as seções do CAR em `{{#area.isCar}}`. Município e UF, para ZARC, CONAB e PAM, são os do município
+com a maior parte da área (`municipalities.mainIbgeCode`/`mainUf`).
+
+**Seções que dependem de rede ou de dado novo** (imagem, chuva, temperatura, série, ZARC, CONAB, PAM)
+são nós opcionais: se a fonte falhar, o relatório sai com o aviso no lugar e a falha fica nos blocos
+da execução. A imagem é sempre o último nó, para não gastar o tempo da execução antes dos outros.
 
 ### 5.1 Laudo socioambiental do imóvel CAR (`car-socioenvironmental`)
 
@@ -124,20 +140,26 @@ Entrada: `codImovel` (código do imóvel no SICAR). Seções:
 
 As seções do BR Geo ficaram num pronto à parte (§5.2), para este continuar rodando onde só há o CAR.
 
-### 5.2 Laudo socioambiental completo (`car-socioenvironmental-complete`)
+### 5.2 Laudo socioambiental completo (`car-socioenvironmental-complete`, 2.0.0)
 
-Entrada: `codImovel`. O Flow encadeia Blocks: `car-property-geometry.geometry` alimenta os 5 Blocks
-espaciais do BR Geo, e `car-property.municipalityIbge` alimenta `brgeo-crop-production`. Seções:
+Entradas: `codImovel` **ou** `area` (+ `areaName`), e `crop` opcional. Seções:
 
-0. **Síntese**: situação no CAR, bioma, Reserva Legal, sobreposições, embargos ativos, alertas DETER
-   e PRODES, cada um com destaque vermelho/verde. "Área não monitorada" aparece em cinza, nunca como
-   "sem alerta".
-1. a 5. As do laudo do CAR. A Localização ganha os biomas e a tabela de municípios.
-6. Embargos do IBAMA (termos ativos primeiro, situação, área embargada × sobre o imóvel, decisões judiciais).
-7. Alertas DETER por classe (ou aviso de área não monitorada).
-8. PRODES por produto e ano, com a cobertura carregada no ambiente.
-9. Perfil agrícola do município declarado (PAM).
-10. Fontes e limitações.
+0. **Síntese**: área analisada, situação no CAR, Reserva Legal e sobreposições (só CAR), bioma,
+   embargos ativos, DETER, PRODES, NDVI da imagem mais recente, chuva dos últimos 12 meses e, com
+   `crop`, se a cultura é zoneada no ZARC. "Área não monitorada" aparece em cinza, nunca como "sem alerta".
+1. Área analisada (dados do CAR ou do polígono, área, ponto, municípios).
+2. Localização e bioma: mapa do CAR (`car-property-map`), biomas, caixa envolvente, municípios.
+3. Cadastro Ambiental Rural: situação e histórico, uso e cobertura declarados, sobreposições. Para
+   polígono, um aviso de que não se aplica.
+4. a 6. Embargos do IBAMA, DETER, PRODES.
+7. Imagem Sentinel-2 mais recente em cor verdadeira, com NDVI e NDMI.
+8. e 9. Chuva (CHIRPS) e temperatura (NASA POWER) dos últimos 365 dias.
+10. Perfil agrícola do município (PAM).
+11. ZARC da cultura informada (ou como pedi-lo).
+12. Fontes e limitações.
+
+A 2.0.0 trocou o input `codImovel` obrigatório pelos três opcionais: cópias da 1.0.0 continuam como
+estavam.
 
 ### 5.3 Diagnóstico socioambiental de uma área (`brgeo-area-diagnosis`)
 
@@ -150,27 +172,65 @@ Entradas: `areaId` (id da área no Satellite Hub), `index` e `days` (opcionais).
 mais recente, média e faixa do período), o gráfico do índice e a tabela das imagens. O nó tem o valor
 fixo `minValidPercent = 60`.
 
-### 5.5 Imagem de satélite mais recente do imóvel CAR (`car-latest-satellite-image`)
+### 5.5 Imagem de satélite mais recente (`car-latest-satellite-image`, 2.0.0)
 
-Entrada: `codImovel`. O Flow liga `car-property-geometry.geometry` a `sathub-latest-image`, com o
-valor fixo `indices = ndvi,evi,ndmi,ndre`. Seções:
+Entradas: `codImovel` **ou** `area`. `report-area.geometry` vai para `sathub-latest-image`, com o
+valor fixo `indices = ndvi,evi,ndmi,ndre`. Seções: capa (área, município do CAR ou ponto de
+referência do polígono), cor verdadeira e um bloco por índice (mapa, barra de cores, estatísticas),
+ou o aviso de sem imagem; cenas descartadas por nuvem e metodologia. Não usa o BR Geo.
 
-0. Capa: código, município/UF, área, data da imagem e dias desde ela, satélite/quadrícula, nuvem
-   sobre o imóvel, cobertura da cena e resolução.
-1. Cor verdadeira (imagem grande, com o contorno do imóvel).
-2. Um bloco por índice: mapa, barra de cores (`legend`) e estatísticas (média, mediana, P10-P90,
-   mín.-máx., desvio, % de área válida).
-3. Sem imagem (`{{^image.found}}`): aviso, o motivo técnico (`message`) e as cenas descartadas.
-4. Cenas descartadas por nuvem (quando houver) e metodologia/limitações.
+### 5.6 Clima da área (`area-climate`)
 
-### 5.6 Ideias (não decididas)
+Chuva (totais, dias de chuva, maior sequência sem chuva, maior chuva, gráfico diário) e temperatura
+(média, extremos, dias de 35 °C ou mais, noites de 3 °C ou menos, graus-dia, umidade, vento,
+radiação, gráfico). Período por `from`/`to` ou os últimos `days` (padrão 30), o mesmo para as duas
+fontes.
+
+### 5.7 Janela de plantio (`area-planting-window`)
+
+Para `crop` (como o ZARC escreve): síntese (zoneada ou não, janelas da primeira combinação, chuva
+de 30 dias, andamento da CONAB), ZARC com a tabela de janelas por manejo, grupo e solo e a faixa
+de risco dos 36 decêndios (verde 20%, amarelo 30%, laranja 40%), chuva e temperatura dos últimos 30
+dias, andamento da semeadura no estado e a PAM do município.
+
+### 5.8 Acompanhamento de safra (`area-crop-monitoring`)
+
+Desde `from` (data de plantio) até `to` ou hoje: síntese, imagem mais recente com NDVI, NDMI e NDRE,
+série do índice dos talhões do Satellite Hub na área (`sathub-index-series` com `from`/`to`; só há
+série onde o Satellite Hub tem áreas cadastradas), chuva e temperatura do período e andamento da
+safra no estado.
+
+### 5.9 Laudo de evento climático (`area-climate-event`)
+
+Para o período `from`–`to` de uma seca, estiagem, calor ou frio: o evento em números (chuva total e
+diária, maior sequência sem chuva, extremos de temperatura, dias quentes, noites de geada, faixa do
+índice de vegetação), chuva e temperatura diárias, série do índice no período, imagem atual e, com
+`crop`, o ZARC. Não compara com a média histórica nem atesta perda: é a base para quem conclui.
+
+### 5.10 Dossiê para crédito rural (`area-rural-credit-dossier`)
+
+Verificações (inscrição no CAR, Reserva Legal, sobreposições, embargo ativo, PRODES depois de
+22/07/2008, DETER, cultura zoneada no ZARC, bioma), seguidas do detalhe: área, localização, CAR,
+embargos, DETER, PRODES, ZARC, imagem recente, chuva de 12 meses, histórico produtivo do município
+(PAM) e andamento da safra (CONAB). Diz o que **não** consulta (trabalho escravo, UCs, terras
+indígenas, bases estaduais).
+
+### 5.11 Boletim agrícola do município (`municipality-agri-bulletin`)
+
+Para um código IBGE: lavouras do município (PAM), ZARC da cultura (se informada) e andamento da
+safra no estado. A UF sai de `brgeo-crop-production.uf`; o nome do município, do ZARC, quando há
+cultura.
+
+### 5.12 Ideias (não decididas)
 
 Possibilidades levantadas para conversar com o produto. **Nenhuma está decidida nem priorizada.**
 
 - Laudo de conformidade do Código Florestal (déficit/excedente de Reserva Legal e APP pelo módulo
   fiscal e bioma), quando houver Blocks com as regras.
-- Relatório de due diligence socioambiental para crédito rural (CAR + embargos + desmatamento +
-  terras indígenas/UCs).
+- Terras indígenas e unidades de conservação no dossiê de crédito, quando houver Blocks dessas bases.
+- Relatórios com um script Python do Skills Lab (`skillslab-python`), como estimativa de
+  produtividade, quando houver o workflow liberado.
+- Clima comparado com a média histórica (anomalia de chuva), quando o BR Weather guardar a climatologia.
 - Comparativo entre versões do cadastro de um imóvel (o que mudou em geometria e camadas).
 - Relatório de carteira: vários imóveis de um produtor/cliente com indicadores resumidos (depende
   de inputs em lista).

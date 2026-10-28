@@ -1,6 +1,6 @@
 /*
  * The Flow tab. It edits a working model and converts it to and from the stored JSON
- * ({nodes: [{id, block, values, position}], connections: [{from, to}]}).
+ * ({nodes: [{id, block, values, position, optional}], connections: [{from, to}]}).
  *
  * Two views of the same model: the visual graph (flow-graph.js, the default) and this list, where
  * each node is a card with, for every input port, where its value comes from. The order of the list
@@ -30,7 +30,7 @@
             });
             const position = node.position && typeof node.position.x === 'number'
                 ? { x: node.position.x, y: node.position.y } : null;
-            return { id: node.id, block: node.block, bindings, position };
+            return { id: node.id, block: node.block, bindings, position, optional: node.optional === true };
         });
     }
 
@@ -53,6 +53,7 @@
             });
             const stored = { id: node.id, block: node.block, values };
             if (node.position) stored.position = { x: Math.round(node.position.x), y: Math.round(node.position.y) };
+            if (node.optional) stored.optional = true;
             nodes.push(stored);
         });
         return { nodes, connections };
@@ -165,6 +166,8 @@
             return card;
         }
 
+        card.appendChild(optionalToggle(node, ctx));
+
         const ports = el('div.ports');
         definition.inputs.forEach((port) => ports.appendChild(portRow(node, port, model, ctx, blocksById)));
         if (!definition.inputs.length) ports.appendChild(el('div.muted', null, 'This block has no inputs.'));
@@ -173,6 +176,13 @@
         card.appendChild(el('div.outputs', null, el('span.muted', null, 'Outputs: '),
             definition.outputs.map((o) => el('code.output', { title: o.description || '' }, node.id + '.' + o.name + ' : ' + o.type))));
         return card;
+    }
+
+    /** The node's "optional" flag: the report goes on without it when a required input is empty or when it fails. */
+    function optionalToggle(node, ctx) {
+        return el('label.check', { title: 'The report does not depend on this node: it is skipped when a required input has no value (an optional report input left empty, or an optional node upstream that produced nothing), and if it fails the run goes on. Its outputs are then empty in the template.' },
+            el('input', { type: 'checkbox', checked: !!node.optional, disabled: ctx.readOnly, onchange: (e) => { node.optional = e.target.checked; ctx.onChange(); } }),
+            ' optional: the report goes on without it');
     }
 
     function portRow(node, port, model, ctx, blocksById) {
@@ -231,5 +241,5 @@
         list.splice(index + delta, 0, item);
     }
 
-    window.ReportsFlowEditor = { fromFlow, toFlow, render, portRow, nextNodeId, STRUCTURED };
+    window.ReportsFlowEditor = { fromFlow, toFlow, render, portRow, optionalToggle, nextNodeId, STRUCTURED };
 })();

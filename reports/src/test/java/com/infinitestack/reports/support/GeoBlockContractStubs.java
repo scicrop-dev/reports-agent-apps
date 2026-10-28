@@ -4,6 +4,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -17,6 +18,11 @@ import java.util.stream.Stream;
 import javax.imageio.ImageIO;
 
 import com.infinitestack.reports.blocks.brgeo.BrGeoBiomesBlock;
+import com.infinitestack.reports.blocks.brgeo.BrGeoCropProgressBlock;
+import com.infinitestack.reports.blocks.brgeo.BrGeoZarcRiskBlock;
+import com.infinitestack.reports.blocks.brweather.BrWeatherDailyBlock;
+import com.infinitestack.reports.blocks.brweather.BrWeatherRainfallBlockAccess;
+import com.infinitestack.reports.blocks.brweather.DailyBarChart;
 import com.infinitestack.reports.blocks.brgeo.BrGeoCropProductionBlock;
 import com.infinitestack.reports.blocks.brgeo.BrGeoDeterAlertsBlock;
 import com.infinitestack.reports.blocks.brgeo.BrGeoEmbargoesBlock;
@@ -30,7 +36,7 @@ import com.infinitestack.reports.engine.block.ExecutionMetadata;
 import com.infinitestack.reports.engine.block.ReportBlock;
 
 /**
- * TEST DOUBLES of the BR Geo and Satellite Hub Blocks, like {@link CarBlockContractStubs}: the real
+ * TEST DOUBLES of the BR Geo, BR Weather and Satellite Hub Blocks, like {@link CarBlockContractStubs}: the real
  * definitions with canned outputs (docs/BLOCKS.md sections 3 and 4). "Bare" is an area with nothing
  * found and, for DETER and PRODES, not monitored, so the other branch of every section renders.
  */
@@ -41,12 +47,12 @@ public final class GeoBlockContractStubs {
     public static List<ReportBlock> all(boolean bare) {
         return List.of(
                 stub("brgeo-municipalities", in -> bare
-                        ? map("municipalities", List.of(), "count", 0, "main", null, "mainIbgeCode", null, "areaHa", 0.0, "edition", 2025)
+                        ? map("municipalities", List.of(), "count", 0, "main", null, "mainIbgeCode", null, "mainUf", null, "areaHa", 0.0, "edition", 2025)
                         : map("municipalities", List.of(
                                         map("ibgeCode", "5107065", "name", "Querência", "uf", "MT", "intersectionHa", 1240.1, "percentOfArea", 99.29),
                                         map("ibgeCode", "5106455", "name", "Nova Ubiratã", "uf", "MT", "intersectionHa", 8.87, "percentOfArea", 0.71)),
                                 "count", 2, "main", map("ibgeCode", "5107065", "name", "Querência", "uf", "MT", "percentOfArea", 99.29),
-                                "mainIbgeCode", 5107065, "areaHa", 1248.97, "edition", 2025)),
+                                "mainIbgeCode", 5107065, "mainUf", "MT", "areaHa", 1248.97, "edition", 2025)),
                 stub("brgeo-biomes", in -> bare
                         ? map("biomes", List.of(), "count", 0, "mainBiome", null, "areaHa", 0.0, "edition", 2025)
                         : map("biomes", List.of(map("code", 1, "name", "Amazônia", "intersectionHa", 1248.97, "percentOfArea", 100.0)),
@@ -81,15 +87,112 @@ public final class GeoBlockContractStubs {
                                 "count", 2, "maxDeforestedHa", 44.41, "lastYear", 2013, "monitored", true,
                                 "coverage", List.of(coverage("prodes_amazon", "PRODES Amazonia", "Amazônia", true, true, 2025)))),
                 stub("brgeo-crop-production", in -> bare
-                        ? map("year", null, "crops", List.of(), "count", 0, "totalHarvestedHa", 0.0, "totalValueThousandBrl", 0.0, "truncated", false)
+                        ? map("year", null, "crops", List.of(), "count", 0, "totalHarvestedHa", 0.0, "totalValueThousandBrl", 0.0, "truncated", false, "uf", "MT")
                         : map("year", 2025, "crops", List.of(
                                         map("product", "Soja (em grão)", "plantedHa", 310000.0, "harvestedHa", 310000.0, "quantity", 1104000.0,
                                                 "quantityUnit", "Toneladas", "yieldKgHa", 3561.0, "valueThousandBrl", 2318400.0, "shareOfHarvestedPercent", 71.3),
                                         map("product", "Milho (em grão)", "plantedHa", 120000.0, "harvestedHa", 120000.0, "quantity", 744000.0,
                                                 "quantityUnit", "Toneladas", "yieldKgHa", 6200.0, "valueThousandBrl", 669600.0, "shareOfHarvestedPercent", 27.6)),
-                                "count", 2, "totalHarvestedHa", 434800.0, "totalValueThousandBrl", 2998000.0, "truncated", false)),
+                                "count", 2, "totalHarvestedHa", 434800.0, "totalValueThousandBrl", 2998000.0, "truncated", false, "uf", "MT")),
                 stub("sathub-index-series", in -> indexSeries(bare)),
-                stub("sathub-latest-image", in -> latestImage(bare)));
+                stub("sathub-latest-image", in -> latestImage(bare)),
+                stub("brgeo-zarc-risk", in -> zarc(bare)),
+                stub("brgeo-crop-progress", in -> cropProgress(bare)),
+                stub("brweather-daily-weather", in -> dailyWeather(bare)),
+                stub("brweather-rainfall", in -> rainfall(bare)));
+    }
+
+    /** Full: soy in Querência with two rows. Bare: the crop is not zoned there. */
+    private static Map<String, Object> zarc(boolean bare) {
+        List<Map<String, Object>> periods = new ArrayList<>();
+        for (int p = 1; p <= 36; p++) {
+            String from = String.format("%02d/%02d", new int[] {1, 11, 21}[(p - 1) % 3], (p - 1) / 3 + 1);
+            periods.add(map("period", p, "from", from, "to", from, "label", from));
+        }
+        List<String> crops = List.of("Algodão", "Milho 2ª safra", "Soja");
+        if (bare) {
+            Map<String, Object> out = map("found", false, "message", "the ZARC has no 'Trigo' for municipality 5107065",
+                    "crop", null, "season", null, "uf", "MT", "municipality", null, "ordinance", null, "ordinanceDate", null);
+            out.putAll(map("rows", List.of(), "count", 0, "truncated", false, "periods", periods, "availableCrops", crops));
+            return out;
+        }
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (String[] r : new String[][] {{"Grupo I", "AD1"}, {"Grupo II", "AD3"}}) {
+            List<Integer> risk = new ArrayList<>();
+            List<Map<String, Object>> cells = new ArrayList<>();
+            for (int p = 1; p <= 36; p++) {
+                int value = p >= 28 && p <= 31 ? 20 : p == 32 ? 30 : p == 33 ? 40 : 0;
+                risk.add(value);
+                cells.add(map("period", p, "risk", value, "label", value > 0 ? value + "%" : "-"));
+            }
+            rows.add(map("croppingSystem", "Sequeiro", "climateType", null, "cultivarGroup", r[0], "soil", r[1], "risk", risk,
+                    "cells", cells, "indicatedPeriods", 6, "lowestRisk", 20,
+                    "windows", List.of(map("risk", 20, "fromPeriod", 28, "toPeriod", 31, "from", "21/09", "to", "31/10", "label", "21/09 a 31/10 (20%)"),
+                            map("risk", 30, "fromPeriod", 32, "toPeriod", 32, "from", "01/11", "to", "10/11", "label", "01/11 a 10/11 (30%)"),
+                            map("risk", 40, "fromPeriod", 33, "toPeriod", 33, "from", "11/11", "to", "20/11", "label", "11/11 a 20/11 (40%)"))));
+        }
+        Map<String, Object> out = map("found", true, "message", null, "crop", "Soja", "season", "2026/2027", "uf", "MT",
+                "municipality", "Querência", "ordinance", "Portaria SPA/MAPA nº 312", "ordinanceDate", "2026-06-20");
+        out.putAll(map("rows", rows, "count", 2, "truncated", false, "periods", periods, "availableCrops", crops));
+        return out;
+    }
+
+    /** Full: soy sowing in Mato Grosso. Bare: no recent survey for the state. */
+    private static Map<String, Object> cropProgress(boolean bare) {
+        List<String> states = List.of("Goiás", "Mato Grosso", "Paraná");
+        if (bare) {
+            return map("found", false, "message", "CONAB has no recent progress for Acre", "state", null,
+                    "latestWeekEnd", "2026-10-25", "items", List.of(), "count", 0, "availableStates", states);
+        }
+        Map<String, Object> item = map("crop", "Soja", "season", "2026/27", "operation", "sowing", "operationLabel", "Semeadura",
+                "weekEnd", "2026-10-25", "pctDone", 47.3, "previousWeekPct", 31.2, "weekChangePoints", 16.1, "lastYearPct", 52.0,
+                "avg5yPct", 44.8, "vsAvg5yPoints", 2.5);
+        item.put("series", List.of(map("weekEnd", "2026-10-18", "pctDone", 31.2), map("weekEnd", "2026-10-25", "pctDone", 47.3)));
+        return map("found", true, "message", null, "state", "Mato Grosso", "latestWeekEnd", "2026-10-25",
+                "items", List.of(item), "count", 1, "availableStates", states);
+    }
+
+    /** Full: 30 days of NASA POWER. Bare: the area has no weather loaded. */
+    private static Map<String, Object> dailyWeather(boolean bare) {
+        List<Map<String, Object>> days = new ArrayList<>();
+        LocalDate day = LocalDate.parse("2026-09-27");
+        if (!bare) {
+            for (int i = 0; i < 30; i++, day = day.plusDays(1)) {
+                days.add(map("date", day.toString(), "t2m", 27.4, "t2mMax", 35.1, "t2mMin", 19.8, "rh2m", 58.2, "ws2m", 1.9,
+                        "radiation", 21.3, "precipitation", i % 4 == 0 ? 12.0 : 0.0));
+            }
+        }
+        Map<String, Object> out = map("found", !bare, "message", bare ? "BR Weather has no NASA POWER data for this area" : null,
+                "from", bare ? null : "2026-09-27", "to", bare ? null : "2026-10-26", "latestDay", bare ? null : "2026-10-26",
+                "cells", bare ? List.of() : List.of(map("lat", -12.75, "lon", -52.25, "elevationM", 352.0, "weightPercent", 100.0)),
+                "nearestCell", false, "days", days, "daysWithData", days.size());
+        out.putAll(map("meanT2m", bare ? null : 27.4, "maxT2m", bare ? null : 38.2, "maxT2mDate", bare ? null : "2026-10-08",
+                "minT2m", bare ? null : 16.1, "minT2mDate", bare ? null : "2026-09-30", "meanRh2m", bare ? null : 58.2,
+                "meanWs2m", bare ? null : 1.9, "meanRadiation", bare ? null : 21.3, "powerPrecipitationMm", bare ? null : 96.0,
+                "degreeDays", bare ? null : 522.0, "hotDays", bare ? 0 : 9, "coldNights", 0, "chart", tinyPng(0xc62828)));
+        return out;
+    }
+
+    /** Full: 30 days of CHIRPS with a dry spell. Bare: no clip loaded for the period. */
+    private static Map<String, Object> rainfall(boolean bare) {
+        List<Map<String, Object>> days = new ArrayList<>();
+        List<DailyBarChart.Bar> bars = new ArrayList<>();
+        LocalDate day = LocalDate.parse("2026-09-27");
+        if (!bare) {
+            for (int i = 0; i < 30; i++, day = day.plusDays(1)) {
+                double mm = i < 12 ? 0.0 : (i % 3 == 0 ? 18.4 : 2.1);
+                days.add(map("date", day.toString(), "rainMm", mm, "preliminary", i > 25));
+                bars.add(new DailyBarChart.Bar(day, mm));
+            }
+        }
+        String chart = "data:image/png;base64," + Base64.getEncoder().encodeToString(new DailyBarChart().render(bars, 900, 260));
+        Map<String, Object> out = map("found", !bare, "message", bare ? "no CHIRPS clip for the area between 2026-09-27 and 2026-10-26" : null,
+                "from", "2026-09-27", "to", "2026-10-26", "latestDay", bare ? null : "2026-10-26", "pixels", bare ? 0 : 4,
+                "wholePixels", true, "days", days, "daysWithData", days.size(), "missingDays", bare ? 30 : 0);
+        out.putAll(map("totalMm", bare ? null : 148.2, "meanDailyMm", bare ? null : 4.94, "maxDayMm", bare ? null : 18.4,
+                "maxDayDate", bare ? null : "2026-10-09", "rainyDays", bare ? 0 : 18, "longestDrySpell", bare ? 0 : 12,
+                "preliminaryDays", bare ? 0 : 4, "chart", chart));
+        return out;
     }
 
     /** Full: a scene found, with tiny PNGs built here (not with ImageryRenderer). Bare: every scene too cloudy. */
@@ -200,7 +303,9 @@ public final class GeoBlockContractStubs {
     public static final Map<String, BlockDefinition> REAL = Stream.of(
                     new BrGeoMunicipalitiesBlock(null), new BrGeoBiomesBlock(null), new BrGeoEmbargoesBlock(null),
                     new BrGeoDeterAlertsBlock(null), new BrGeoProdesBlock(null), new BrGeoCropProductionBlock(null),
-                    new SatelliteHubIndexSeriesBlock(null), new SatelliteHubLatestImageBlock(null, null, null))
+                    new SatelliteHubIndexSeriesBlock(null), new SatelliteHubLatestImageBlock(null, null, null),
+                    new BrGeoZarcRiskBlock(null), new BrGeoCropProgressBlock(null), new BrWeatherDailyBlock(null),
+                    BrWeatherRainfallBlockAccess.create(null, Path.of("/nonexistent")))
             .map(ReportBlock::definition)
             .collect(Collectors.toMap(BlockDefinition::id, d -> d));
 

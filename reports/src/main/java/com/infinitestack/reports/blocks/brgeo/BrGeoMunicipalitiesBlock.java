@@ -55,6 +55,8 @@ public class BrGeoMunicipalitiesBlock implements ReportBlock {
                                 "the municipality with the largest share: {ibgeCode, name, uf, percentOfArea}"),
                         BlockPort.optional("mainIbgeCode", DataType.NUMBER,
                                 "IBGE code of the main municipality, as a number, to connect to per-municipality Blocks"),
+                        BlockPort.optional("mainUf", DataType.STRING,
+                                "state (abbreviation) of the main municipality, to connect to per-state Blocks such as brgeo-crop-progress"),
                         BlockPort.required("areaHa", DataType.NUMBER, "area of the input geometry, hectares"),
                         BlockPort.optional("edition", DataType.NUMBER, "edition (year) of the IBGE municipal grid used")),
                 List.of(requirement(MUNICIPALITY, "edition", "cd_mun", "nm_mun", "sigla_uf", "geom", "valid_to")),
@@ -72,7 +74,8 @@ public class BrGeoMunicipalitiesBlock implements ReportBlock {
                         "Measures each intersection on the ellipsoid (geodesic hectares) and divides by the area of the input."),
                 List.of(
                         "geometry: connect car-property-geometry.geometry, or a report input of type geometry.",
-                        "mainIbgeCode feeds the Blocks that work per municipality, such as brgeo-crop-production."),
+                        "mainIbgeCode feeds the Blocks that work per municipality, such as brgeo-crop-production and brgeo-zarc-risk;"
+                                + " mainUf feeds brgeo-crop-progress."),
                 List.of(
                         "Percentages are over the input geometry; slivers along borders are normal and come from the "
                                 + "different scales of the CAR and IBGE drawings.",
@@ -103,6 +106,7 @@ public class BrGeoMunicipalitiesBlock implements ReportBlock {
         out.put("count", municipalities.size());
         out.put("main", municipalities.isEmpty() ? null : mainOf(municipalities.get(0)));
         out.put("mainIbgeCode", municipalities.isEmpty() ? null : Long.valueOf((String) municipalities.get(0).get("ibgeCode")));
+        out.put("mainUf", municipalities.isEmpty() ? null : municipalities.get(0).get("uf"));
         out.put("areaHa", areaHa == null ? 0.0 : areaHa);
         out.put("edition", rows.isEmpty() ? null : rows.get(0).get("edition"));
         return out;

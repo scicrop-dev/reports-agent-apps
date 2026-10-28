@@ -29,7 +29,9 @@ import jakarta.annotation.PreDestroy;
  * Runs a {@link ValidatedFlow} node by node, in order, synchronously (ARCHITECTURE section 30).
  * Each Block runs on a worker thread so that its timeout can be enforced; the whole execution has
  * its own deadline too, so a Flow of slow Blocks cannot add up past it. The first failure stops
- * the Flow: later nodes would read values that do not exist.
+ * the Flow: later nodes would read values that do not exist. An optional node is the exception
+ * ({@link FlowNode#optional()}): skipped when a required input is empty, and when it fails the
+ * failure is recorded and the Flow goes on with null outputs for it.
  */
 @Component
 public class FlowExecutor {
@@ -67,11 +69,13 @@ public class FlowExecutor {
 
             Map<String, Object> blockInputs = new LinkedHashMap<>();
             String problem = null;
+            String missing = null;
             for (BlockPort port : definition.inputs()) {
                 Binding binding = step.bindings().get(port.name());
                 Object value = binding == null ? null : context.read(binding);
                 if (value == null) {
                     if (port.required()) {
+                        missing = port.name();
                         problem = "required input '" + port.name() + "' has no value";
                         break;
                     }
@@ -83,6 +87,12 @@ public class FlowExecutor {
                     problem = "input '" + port.name() + "': " + e.getMessage();
                     break;
                 }
+            }
+
+            if (problem != null && missing != null && step.node().optional()) {
+                skip(context, runs, definition, nodeId, position, BlockRun.Status.SKIPPED, blockInputs, problem, startedAt, metadata);
+                position++;
+                continue;
             }
 
             Map<String, Object> outputs = null;
@@ -114,6 +124,13 @@ public class FlowExecutor {
 
             Instant finishedAt = Instant.now();
             long durationMs = Duration.between(startedAt, finishedAt).toMillis();
+            if (problem != null && step.node().optional()) {
+                // An optional node that fails does not take the report down: the template shows its empty branch.
+                skip(context, runs, definition, nodeId, position,
+                        status == BlockRun.Status.COMPLETED ? BlockRun.Status.FAILED : status, blockInputs, problem, startedAt, metadata);
+                position++;
+                continue;
+            }
             if (problem != null) {
                 if (status == BlockRun.Status.COMPLETED) status = BlockRun.Status.FAILED;
                 runs.add(new BlockRun(position, nodeId, definition.id(), definition.version(), status,
@@ -131,6 +148,21 @@ public class FlowExecutor {
             position++;
         }
         return new FlowRun(context, runs, null);
+    }
+
+    /** Records an optional node that did not produce outputs and gives it null outputs, so the Flow goes on. */
+    private static void skip(ExecutionContext context, List<BlockRun> runs, BlockDefinition definition, String nodeId, int position,
+                             BlockRun.Status status, Map<String, Object> blockInputs, String problem, Instant startedAt,
+                             ExecutionMetadata metadata) {
+        Map<String, Object> nulls = new LinkedHashMap<>();
+        definition.outputs().forEach(port -> nulls.put(port.name(), null));
+        context.put(nodeId, nulls);
+        Instant finishedAt = Instant.now();
+        String error = status == BlockRun.Status.SKIPPED ? "skipped: " + problem : problem + " (optional node: the report went on without it)";
+        runs.add(new BlockRun(position, nodeId, definition.id(), definition.version(), status,
+                blockInputs, nulls, error, startedAt, finishedAt, Duration.between(startedAt, finishedAt).toMillis()));
+        log.info("[REPORTS] report={} version={} execution={} node={} block={} status={} optional=true reason={}",
+                metadata.reportId(), metadata.reportVersion(), metadata.executionId(), nodeId, definition.id(), status, problem);
     }
 
     private Duration blockTimeout(BlockDefinition definition, Instant deadline) {

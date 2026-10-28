@@ -119,3 +119,13 @@ td.flag-label { width: 38%; background-color: #f3f4f6; color: #374151; }
 /* Charts */
 img.chart { display: block; width: 100%; border: 0.5pt solid #d1d5db; margin: 0 0 6pt 0; }
 .nowrap { white-space: nowrap; }
+
+/* ZARC: one cell per ten-day period (decêndio), colored by risk */
+table.zarc { table-layout: fixed; font-size: 6.5pt; }
+table.zarc th { background-color: #f3f4f6; color: #374151; font-weight: normal; text-align: center; border: 0.5pt solid #d1d5db; padding: 1pt 0; }
+table.zarc th.zl, table.zarc td.zl { width: 24%; text-align: left; padding: 1pt 3pt; border: 0.5pt solid #d1d5db; }
+table.zarc td.z { padding: 0; height: 9pt; border: 0.5pt solid #ffffff; }
+.z-0 { background-color: #e5e7eb; }
+.z-20 { background-color: #15803d; }
+.z-30 { background-color: #facc15; }
+.z-40 { background-color: #f97316; }

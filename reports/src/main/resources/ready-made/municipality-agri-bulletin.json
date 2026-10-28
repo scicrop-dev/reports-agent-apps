@@ -1,0 +1,30 @@
+{
+  "id": "municipality-agri-bulletin",
+  "version": "1.0.0",
+  "name": "Boletim agrícola do município",
+  "description": "Para um município (código IBGE): as lavouras e quanto rendem (IBGE, PAM), o andamento semanal da safra no estado (CONAB) e, se informada a cultura, as janelas de semeadura do ZARC.",
+  "category": "Agricultura",
+  "inputs": [
+    { "name": "municipalityIbge", "type": "number", "required": true, "label": "Código IBGE do município (7 dígitos)" },
+    { "name": "crop", "type": "string", "required": false, "label": "Cultura (opcional), ex.: Soja, Milho 2ª safra" },
+    { "name": "season", "type": "string", "required": false, "label": "Safra do ZARC (opcional, ex.: 2026/2027; padrão a mais recente)" }
+  ],
+  "flow": {
+    "nodes": [
+      { "id": "crops", "block": "brgeo-crop-production" },
+      { "id": "progress", "block": "brgeo-crop-progress", "optional": true },
+      { "id": "zarc", "block": "brgeo-zarc-risk", "optional": true }
+    ],
+    "connections": [
+      { "from": "inputs.municipalityIbge", "to": "crops.municipalityIbge" },
+      { "from": "crops.uf", "to": "progress.uf" },
+      { "from": "inputs.crop", "to": "progress.crop" },
+      { "from": "inputs.municipalityIbge", "to": "zarc.municipalityIbge" },
+      { "from": "inputs.crop", "to": "zarc.crop" },
+      { "from": "inputs.season", "to": "zarc.season" }
+    ]
+  },
+  "templateHtmlFile": "municipality-agri-bulletin.html",
+  "templateCssFile": "report-base.css",
+  "page": { "size": "A4", "orientation": "portrait", "marginMm": 18 }
+}

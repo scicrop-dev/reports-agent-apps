@@ -1,8 +1,7 @@
 package com.infinitestack.reports.engine.flow;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Deque;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -10,6 +9,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -180,14 +180,15 @@ public class FlowValidator {
     }
 
     /**
-     * Kahn's algorithm, keeping the declared order among nodes that are ready at the same time,
-     * so the execution order is stable and readable.
+     * Kahn's algorithm, always taking the ready node declared first, so the execution order is
+     * stable and readable, and a slow node declared last (an image download) runs after the others.
      */
     private static List<String> topologicalOrder(Set<String> ids, Map<String, Set<String>> dependsOn, List<String> problems) {
         Map<String, Integer> pending = new LinkedHashMap<>();
         for (String id : ids) pending.put(id, dependsOn.get(id).size());
+        List<String> declared = new ArrayList<>(ids);
         List<String> order = new ArrayList<>();
-        Deque<String> ready = new ArrayDeque<>();
+        PriorityQueue<String> ready = new PriorityQueue<>(Comparator.comparingInt(declared::indexOf));
         pending.forEach((id, count) -> { if (count == 0) ready.add(id); });
         Set<String> done = new HashSet<>();
         while (!ready.isEmpty()) {

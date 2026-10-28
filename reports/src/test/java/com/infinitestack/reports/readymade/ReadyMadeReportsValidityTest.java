@@ -129,23 +129,39 @@ class ReadyMadeReportsValidityTest {
         }
     }
 
-    /** A value per input, by type; optional inputs stay empty in the bare case. */
+    /**
+     * A value per input, by type; optional inputs stay empty in the bare case. A report that takes a CAR
+     * code or a polygon (report-area) gets the code in the full case and the polygon in the bare one.
+     */
     private static Map<String, Object> sampleInputs(List<InputDefinition> inputs, boolean bare) {
         Map<String, Object> values = new HashMap<>();
+        boolean carOrArea = inputs.stream().anyMatch(i -> "codImovel".equals(i.name()) && !i.required())
+                && inputs.stream().anyMatch(i -> "area".equals(i.name()));
         for (InputDefinition input : inputs) {
+            if (carOrArea && ("codImovel".equals(input.name()) || "area".equals(input.name()))) {
+                boolean filled = bare == "area".equals(input.name());
+                values.put(input.name(), filled ? sampleValue(input) : null);
+                continue;
+            }
             if (bare && !input.required()) {
                 values.put(input.name(), null); // as the service sends an optional input left empty
                 continue;
             }
-            Object value = switch (input.type()) {
-                case NUMBER -> 16991;
-                case GEOMETRY -> Map.of("type", "Polygon", "coordinates", List.of(List.of(
-                        List.of(-52.21, -12.61), List.of(-52.17, -12.61), List.of(-52.17, -12.64), List.of(-52.21, -12.61))));
-                default -> "codImovel".equals(input.name()) ? CarBlockContractStubs.COD_IMOVEL : "sample";
-            };
-            if ("index".equals(input.name())) value = "ndvi";
-            values.put(input.name(), value);
+            values.put(input.name(), sampleValue(input));
         }
         return values;
+    }
+
+    private static Object sampleValue(InputDefinition input) {
+        if ("index".equals(input.name())) return "ndvi";
+        if ("crop".equals(input.name())) return "Soja";
+        if ("municipalityIbge".equals(input.name())) return 5107065;
+        return switch (input.type()) {
+            case NUMBER -> 16991;
+            case DATE -> "from".equals(input.name()) ? "2026-09-27" : "2026-10-26";
+            case GEOMETRY -> Map.of("type", "Polygon", "coordinates", List.of(List.of(
+                    List.of(-52.21, -12.61), List.of(-52.17, -12.61), List.of(-52.17, -12.64), List.of(-52.21, -12.61))));
+            default -> "codImovel".equals(input.name()) ? CarBlockContractStubs.COD_IMOVEL : "sample";
+        };
     }
 }

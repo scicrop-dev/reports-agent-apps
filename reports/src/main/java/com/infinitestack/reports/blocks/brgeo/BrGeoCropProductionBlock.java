@@ -72,7 +72,9 @@ public class BrGeoCropProductionBlock implements ReportBlock {
                         BlockPort.required("count", DataType.NUMBER, "crops with harvested area in the year"),
                         BlockPort.required("totalHarvestedHa", DataType.NUMBER, "harvested area of all crops, hectares"),
                         BlockPort.required("totalValueThousandBrl", DataType.NUMBER, "production value of all crops, thousand BRL"),
-                        BlockPort.required("truncated", DataType.BOOLEAN, "more crops than the limit")),
+                        BlockPort.required("truncated", DataType.BOOLEAN, "more crops than the limit"),
+                        BlockPort.optional("uf", DataType.STRING,
+                                "state (abbreviation) of the municipality, from its IBGE code; connect it to brgeo-crop-progress.uf")),
                 List.of(
                         requirement(PAM_VALUE, "table_id", "year", "cd_mun", "variable_id", "product_id", "value",
                                 "value_flag", "unit", "valid_to"),
@@ -165,6 +167,7 @@ public class BrGeoCropProductionBlock implements ReportBlock {
         out.put("totalHarvestedHa", totalHarvested);
         out.put("totalValueThousandBrl", totalValue);
         out.put("truncated", crops.size() > limit);
+        out.put("uf", BrazilianStates.ofMunicipality(cdMun).map(BrazilianStates.State::uf).orElse(null));
         return out;
     }
 }

@@ -3,7 +3,7 @@
  * wires from an output (right dot) to an input (left dot), and an inspector with everything about the
  * selected node or Block (bindings, outputs as template variables, last run, documentation).
  *
- * It edits the same working model as the list view (flow-editor.js): [{id, block, bindings, position}].
+ * It edits the same working model as the list view (flow-editor.js): [{id, block, bindings, position, optional}].
  * Port positions are computed from fixed row heights, not measured, so the wires are right even
  * while the tab is hidden. Colors follow the port type, so a wire can only join two ports of the
  * same color: that is the rule the engine applies too.
@@ -478,14 +478,15 @@
             const run = lastRunOf(ctx, node.id);
             const unbound = d ? d.inputs.filter((p) => p.required && !node.bindings[p.name]).length : 0;
             const classes = 'div.fg-node' + (selected ? '.selected' : '') + (!v ? '.missing' : !v.usable ? '.unusable' : '')
-                + (unbound ? '.incomplete' : '') + (run ? (run.status === 'COMPLETED' ? '.ran-ok' : '.ran-failed') : '');
+                + (unbound ? '.incomplete' : '') + (run ? (run.status === 'COMPLETED' ? '.ran-ok' : run.status === 'SKIPPED' ? '.ran-skipped' : '.ran-failed') : '');
             const box = el(classes, { style: this.place(node.position), 'data-node': node.id, 'data-drag': node.id },
                 el('div.fg-head', { title: d ? d.description : node.block },
                     el('span.fg-order', { title: 'Execution order' }, order ? String(order) : '!'),
                     el('span.fg-title', null, d ? d.name : node.block),
-                    run ? el('span.fg-run.' + (run.status === 'COMPLETED' ? 'ok' : 'failed'),
-                        { title: run.status + (run.error ? ': ' + run.error : '') }, run.status === 'COMPLETED' ? run.durationMs + ' ms' : 'failed') : null),
-                el('div.fg-meta', null, el('code', null, node.id), ' ', d ? d.id + ' ' + d.version : 'unavailable'));
+                    run ? el('span.fg-run.' + (run.status === 'COMPLETED' ? 'ok' : run.status === 'SKIPPED' ? 'skipped' : 'failed'),
+                        { title: run.status + (run.error ? ': ' + run.error : '') },
+                        run.status === 'COMPLETED' ? run.durationMs + ' ms' : run.status === 'SKIPPED' ? 'skipped' : 'failed') : null),
+                el('div.fg-meta', null, el('code', null, node.id), ' ', d ? d.id + ' ' + d.version : 'unavailable', node.optional ? ' · optional' : ''));
             if (!d) {
                 box.appendChild(el('div.fg-port.fg-port-empty', null, 'Block not available to you'));
                 box.appendChild(el('div.fg-port.fg-port-empty', null, 'Release it to run this flow'));
@@ -855,6 +856,7 @@
             }
         });
         box.appendChild(el('div.field', null, el('label', null, 'Node id (letters, digits, _)'), idInput));
+        box.appendChild(FlowEditor.optionalToggle(node, ctx));
         if (!ctx.readOnly) {
             box.appendChild(el('div.row', null,
                 el('button.btn-secondary', { onclick: () => removeNode(node.id, model, ctx) }, 'Remove node')));

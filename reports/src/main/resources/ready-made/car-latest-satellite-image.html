@@ -1,39 +1,35 @@
 <div class="running-header">
-  <span class="rh-title">Imagem de satélite do imóvel</span>
-  <span class="rh-code">{{property.codImovel}}</span>
+  <span class="rh-title">Imagem de satélite</span>
+  <span class="rh-code">{{area.label}}</span>
 </div>
 
 <div class="cover">
   <div class="cover-kicker">Imagem de satélite mais recente - Sentinel-2</div>
-  <h1>Imóvel rural {{property.codImovel}}</h1>
-  <p class="cover-sub">{{property.municipality}} / {{property.uf}}</p>
+  <h1>{{#area.isCar}}Imóvel rural {{area.codImovel}}{{/area.isCar}}{{^area.isCar}}{{area.label}}{{/area.isCar}}</h1>
+  <p class="cover-sub">{{#area.isCar}}{{property.municipality}} / {{property.uf}}{{/area.isCar}}{{^area.isCar}}ponto de referência {{area.centroidLat}}, {{area.centroidLon}}{{/area.isCar}}</p>
   <table class="meta">
-    <tr><th>Área calculada da geometria</th><td>{{geometry.areaHa}} ha</td></tr>
-    {{#image.found}}
-    <tr><th>Data da imagem</th><td><strong>{{image.acquiredDate}}</strong> (há {{image.daysAgo}} dia(s))</td></tr>
-    <tr><th>Satélite / quadrícula</th><td>{{image.scene.platform}} / {{image.scene.mgrsTile}}</td></tr>
-    <tr><th>Nuvem sobre o imóvel</th><td>{{image.areaCloudPercent}}% (cena inteira: {{image.scene.cloudCoverPercent}}%)</td></tr>
-    <tr><th>Parte do imóvel dentro da cena</th><td>{{image.coveragePercent}}%</td></tr>
-    <tr><th>Resolução das imagens</th><td>{{image.pixelSizeM}} m por pixel ({{image.widthPx}} x {{image.heightPx}} pixels)</td></tr>
-    {{/image.found}}
+    <tr><th>Área analisada</th><td>{{#area.isCar}}imóvel do CAR <span class="code">{{area.codImovel}}</span>{{/area.isCar}}{{^area.isCar}}polígono informado ({{area.vertices}} vértices){{/area.isCar}}</td></tr>
+    <tr><th>Área calculada</th><td>{{area.areaHa}} ha</td></tr>
     <tr><th>Emitido em</th><td>{{report.generatedAt}}</td></tr>
     <tr><th>Execução</th><td>{{#report.executionId}}nº {{report.executionId}} (versão {{report.version}} do relatório){{/report.executionId}}{{^report.executionId}}Prévia, não registrada no histórico{{/report.executionId}}</td></tr>
   </table>
+  {{#property.removedAt}}
+  <p class="alert">Atenção: este imóvel foi removido da base do SICAR em {{property.removedAt}}. Os dados do CAR são os da última versão conhecida.</p>
+  {{/property.removedAt}}
 </div>
 
-{{#image.found}}
 <div class="section">
-  <h2><span class="num">1</span> Cor verdadeira</h2>
+  <h2><span class="num">1</span> Cor verdadeira e índices</h2>
+  {{#image.found}}
+  <table class="kv">
+    <tr><th>Data da imagem</th><td><strong>{{image.acquiredDate}}</strong> (há {{image.daysAgo}} dia(s)), {{image.scene.platform}}, quadrícula {{image.scene.mgrsTile}}</td></tr>
+    <tr><th>Nuvem sobre a área</th><td>{{image.areaCloudPercent}}% (cena inteira: {{image.scene.cloudCoverPercent}}%); {{image.coveragePercent}}% da área dentro da cena</td></tr>
+    <tr><th>Resolução</th><td>{{image.pixelSizeM}} m por pixel</td></tr>
+  </table>
   <div class="map-block">
     <img class="map" src="{{image.trueColor}}" alt="Imagem em cor verdadeira">
-    <div class="legend"><span class="legend-item"><span class="swatch swatch-outline"></span> limite do imóvel</span> Sentinel-2 L2A, bandas vermelho, verde e azul, imagem de {{image.acquiredDate}}.</div>
+    <div class="legend"><span class="legend-item"><span class="swatch swatch-outline"></span> limite da área</span> Sentinel-2 L2A em cor verdadeira, {{image.acquiredDate}}.</div>
   </div>
-  <p class="note">Cena {{image.scene.id}}. A imagem é uma aquisição única, não um mosaico: nuvens, névoa e sombras aparecem como foram fotografadas.</p>
-</div>
-
-<div class="section">
-  <h2><span class="num">2</span> Índices espectrais</h2>
-  <p>Cada mapa mostra o índice pixel a pixel. Nuvens, sombras e pixels sem dado ficam em cinza e não entram nas estatísticas, que consideram só os pixels dentro do imóvel.</p>
   {{#image.indices}}
   <div class="map-block">
     <h3>{{name}} - {{description}}</h3>
@@ -43,29 +39,23 @@
       <tr>{{#legend}}<td class="legend-label">{{label}}</td>{{/legend}}</tr>
     </table></div>
     <table class="grid">
-      <thead><tr><th class="r">Média</th><th class="r">Mediana</th><th class="r">P10 a P90</th><th class="r">Mín. a máx.</th><th class="r">Desvio</th><th class="r">Área válida</th></tr></thead>
-      <tbody><tr><td class="r"><strong>{{mean}}</strong></td><td class="r">{{p50}}</td><td class="r">{{p10}} a {{p90}}</td><td class="r">{{min}} a {{max}}</td><td class="r">{{stddev}}</td><td class="r">{{validPercent}}% ({{validPixels}} px)</td></tr></tbody>
+      <thead><tr><th class="r">Média</th><th class="r">Mediana</th><th class="r">P10 a P90</th><th class="r">Mín. a máx.</th><th class="r">Área válida</th></tr></thead>
+      <tbody><tr><td class="r"><strong>{{mean}}</strong></td><td class="r">{{p50}}</td><td class="r">{{p10}} a {{p90}}</td><td class="r">{{min}} a {{max}}</td><td class="r">{{validPercent}}%</td></tr></tbody>
     </table>
-    <p class="note">Escala de cores de {{rangeMin}} a {{rangeMax}}.</p>
   </div>
   {{/image.indices}}
+  <p class="note">Cena {{image.scene.id}}. Aquisição única, não um mosaico: nuvens e sombras aparecem como foram fotografadas e ficam em cinza nos mapas dos índices, fora das estatísticas.</p>
+  {{/image.found}}
+  {{^image.found}}
+  <p class="alert">Nenhuma imagem Sentinel-2 utilizável sobre a área.{{#image.message}} Detalhe: {{image.message}}.{{/image.message}}{{^image.message}} A busca de imagens não respondeu nesta execução (o servidor precisa de saída para a AWS); o detalhe está nos blocos da execução.{{/image.message}}</p>
+  {{/image.found}}
 </div>
-{{/image.found}}
-
-{{^image.found}}
-<div class="section">
-  <h2><span class="num">1</span> Imagem</h2>
-  <p class="alert">Nenhuma imagem Sentinel-2 utilizável sobre o imóvel: não houve cena recente com céu limpo o bastante sobre ele.</p>
-  <p class="note">Detalhe técnico: {{image.message}}.</p>
-  <p>Tente de novo depois da próxima passagem do satélite (a cada 5 dias, aproximadamente), ou em outra época do ano: na estação chuvosa as nuvens podem cobrir o imóvel por semanas.</p>
-</div>
-{{/image.found}}
 
 {{#image.skipped}}{{#-first}}
 <div class="section">
-  <h2>Cenas descartadas por nuvem sobre o imóvel</h2>
+  <h2>Cenas descartadas por nuvem sobre a área</h2>
   <table class="grid">
-    <thead><tr><th>Data</th><th>Cena</th><th class="r">Nuvem sobre o imóvel (%)</th></tr></thead>
+    <thead><tr><th>Data</th><th>Cena</th><th class="r">Nuvem sobre a área (%)</th></tr></thead>
     <tbody>
 {{/-first}}
       <tr><td class="nowrap">{{date}}</td><td class="code">{{id}}</td><td class="r">{{areaCloudPercent}}</td></tr>
@@ -78,12 +68,12 @@
 <div class="section">
   <h2>Metodologia e limitações</h2>
   <ul class="sources">
-    <li>Imagens Sentinel-2 nível L2A (reflectância de superfície, programa Copernicus da ESA), com pixels de 10 m (bandas visíveis e infravermelho próximo) e 20 m (red edge, infravermelho de ondas curtas e classificação de cena). Em imóveis grandes o pixel cresce para a imagem caber no relatório.</li>
-    <li>As cenas vêm do catálogo Earth Search (Element 84), o mesmo que o Satellite Hub usa. Vale a cena mais recente dos últimos 120 dias com até 40% de nuvem na cena e até 30% sobre o imóvel; cenas mais nubladas sobre o imóvel são descartadas e a anterior é tentada (até 4).</li>
+    <li>Imagens Sentinel-2 nível L2A (reflectância de superfície, programa Copernicus da ESA), com pixels de 10 m (bandas visíveis e infravermelho próximo) e 20 m (red edge, infravermelho de ondas curtas e classificação de cena). Em áreas grandes o pixel cresce para a imagem caber no relatório.</li>
+    <li>As cenas vêm do catálogo Earth Search (Element 84), o mesmo que o Satellite Hub usa. Vale a cena mais recente dos últimos 120 dias com até 40% de nuvem na cena e até 30% sobre a área; cenas mais nubladas sobre a área são descartadas e a anterior é tentada (até 4).</li>
     <li>Os índices usam as fórmulas, os limites de valor e a máscara de nuvem cadastrados no Satellite Hub. Reflectância = valor digital x 0,0001, sem aplicar o deslocamento (offset) do produto, como no Satellite Hub.</li>
     <li>Máscara de nuvem pela classificação de cena (SCL): só as classes 4 (vegetação), 5 (solo exposto), 6 (água) e 7 (não classificado) contam como céu limpo. A máscara não pega toda névoa fina nem toda sombra, e pode marcar solo claro ou construções como nuvem.</li>
-    <li>É a última aquisição, não um mosaico nem uma média: o resultado mostra o imóvel naquela data. Partes fora da cena ou cobertas aparecem em cinza.</li>
+    <li>É a última aquisição, não um mosaico nem uma média: o resultado mostra a área naquela data. Partes fora da cena ou cobertas aparecem em cinza.</li>
     <li>Os índices descrevem o vigor e a umidade da vegetação; não identificam a cultura nem comprovam desmatamento.</li>
-    <li>Geometria do imóvel: CAR (SICAR), versão vigente.</li>
+    <li>Área: {{#area.isCar}}geometria vigente do imóvel no CAR (SICAR, coletado pelo car-agent-app; informação autodeclaratória){{/area.isCar}}{{^area.isCar}}polígono informado por quem rodou o relatório, corrigido para geometria válida{{/area.isCar}}. Áreas em SIRGAS 2000, com cálculo geodésico.</li>
   </ul>
 </div>

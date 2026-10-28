@@ -1,8 +1,10 @@
 package com.infinitestack.reports.blocks.sathub;
 
+import java.sql.Date;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -81,7 +83,13 @@ public class SatelliteHubIndexSeriesBlock implements ReportBlock {
             + " sum(v.p10 * v.valid_pixels) / sum(v.valid_pixels) AS p10,"
             + " sum(v.p90 * v.valid_pixels) / sum(v.valid_pixels) AS p90,"
             + " avg(v.valid_area_pct) AS valid_pct, count(DISTINCT v.area_id) AS areas"
-            + " FROM v, last WHERE v.acquired_at > last.at - make_interval(days => ?)"
+            + " FROM v, last"
+            // A 'to' cuts the series at that day; a 'from' starts it there, else it goes 'days' back
+            // from 'to' (or from the latest image when there is no 'to').
+            + " WHERE (CAST(? AS date) IS NULL OR v.acquired_at < CAST(? AS date) + 1)"
+            + " AND CASE WHEN CAST(? AS date) IS NOT NULL THEN v.acquired_at >= CAST(? AS date)"
+            + " WHEN CAST(? AS date) IS NOT NULL THEN v.acquired_at >= CAST(? AS date) + 1 - make_interval(days => ?)"
+            + " ELSE v.acquired_at > last.at - make_interval(days => ?) END"
             + " GROUP BY 1 ORDER BY 1";
 
     private final BlockQueries queries;
@@ -101,7 +109,10 @@ public class SatelliteHubIndexSeriesBlock implements ReportBlock {
                                 "area whose Satellite Hub fields are combined; connect car-property-geometry.geometry"),
                         BlockPort.optional("areaId", DataType.NUMBER, "one Satellite Hub area by id, instead of a geometry"),
                         BlockPort.optional("index", DataType.STRING, "index slug: ndvi (default), evi, savi, ndre, gndvi, ndmi, ndwi, nbr (Sentinel-2), ndvi_landsat, ndmi_landsat (Landsat), rvi_s1 (Sentinel-1) or any other enabled in Satellite Hub"),
-                        BlockPort.optional("days", DataType.NUMBER, "length of the series, counted back from the latest image; default 365"),
+                        BlockPort.optional("days", DataType.NUMBER,
+                                "length of the series, counted back from 'to' or, without it, from the latest image; default 365"),
+                        BlockPort.optional("from", DataType.DATE, "first day of the series; when given, 'days' is ignored"),
+                        BlockPort.optional("to", DataType.DATE, "last day of the series; default up to the latest image"),
                         BlockPort.optional("minValidPercent", DataType.NUMBER,
                                 "drop images with less than this % of valid (cloud-free) area; default 50")),
                 List.of(
@@ -138,7 +149,7 @@ public class SatelliteHubIndexSeriesBlock implements ReportBlock {
                         "Reads the index statistics Satellite Hub stored per image and area (mean, min, max, percentiles, valid pixels).",
                         "Drops images with less than minValidPercent of cloud-free area.",
                         "Combines the areas per date with a mean weighted by valid pixels.",
-                        "Keeps the last 'days' days counted from the latest image and draws the chart: the mean line over the band between the 10th and 90th percentiles."),
+                        "Keeps the images between 'from' and 'to' or, by default, the last 'days' days counted from the latest image, and draws the chart: the mean line over the band between the 10th and 90th percentiles."),
                 List.of(
                         "geometry: connect car-property-geometry.geometry to follow the fields inside a CAR property.",
                         "areaId: a report input of type number when the report is about one field.",
@@ -160,6 +171,9 @@ public class SatelliteHubIndexSeriesBlock implements ReportBlock {
         if (geometry == null && areaId == null) throw new IllegalArgumentException("give a geometry or an areaId");
         String slug = inputs.get("index") instanceof String s && !s.isBlank() ? s.trim().toLowerCase() : "ndvi";
         int days = inputs.get("days") instanceof Number n ? Math.max(1, n.intValue()) : DEFAULT_DAYS;
+        LocalDate from = inputs.get("from") instanceof String f && !f.isBlank() ? LocalDate.parse(f.trim()) : null;
+        LocalDate to = inputs.get("to") instanceof String t && !t.isBlank() ? LocalDate.parse(t.trim()) : null;
+        if (from != null && to != null && from.isAfter(to)) throw new IllegalArgumentException("'from' is after 'to'");
         double minValid = inputs.get("minValidPercent") instanceof Number n ? n.doubleValue() : DEFAULT_MIN_VALID_PERCENT;
 
         return queries.read(Duration.ofSeconds(25), jdbc -> {
@@ -190,7 +204,9 @@ public class SatelliteHubIndexSeriesBlock implements ReportBlock {
                 args.add(index.get(0).get("id"));
                 areas.forEach(a -> args.add(a.get("id")));
                 args.add(minValid);
-                args.add(days);
+                Date toSql = to == null ? null : Date.valueOf(to);
+                Date fromSql = from == null ? null : Date.valueOf(from);
+                args.addAll(Arrays.asList(toSql, toSql, fromSql, fromSql, toSql, toSql, days, days));
                 String placeholders = String.join(", ", Collections.nCopies(areas.size(), "?"));
                 for (Map<String, Object> row : jdbc.queryForList(String.format(SERIES_SQL, placeholders), args.toArray())) {
                     LocalDate day = LocalDate.parse(row.get("day").toString());
