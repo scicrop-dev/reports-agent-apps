@@ -25,6 +25,7 @@ import com.infinitestack.reports.blocks.sathub.imagery.Resampling;
 import com.infinitestack.reports.blocks.sathub.imagery.SceneAsset;
 import com.infinitestack.reports.blocks.sathub.imagery.SceneItem;
 import com.infinitestack.reports.blocks.sathub.imagery.SceneSearch;
+import com.infinitestack.reports.blocks.sathub.imagery.Utm;
 import com.infinitestack.reports.engine.block.BlockPort;
 
 /**
@@ -68,6 +69,14 @@ class SatelliteHubLatestImageBlockTest {
         double cloud = (Double) out.get("areaCloudPercent");
         assertTrue(cloud > 0 && cloud < 30, "the cloud patch is a small share of the area: " + cloud);
         assertTrue(((String) out.get("trueColor")).startsWith("data:image/png;base64,"));
+        assertEquals("EPSG:" + EPSG, out.get("imageCrs"));
+        List<?> transform = (List<?>) out.get("imageTransform");
+        assertEquals(List.of(10.0, 0.0, 0.0, -10.0), List.of(transform.get(0), transform.get(1), transform.get(3), transform.get(4)));
+        double minX = (Double) transform.get(2), maxY = (Double) transform.get(5);
+        assertEquals(0.0, minX % 10, "minX on the 10 m lattice");
+        assertEquals(0.0, maxY % 10, "maxY on the 10 m lattice");
+        double[] corner = Utm.forward(-70.00, -7.99, EPSG);
+        assertTrue(minX < corner[0] && maxY > corner[1], "the image's top-left corner is outside the area");
 
         List<?> indices = (List<?>) out.get("indices");
         assertEquals(List.of("ndvi", "evi", "ndmi"), indices.stream().map(i -> ((Map<?, ?>) i).get("slug")).toList());

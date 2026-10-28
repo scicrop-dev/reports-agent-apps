@@ -244,6 +244,8 @@ não no Satellite Hub. Código: `blocks.sathub.SatelliteHubLatestImageBlock` + p
 | `coveragePercent`, `areaCloudPercent` | number, opcionais | parte da área dentro da cena; parte sob nuvem/sombra/sem dado |
 | `pixelSizeM`, `widthPx`, `heightPx` | number, opcionais | grade das imagens |
 | `trueColor` | string, opcional | PNG `data:` em cor verdadeira, com o contorno da área |
+| `imageCrs` | string, opcional | CRS dos PNGs: a zona UTM da cena, ex. `EPSG:32721` |
+| `imageTransform` | array, opcional | transformação afim dos PNGs em `imageCrs`, ordem GDAL/rasterio `[pixelSizeM, 0, minX, 0, -pixelSizeM, maxY]` (canto superior esquerdo do pixel); serve para georreferenciar o recorte (world file, GeoTIFF) |
 | `indices` | array | na ordem pedida (vazia sem imagem): `{slug, name, description, image, mean, min, max, stddev, p10, p50, p90, validPixels, validPercent, rangeMin, rangeMax, legend [{color, value, label}]}` |
 | `candidatesTried` | number | cenas cuja nuvem sobre a área foi conferida |
 | `skipped` | array | cenas puladas por nuvem: `{id, date, areaCloudPercent}` |

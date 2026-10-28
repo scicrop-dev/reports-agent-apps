@@ -101,7 +101,8 @@ public final class GeoBlockContractStubs {
             Map<String, Object> out = map("found", false,
                     "message", "the 4 most recent scenes had more than 30% clouds over the area",
                     "scene", null, "acquiredDate", null, "daysAgo", null, "coveragePercent", null, "areaCloudPercent", null,
-                    "pixelSizeM", null, "widthPx", null, "heightPx", null, "trueColor", null);
+                    "pixelSizeM", null, "widthPx", null, "heightPx", null, "trueColor", null,
+                    "imageCrs", null, "imageTransform", null);
             out.put("indices", List.of());
             out.put("candidatesTried", 4);
             out.put("skipped", skipped);
@@ -129,7 +130,8 @@ public final class GeoBlockContractStubs {
                         "platform", "sentinel-2a", "mgrsTile", "19LFJ", "cloudCoverPercent", 12.3,
                         "stacUrl", "https://earth-search.aws.element84.com/v1/collections/sentinel-2-l2a/items/S2A_19LFJ_20261011_0_L2A"),
                 "acquiredDate", "2026-10-11", "daysAgo", 15, "coveragePercent", 100.0, "areaCloudPercent", 2.6,
-                "pixelSizeM", 30.0, "widthPx", 800, "heightPx", 612, "trueColor", tinyPng(0x6b7f4a));
+                "pixelSizeM", 30.0, "widthPx", 800, "heightPx", 612, "trueColor", tinyPng(0x6b7f4a),
+                "imageCrs", "EPSG:32719", "imageTransform", List.of(30.0, 0.0, 654770.0, 0.0, -30.0, 9116060.0));
         out.put("indices", indices);
         out.put("candidatesTried", 3);
         out.put("skipped", skipped);
