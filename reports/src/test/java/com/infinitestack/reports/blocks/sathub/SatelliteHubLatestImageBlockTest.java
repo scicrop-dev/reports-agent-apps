@@ -77,6 +77,11 @@ class SatelliteHubLatestImageBlockTest {
         assertEquals(0.0, maxY % 10, "maxY on the 10 m lattice");
         double[] corner = Utm.forward(-70.00, -7.99, EPSG);
         assertTrue(minX < corner[0] && maxY > corner[1], "the image's top-left corner is outside the area");
+        List<?> bounds = (List<?>) out.get("imageBounds");
+        assertEquals(4, bounds.size());
+        assertTrue((Double) bounds.get(0) < -70.00 && (Double) bounds.get(1) < -8.00
+                && (Double) bounds.get(2) > -69.99 && (Double) bounds.get(3) > -7.99, "the bounds contain the area: " + bounds);
+        assertTrue((Double) bounds.get(2) - (Double) bounds.get(0) < 0.02, "the bounds are the image, not the scene: " + bounds);
 
         List<?> indices = (List<?>) out.get("indices");
         assertEquals(List.of("ndvi", "evi", "ndmi"), indices.stream().map(i -> ((Map<?, ?>) i).get("slug")).toList());

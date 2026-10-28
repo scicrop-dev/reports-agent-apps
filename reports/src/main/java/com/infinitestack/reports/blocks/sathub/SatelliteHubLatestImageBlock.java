@@ -131,6 +131,8 @@ public class SatelliteHubLatestImageBlock implements ReportBlock {
                         BlockPort.optional("imageTransform", DataType.ARRAY,
                                 "affine transform of the images in imageCrs, GDAL/rasterio order [pixelSize, 0, minX, 0, -pixelSize, maxY]: "
                                         + "x = minX + col * pixelSize, y = maxY - row * pixelSize at the pixel's top-left corner"),
+                        BlockPort.optional("imageBounds", DataType.ARRAY,
+                                "[minLon, minLat, maxLon, maxLat] in degrees (WGS 84) of the box around the images' four corners"),
                         BlockPort.required("indices", DataType.ARRAY,
                                 "one per index, in the requested order (empty when not found): {slug, name, description, image, mean, min, "
                                         + "max, stddev, p10, p50, p90, validPixels, validPercent, rangeMin, rangeMax, legend [{color, value, label}]}"),
@@ -297,6 +299,7 @@ public class SatelliteHubLatestImageBlock implements ReportBlock {
         out.put("trueColor", ImageryRenderer.dataUri(renderer.trueColor(reflectance.get("red"), reflectance.get("green"), reflectance.get("blue"), clear, area)));
         out.put("imageCrs", "EPSG:" + grid.epsg());
         out.put("imageTransform", transform(grid));
+        out.put("imageBounds", bounds(grid));
         out.put("indices", indexOut);
         out.put("candidatesTried", tried);
         out.put("skipped", skipped);
@@ -427,6 +430,25 @@ public class SatelliteHubLatestImageBlock implements ReportBlock {
         return List.of(grid.pixelSize(), 0.0, grid.minX(), 0.0, -grid.pixelSize(), grid.maxY());
     }
 
+    /**
+     * The box in lon/lat around the grid's four corners. The UTM rectangle is not a lon/lat rectangle, so
+     * the box is slightly larger than the image; at the sizes of this Block the difference is sub-pixel.
+     */
+    static List<Double> bounds(RasterGrid grid) {
+        double minLon = Double.POSITIVE_INFINITY, minLat = Double.POSITIVE_INFINITY;
+        double maxLon = Double.NEGATIVE_INFINITY, maxLat = Double.NEGATIVE_INFINITY;
+        for (double x : new double[] {grid.minX(), grid.maxX()}) {
+            for (double y : new double[] {grid.minY(), grid.maxY()}) {
+                double[] p = Utm.inverse(x, y, grid.epsg());
+                minLon = Math.min(minLon, p[0]);
+                maxLon = Math.max(maxLon, p[0]);
+                minLat = Math.min(minLat, p[1]);
+                maxLat = Math.max(maxLat, p[1]);
+            }
+        }
+        return List.of(round(minLon, 7), round(minLat, 7), round(maxLon, 7), round(maxLat, 7));
+    }
+
     static List<List<double[][]>> project(List<List<double[][]>> polygons, int epsg) {
         List<List<double[][]>> out = new ArrayList<>();
         for (List<double[][]> polygon : polygons) {
@@ -506,7 +528,7 @@ public class SatelliteHubLatestImageBlock implements ReportBlock {
         out.put("found", false);
         out.put("message", message);
         for (String name : List.of("scene", "acquiredDate", "daysAgo", "coveragePercent", "areaCloudPercent", "pixelSizeM",
-                "widthPx", "heightPx", "trueColor", "imageCrs", "imageTransform")) {
+                "widthPx", "heightPx", "trueColor", "imageCrs", "imageTransform", "imageBounds")) {
             out.put(name, null);
         }
         out.put("indices", List.of());
