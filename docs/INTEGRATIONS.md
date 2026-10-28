@@ -89,6 +89,14 @@ infinitestack-back#1280 (PR #1281, no `dev` em 2026-10-26), a porta interna
 runs de workflows, passando `params` que chegam ao `--context` do primeiro script do run. O Block
 `skillslab-python` usa essa porta:
 
+0. `GET …/projects/{projectId}/workflows`: os workflows do projeto liberados para o app. Se o
+   `workflow` não está na lista (ou está mas sumiu do projeto, `exists: false`), o Block falha antes
+   de iniciar qualquer run, dizendo o arquivo a editar e o que o projeto tem liberado. Um 404 aqui é
+   "host sem a porta" (back sem o #1281): em produção o back não manda a mensagem do erro no corpo
+   (`server.error.include-message` só no perfil dev), então o 404 de "run não encontrado" e o de "rota
+   inexistente" chegam iguais, e só a listagem, que nunca dá 404 quando a rota existe, separa os dois.
+   Os 401/403/400 sem mensagem também viram um texto que diz a causa provável. Mesmo cuidado do
+   `HostWorkflowsClient` do Satellite Hub.
 1. `POST …/projects/{projectId}/workflows/{workflow}/runs` com `{params, onBehalfOf}`: `params` são o
    `params` fixo do nó mais as entradas `text`, `number`, `date`, `geometry`, `data` e `items` ligadas;
    `onBehalfOf` é o usuário que gera o relatório (o back confere se ele pode rodar o workflow).
@@ -109,13 +117,17 @@ result = {"summary": "...", "total": 3}
 print("IS_REPORTS_RESULT " + json.dumps(result))
 ```
 
+O id do run também chega ao script na variável de ambiente `IS_TRIGGER_ID` (back#1276), útil para
+o script registrar o próprio run, como o `br-geo-ingest` faz.
+
 **O que a instância precisa** (admin do IS):
 
 - Um workflow no projeto que rode o script (o de Schedules serve; o run é um run comum: Workloads,
   `lsruns`, fila do `proclimits`).
 - A liberação desse workflow para o REPORTS em `/opt/infinitestack/etc/reports-workflows.json`
-  (`AppWorkflowAccess` do back, pares `projectId` + `workflow`). Sem o arquivo, nada roda (403).
-- O back com o #1281 (hoje só no `dev`).
+  (`AppWorkflowAccess` do back), no formato `{"workflows":[{"projectId":"...","workflow":"..."}]}`.
+  Sem o arquivo, nada roda: o Block diz que o workflow não está liberado.
+- O back com o #1281 (hoje só no `dev`); sem ele o Block diz que o back precisa ser atualizado.
 - No REPORTS, liberar o Block `skillslab-python` uma vez na tela de Blocks (ele não tem
   `DataRequirement`, então está sempre disponível para liberar).
 

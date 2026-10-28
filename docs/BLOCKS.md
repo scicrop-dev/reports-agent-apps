@@ -307,6 +307,10 @@ funciona, o que a instância precisa e os limites em [INTEGRATIONS.md](INTEGRATI
 | `log` | string | últimos 4.000 caracteres da saída, sem as linhas de resultado |
 | `durationSeconds` | number | do pedido ao fim do run, com a fila |
 
+Antes de iniciar o run, o Block confere na lista do host (`GET …/workflows`) se o workflow está
+liberado para o app e ainda existe no projeto; se não, falha dizendo o arquivo a editar e o que o
+projeto tem liberado, sem iniciar nada.
+
 Sem `DataRequirement`: está sempre disponível para liberar. O que controla o que roda é a liberação
 do workflow na instância e o acesso do usuário ao workflow (`onBehalfOf`, conferido pelo back).
 Timeout próprio de 118 s, acima do `timeoutSeconds`, para o Block ainda parar o run e ler o log.

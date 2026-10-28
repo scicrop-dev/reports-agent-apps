@@ -1,6 +1,7 @@
 package com.infinitestack.reports.blocks.skillslab;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -9,6 +10,13 @@ import java.util.Map;
  * tested without a host.
  */
 public interface WorkflowRuns {
+
+    /**
+     * The workflows of a project granted to this app (only those). A host without the workflow port
+     * fails here, so the Block lists before it starts a run: in production the host sends no error
+     * message, and a 404 of the list is the only one that can only mean "no such route".
+     */
+    List<GrantedWorkflow> granted(String projectId) throws IOException;
 
     /**
      * Starts a run of a workflow granted to this app.
@@ -26,6 +34,12 @@ public interface WorkflowRuns {
 
     /** @return false when the run was not running any more */
     boolean stop(String projectId, String triggerId) throws IOException;
+
+    /**
+     * @param workflow the workflow as the admin granted it (the id used to start a run)
+     * @param exists   false when the grant names a workflow the project no longer has
+     */
+    record GrantedWorkflow(String workflow, boolean exists, String name) {}
 
     /**
      * @param result RUNNING, QUEUED, SUCCESS, WARNING, FAILED, INTERRUPTED or UNKNOWN

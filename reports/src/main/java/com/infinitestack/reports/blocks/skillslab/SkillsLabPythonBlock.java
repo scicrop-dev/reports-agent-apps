@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -35,6 +36,7 @@ import com.infinitestack.reports.engine.block.ReportBlock;
 public class SkillsLabPythonBlock implements ReportBlock {
 
     static final String RESULT_MARKER = "IS_REPORTS_RESULT ";
+    static final String GRANTS_FILE = "/opt/infinitestack/etc/reports-workflows.json";
 
     /** The ports passed to the script under their own name, when bound. */
     static final List<String> VALUE_PORTS = List.of("text", "number", "date", "geometry", "data", "items");
@@ -102,18 +104,19 @@ public class SkillsLabPythonBlock implements ReportBlock {
                 "Runs any Python script of the Skills Lab while the report is generated and puts what the script returns in the "
                         + "report: numbers, tables, texts, images as data: URIs.",
                 List.of(
-                        "Starts a run of the workflow (projectId + workflow) that runs the script, on behalf of the user running the report; it shows in Workloads like any run.",
+                        "Checks with the host that the workflow (projectId + workflow) is granted to the reports app.",
+                        "Starts a run of the workflow that runs the script, on behalf of the user running the report; it shows in Workloads like any run.",
                         "params, and the text, number, date, geometry, data and items inputs that are bound, are merged into the --context JSON of the workflow's first script, for this run only.",
                         "Waits for the run to end, up to timeoutSeconds; after that the run is stopped and the Block fails.",
                         "Reads the run's output and takes the last line IS_REPORTS_RESULT <json object> as result; the rest of the output becomes log.",
                         "A run that does not end in SUCCESS or WARNING fails the Block, with the end of the output as the reason."),
                 List.of(
                         "projectId and workflow: fixed values; the workflow id is the one in the project's Schedules.",
-                        "In the script: context = resolve_agent_context() from infinitestack.agent (or json.loads of the argument after --context); then print('IS_REPORTS_RESULT ' + json.dumps(result)).",
+                        "In the script: context = resolve_agent_context() from infinitestack.agent (or json.loads of the argument after --context); then print('IS_REPORTS_RESULT ' + json.dumps(result)). The run id is in the IS_TRIGGER_ID environment variable.",
                         "text, number, date, geometry, data, items: wire any output or report input of that type, e.g. inputs.codImovel into text or car-property-geometry.geometry into geometry.",
                         "Use the result in the template: {{<node>.result.field}}; test {{#<node>.hasResult}} first."),
                 List.of(
-                        "The IS admin grants each workflow to the reports app in /opt/infinitestack/etc/reports-workflows.json; a workflow not granted fails with 403.",
+                        "The IS admin grants each workflow to the reports app in /opt/infinitestack/etc/reports-workflows.json ({\"workflows\":[{\"projectId\":\"...\",\"workflow\":\"...\"}]}); the Block checks the grant before starting and says which workflows the project has granted.",
                         "The report waits for the script: it must end in about a minute and a half (the execution limit is 120 s). Heavy processing belongs in a scheduled script that writes a gold table, read by a database Block.",
                         "The run waits in the host's process queue (proclimits) when it is full, and that wait counts in the timeout.",
                         "The --context the script receives is capped at 64 KB: pass a key (a property code, an area id), not big data.",
@@ -131,6 +134,7 @@ public class SkillsLabPythonBlock implements ReportBlock {
         Duration timeout = Duration.ofSeconds(timeoutSeconds(inputs.get("timeoutSeconds")));
         Map<String, Object> params = runParams(inputs);
 
+        requireGranted(projectId, workflow);
         Instant startedAt = Instant.now();
         String triggerId = runs.start(projectId, workflow, params, metadata == null ? null : metadata.userId());
 
@@ -164,6 +168,23 @@ public class SkillsLabPythonBlock implements ReportBlock {
         out.put("log", tail(output.log(), LOG_TAIL_CHARS));
         out.put("durationSeconds", durationSeconds);
         return out;
+    }
+
+    /** Fails with what the admin has to do when the workflow is not granted or no longer exists. */
+    private void requireGranted(String projectId, String workflow) throws IOException {
+        List<WorkflowRuns.GrantedWorkflow> granted = runs.granted(projectId);
+        for (WorkflowRuns.GrantedWorkflow grant : granted) {
+            if (!grant.workflow().equals(workflow)) continue;
+            if (!grant.exists()) {
+                throw new IllegalArgumentException("workflow '" + workflow + "' is granted to the reports app but project "
+                        + projectId + " has no such workflow any more");
+            }
+            return;
+        }
+        String others = granted.stream().map(WorkflowRuns.GrantedWorkflow::workflow).collect(Collectors.joining(", "));
+        throw new IllegalArgumentException("workflow '" + workflow + "' of project " + projectId
+                + " is not granted to the reports app: the IS admin lists it in " + GRANTS_FILE
+                + " (granted in this project: " + (others.isEmpty() ? "none" : others) + ")");
     }
 
     /** {@code params} first, then each bound value port under its own name. */

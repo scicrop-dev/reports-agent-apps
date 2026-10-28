@@ -34,6 +34,7 @@ class SkillsLabPythonBlockTest {
         Map<String, Object> startedParams;
         String startedFor;
         final List<Long> reads = new ArrayList<>();
+        List<GrantedWorkflow> grants = List.of(new GrantedWorkflow("wf-report", true, "Report script"));
 
         FakeRuns(String result, String log, int pollsUntilDone, int sliceChars) {
             this.result = result;
@@ -44,6 +45,11 @@ class SkillsLabPythonBlockTest {
 
         FakeRuns(String result, String log) {
             this(result, log, 2, 1_000_000);
+        }
+
+        @Override
+        public List<GrantedWorkflow> granted(String projectId) {
+            return grants;
         }
 
         @Override
@@ -165,6 +171,30 @@ class SkillsLabPythonBlockTest {
         Exception e = assertThrows(IllegalArgumentException.class, () -> block(runs).execute(inputs(), META));
 
         assertTrue(e.getMessage().contains("not a JSON object"), e.getMessage());
+    }
+
+    @Test
+    void aWorkflowNotGrantedFailsBeforeAnyRun() {
+        FakeRuns runs = new FakeRuns("SUCCESS", "");
+        runs.grants = List.of(new WorkflowRuns.GrantedWorkflow("other", true, null));
+
+        Exception e = assertThrows(IllegalArgumentException.class, () -> block(runs).execute(inputs(), META));
+
+        assertTrue(e.getMessage().contains("not granted to the reports app"), e.getMessage());
+        assertTrue(e.getMessage().contains(SkillsLabPythonBlock.GRANTS_FILE), e.getMessage());
+        assertTrue(e.getMessage().contains("granted in this project: other"), e.getMessage());
+        assertNull(runs.startedWorkflow);
+    }
+
+    @Test
+    void aGrantedWorkflowMissingFromTheProjectFails() {
+        FakeRuns runs = new FakeRuns("SUCCESS", "");
+        runs.grants = List.of(new WorkflowRuns.GrantedWorkflow("wf-report", false, null));
+
+        Exception e = assertThrows(IllegalArgumentException.class, () -> block(runs).execute(inputs(), META));
+
+        assertTrue(e.getMessage().contains("has no such workflow"), e.getMessage());
+        assertNull(runs.startedWorkflow);
     }
 
     @Test

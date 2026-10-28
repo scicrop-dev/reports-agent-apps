@@ -1,7 +1,9 @@
 package com.infinitestack.reports.blocks.skillslab;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.web.client.RestClient;
@@ -29,6 +31,23 @@ public class HostWorkflowClient implements WorkflowRuns {
         this.http = http;
         this.pluginId = pluginId;
         this.token = token;
+    }
+
+    @Override
+    public List<GrantedWorkflow> granted(String projectId) throws IOException {
+        JsonNode answer;
+        try {
+            answer = call(() -> http.get().uri(PATH + "/workflows", projectId)
+                    .headers(this::authenticate).retrieve().body(JsonNode.class));
+        } catch (NotFound e) {
+            throw new IOException("the IS host has no workflow port for agent apps (it needs infinitestack-back#1281): update the IS back", e);
+        }
+        List<GrantedWorkflow> out = new ArrayList<>();
+        for (JsonNode row : answer.path("workflows")) {
+            out.add(new GrantedWorkflow(row.path("workflow").asText(""), row.path("exists").asBoolean(false),
+                    row.path("name").asText(null)));
+        }
+        return out;
     }
 
     @Override
@@ -83,29 +102,48 @@ public class HostWorkflowClient implements WorkflowRuns {
             JsonNode answer = call.run();
             return answer == null ? json.createObjectNode() : answer;
         } catch (RestClientResponseException e) {
-            if (e.getStatusCode().value() == 409) throw new NotRunning();
-            throw new IOException("the host answered " + e.getStatusCode().value() + ": " + reason(e.getResponseBodyAsString()), e);
+            int status = e.getStatusCode().value();
+            if (status == 409) throw new NotRunning();
+            if (status == 404) throw new NotFound(reason(e.getResponseBodyAsString(), status));
+            throw new IOException("the host answered " + status + ": " + reason(e.getResponseBodyAsString(), status), e);
         } catch (RestClientException e) {
             throw new IOException("could not reach the IS host: " + e.getMessage(), e);
         }
     }
 
-    private String reason(String body) {
-        if (body == null || body.isBlank()) return "no details";
-        try {
-            JsonNode node = json.readTree(body);
-            for (String field : new String[] {"message", "error", "detail"}) {
-                if (node.hasNonNull(field) && !node.path(field).asText().isBlank()) return node.path(field).asText();
+    /**
+     * The host's own message when it sent one. In production it does not (server.error.include-message
+     * is on only in the dev profile): the body says just "Forbidden", so the status explains it.
+     */
+    private String reason(String body, int status) {
+        if (body != null && !body.isBlank()) {
+            try {
+                JsonNode node = json.readTree(body);
+                String message = node.path("message").asText("");
+                if (!message.isBlank() && !message.equals(node.path("error").asText())) return message;
+            } catch (Exception ignored) {
+                // not JSON: show it as it came
+                return body.length() > 300 ? body.substring(0, 300) + "..." : body;
             }
-        } catch (Exception ignored) {
-            // not JSON: show it as it came
         }
-        return body.length() > 300 ? body.substring(0, 300) + "..." : body;
+        return switch (status) {
+            case 401, 403 -> "the workflow is not granted to the reports app, or the user running the report has no access to the project";
+            case 404 -> "the project, the workflow or the run was not found";
+            case 400 -> "the host refused the request (params must be a JSON object of at most 64 KB)";
+            default -> "no details";
+        };
     }
 
     @FunctionalInterface
     private interface HostCall {
         JsonNode run();
+    }
+
+    /** 404 from any route; the list turns it into "the host is too old". */
+    private static final class NotFound extends IOException {
+        NotFound(String message) {
+            super("the host answered 404: " + message);
+        }
     }
 
     /** 409 from the stop route: the run had already finished. */

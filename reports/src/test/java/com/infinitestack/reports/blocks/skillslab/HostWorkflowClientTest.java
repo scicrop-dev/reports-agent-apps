@@ -44,7 +44,16 @@ class HostWorkflowClientTest {
             lastBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
             int status = 200;
             String answer;
-            if (path.endsWith("/workflows/not-granted/runs")) {
+            if (path.startsWith("/api/extensions/internal/workflows/projects/old/")) {
+                status = 404;
+                answer = "{\"status\":404,\"error\":\"Not Found\",\"path\":\"" + path + "\"}";
+            } else if (path.endsWith("/workflows/prod-refused/runs")) {
+                status = 403;
+                answer = "{\"status\":403,\"error\":\"Forbidden\",\"path\":\"" + path + "\"}";
+            } else if (path.endsWith("/workflows")) {
+                answer = "{\"workflows\":[{\"projectId\":\"p1\",\"workflow\":\"wf\",\"exists\":true,\"name\":\"Report\",\"workflowType\":\"SCRIPT\"},"
+                        + "{\"projectId\":\"p1\",\"workflow\":\"gone\",\"exists\":false,\"name\":null,\"workflowType\":null}]}";
+            } else if (path.endsWith("/workflows/not-granted/runs")) {
                 status = 403;
                 answer = "{\"status\":403,\"error\":\"Forbidden\",\"message\":\"Workflow not-granted of project p1 is not granted to app reports\"}";
             } else if (path.endsWith("/runs")) {
@@ -102,6 +111,34 @@ class HostWorkflowClientTest {
 
         assertTrue(e.getMessage().contains("403"), e.getMessage());
         assertTrue(e.getMessage().contains("is not granted to app reports"), e.getMessage());
+    }
+
+    @Test
+    void listsTheGrantedWorkflows() throws Exception {
+        List<WorkflowRuns.GrantedWorkflow> granted = client("secret").granted("p1");
+
+        assertEquals(List.of(new WorkflowRuns.GrantedWorkflow("wf", true, "Report"),
+                new WorkflowRuns.GrantedWorkflow("gone", false, null)), granted);
+        assertEquals(List.of("GET /api/extensions/internal/workflows/projects/p1/workflows id=reports token=secret"), requests);
+    }
+
+    @Test
+    void aHostWithoutThePortIsToldApart() throws Exception {
+        HostWorkflowClient client = client("secret");
+
+        IOException e = assertThrows(IOException.class, () -> client.granted("old"));
+
+        assertTrue(e.getMessage().contains("infinitestack-back#1281"), e.getMessage());
+    }
+
+    @Test
+    void aProductionRefusalWithoutMessageIsExplained() throws Exception {
+        HostWorkflowClient client = client("secret");
+
+        IOException e = assertThrows(IOException.class, () -> client.start("p1", "prod-refused", Map.of(), null));
+
+        assertTrue(e.getMessage().contains("403"), e.getMessage());
+        assertTrue(e.getMessage().contains("not granted to the reports app"), e.getMessage());
     }
 
     @Test
