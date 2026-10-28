@@ -17,6 +17,7 @@ import com.infinitestack.reports.blocks.car.CarOverlapsBlock;
 import com.infinitestack.reports.blocks.car.CarPropertyBlock;
 import com.infinitestack.reports.blocks.car.CarPropertyGeometryBlock;
 import com.infinitestack.reports.blocks.car.CarPropertyMapBlock;
+import com.infinitestack.reports.blocks.car.ReportAreaBlock;
 import com.infinitestack.reports.config.ReportsLimits;
 import com.infinitestack.reports.engine.block.BlockDefinition;
 import com.infinitestack.reports.engine.block.BlockPort;
@@ -52,7 +53,7 @@ class ReadyMadeAgainstRealBlocksTest {
 
     private static List<ReportBlock> realBlocks() {
         return List.of(new CarPropertyBlock(null), new CarPropertyGeometryBlock(null), new CarEnvironmentalLayersBlock(null),
-                new CarOverlapsBlock(null), new CarHistoryBlock(null), new CarPropertyMapBlock(null),
+                new CarOverlapsBlock(null), new CarHistoryBlock(null), new CarPropertyMapBlock(null), new ReportAreaBlock(null),
                 new BrGeoMunicipalitiesBlock(null), new BrGeoBiomesBlock(null), new BrGeoEmbargoesBlock(null),
                 new BrGeoDeterAlertsBlock(null), new BrGeoProdesBlock(null), new BrGeoCropProductionBlock(null),
                 new SatelliteHubIndexSeriesBlock(null), new SatelliteHubLatestImageBlock(null, null, null),

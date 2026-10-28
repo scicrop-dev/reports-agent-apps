@@ -1,0 +1,95 @@
+<div class="running-header">
+  <span class="rh-title">Clima da área</span>
+  <span class="rh-code">{{area.label}}</span>
+</div>
+
+<div class="cover">
+  <div class="cover-kicker">Clima da área - chuva e temperatura</div>
+  <h1>{{#area.isCar}}Imóvel rural {{area.codImovel}}{{/area.isCar}}{{^area.isCar}}{{area.label}}{{/area.isCar}}</h1>
+  <p class="cover-sub">{{#area.isCar}}{{property.municipality}} / {{property.uf}}{{/area.isCar}}{{^area.isCar}}{{#municipalities.main}}{{name}} / {{uf}}{{/municipalities.main}}{{^municipalities.main}}fora da malha municipal do IBGE{{/municipalities.main}}{{/area.isCar}}</p>
+  <table class="meta">
+    <tr><th>Área analisada</th><td>{{#area.isCar}}imóvel do CAR <span class="code">{{area.codImovel}}</span>{{/area.isCar}}{{^area.isCar}}polígono informado ({{area.vertices}} vértices){{/area.isCar}}</td></tr>
+    <tr><th>Área calculada</th><td>{{area.areaHa}} ha</td></tr>
+    <tr><th>Emitido em</th><td>{{report.generatedAt}}</td></tr>
+    <tr><th>Execução</th><td>{{#report.executionId}}nº {{report.executionId}} (versão {{report.version}} do relatório){{/report.executionId}}{{^report.executionId}}Prévia, não registrada no histórico{{/report.executionId}}</td></tr>
+  </table>
+  {{#property.removedAt}}
+  <p class="alert">Atenção: este imóvel foi removido da base do SICAR em {{property.removedAt}}. Os dados do CAR são os da última versão conhecida.</p>
+  {{/property.removedAt}}
+</div>
+
+<div class="section">
+  <h2><span class="num">1</span> Área analisada</h2>
+  <table class="kv">
+    {{#area.isCar}}
+    <tr><th>Código do imóvel no CAR</th><td class="code">{{area.codImovel}}</td></tr>
+    <tr><th>Município / UF declarados</th><td>{{property.municipality}} / {{property.uf}} (IBGE {{property.municipalityIbge}})</td></tr>
+    <tr><th>Tipo de imóvel</th><td>{{property.typeLabel}}</td></tr>
+    <tr><th>Situação no CAR</th><td>{{property.statusLabel}} ({{property.condition}})</td></tr>
+    <tr><th>Módulos fiscais</th><td>{{property.fiscalModules}}</td></tr>
+    <tr><th>Área declarada no CAR</th><td>{{property.declaredAreaHa}} ha</td></tr>
+    {{/area.isCar}}
+    {{^area.isCar}}
+    <tr><th>Nome</th><td>{{area.label}}</td></tr>
+    <tr><th>Origem da geometria</th><td>polígono informado por quem rodou o relatório (não é um imóvel do CAR)</td></tr>
+    {{/area.isCar}}
+    <tr><th>Área calculada da geometria</th><td>{{area.areaHa}} ha</td></tr>
+    <tr><th>Ponto de referência (dentro da área)</th><td>latitude {{area.centroidLat}}, longitude {{area.centroidLon}}</td></tr>
+    <tr><th>Municípios (malha IBGE {{municipalities.edition}})</th><td>{{#municipalities.municipalities}}{{name}}/{{uf}} ({{percentOfArea}}%)<br>{{/municipalities.municipalities}}{{^municipalities.municipalities}}fora da malha municipal{{/municipalities.municipalities}}</td></tr>
+  </table>
+</div>
+
+<div class="section">
+  <h2><span class="num">2</span> Chuva</h2>
+  {{#rain.found}}
+  <table class="highlights">
+    <tr>
+      <td class="highlight"><div class="hl-label">Chuva acumulada</div><div class="hl-value">{{rain.totalMm}} mm</div><div class="hl-sub">{{rain.from}} a {{rain.to}}</div></td>
+      <td class="highlight"><div class="hl-label">Dias com chuva (1 mm ou mais)</div><div class="hl-value">{{rain.rainyDays}}</div><div class="hl-sub">de {{rain.daysWithData}} dias com dado</div></td>
+      <td class="highlight"><div class="hl-label">Maior sequência sem chuva</div><div class="hl-value">{{rain.longestDrySpell}} dias</div><div class="hl-sub">maior chuva: {{rain.maxDayMm}} mm em {{rain.maxDayDate}}</div></td>
+    </tr>
+  </table>
+  <img class="chart" src="{{rain.chart}}" alt="Chuva diária">
+  <p class="note">Chuva diária (mm) do CHIRPS v3, média dos {{rain.pixels}} pixel(s) de 0,05° (cerca de 5,5 km) sobre a área; média de {{rain.meanDailyMm}} mm por dia com dado. Dias sem recorte carregado: {{rain.missingDays}}; dias ainda da série preliminar (revisada depois): {{rain.preliminaryDays}}.{{^rain.wholePixels}} A área é menor que um pixel: valem os pixels ao redor dela.{{/rain.wholePixels}}</p>
+  {{/rain.found}}
+  {{^rain.found}}
+  <p class="alert">Sem dados de chuva para a área no período.{{#rain.message}} Detalhe: {{rain.message}}.{{/rain.message}}{{^rain.message}} A consulta não respondeu nesta execução; o detalhe está nos blocos da execução.{{/rain.message}}</p>
+  {{/rain.found}}
+</div>
+
+<div class="section">
+  <h2><span class="num">3</span> Temperatura, umidade e radiação</h2>
+  {{#weather.found}}
+  <table class="highlights">
+    <tr>
+      <td class="highlight"><div class="hl-label">Temperatura média</div><div class="hl-value">{{weather.meanT2m}} °C</div><div class="hl-sub">mín. {{weather.minT2m}} °C ({{weather.minT2mDate}}) · máx. {{weather.maxT2m}} °C ({{weather.maxT2mDate}})</div></td>
+      <td class="highlight"><div class="hl-label">Dias com máxima de 35 °C ou mais</div><div class="hl-value">{{weather.hotDays}}</div><div class="hl-sub">estresse térmico</div></td>
+      <td class="highlight"><div class="hl-label">Noites com mínima de 3 °C ou menos</div><div class="hl-value">{{weather.coldNights}}</div><div class="hl-sub">risco de geada</div></td>
+    </tr>
+  </table>
+  <img class="chart" src="{{weather.chart}}" alt="Temperatura diária">
+  <table class="kv">
+    <tr><th>Período</th><td>{{weather.from}} a {{weather.to}} ({{weather.daysWithData}} dias com dado)</td></tr>
+    <tr><th>Graus-dia acumulados (base 10 °C)</th><td>{{weather.degreeDays}}</td></tr>
+    <tr><th>Umidade relativa média</th><td>{{weather.meanRh2m}}%</td></tr>
+    <tr><th>Vento médio a 2 m</th><td>{{weather.meanWs2m}} m/s</td></tr>
+    <tr><th>Radiação solar média</th><td>{{weather.meanRadiation}} MJ/m² por dia</td></tr>
+    <tr><th>Chuva pelo NASA POWER (conferência)</th><td>{{weather.powerPrecipitationMm}} mm</td></tr>
+  </table>
+  <p class="note">NASA POWER (reanálise MERRA-2), células de 0,5° x 0,625° ponderadas pela parte da área em cada uma: {{#weather.cells}}{{lat}}, {{lon}} ({{weightPercent}}%); {{/weather.cells}}{{#weather.nearestCell}} a área não toca nenhuma célula carregada e foi usada a mais próxima.{{/weather.nearestCell}} No gráfico, a linha é a temperatura média do dia e a faixa vai da mínima à máxima.</p>
+  {{/weather.found}}
+  {{^weather.found}}
+  <p class="alert">Sem dados de temperatura para a área no período.{{#weather.message}} Detalhe: {{weather.message}}.{{/weather.message}}{{^weather.message}} A consulta não respondeu nesta execução; o detalhe está nos blocos da execução.{{/weather.message}}</p>
+  {{/weather.found}}
+</div>
+
+<div class="section">
+  <h2><span class="num">4</span> Fontes e limitações</h2>
+  <ul class="sources">
+    <li>Área: {{#area.isCar}}geometria vigente do imóvel no CAR (SICAR, coletado pelo car-agent-app; informação autodeclaratória){{/area.isCar}}{{^area.isCar}}polígono informado por quem rodou o relatório, corrigido para geometria válida{{/area.isCar}}. Áreas em SIRGAS 2000, com cálculo geodésico.</li>
+    <li>Chuva: CHIRPS v3 (Climate Hazards Center, UC Santa Barbara), diária, 0,05°; os últimos dias vêm da série preliminar. Mantido pelo br-weather-agent-app.</li>
+    <li>Temperatura, umidade, vento e radiação: NASA POWER (MERRA-2), diário, células de 0,5° x 0,625°. É reanálise, não estação: suaviza extremos locais. Mantido pelo br-weather-agent-app.</li>
+    <li>Sem início nem fim, o período são os últimos 30 dias carregados. Chuva e temperatura podem terminar em dias diferentes, conforme o que cada fonte já publicou.</li>
+    <li>Este relatório reúne bases públicas e não substitui vistoria em campo, laudo técnico assinado nem a análise do órgão ou do agente financeiro competente.</li>
+  </ul>
+</div>

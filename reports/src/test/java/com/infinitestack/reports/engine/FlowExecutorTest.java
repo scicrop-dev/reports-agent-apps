@@ -77,6 +77,45 @@ class FlowExecutorTest {
     }
 
     @Test
+    void skipsAnOptionalNodeWhoseRequiredInputIsEmptyAndTheOptionalNodesFedByIt() throws Exception {
+        // test-upper's "text" is required; "n" is an optional report input left empty.
+        FlowRun run = run(new FlowDefinition(
+                List.of(new FlowNode("sum", "test-sum", Map.of("b", 1), null, true),
+                        new FlowNode("after", "test-sum", Map.of("b", 1), null, true),
+                        new FlowNode("upper", "test-upper", Map.of())),
+                List.of(new FlowConnection("inputs.n", "sum.a"), new FlowConnection("sum.total", "after.a"),
+                        new FlowConnection("inputs.name", "upper.text"))),
+                java.util.Collections.singletonMap("name", "x"));
+        assertTrue(run.completed(), String.valueOf(run.failure()));
+        assertEquals(List.of(BlockRun.Status.SKIPPED, BlockRun.Status.SKIPPED, BlockRun.Status.COMPLETED),
+                run.blocks().stream().map(BlockRun::status).toList());
+        // Present with null outputs, so a strict template can still name them.
+        assertTrue(run.context().values().get("sum").containsKey("total"));
+        assertNull(run.context().values().get("sum").get("total"));
+        assertEquals("X", run.context().values().get("upper").get("text"));
+    }
+
+    @Test
+    void anOptionalNodeThatFailsDoesNotStopTheFlow() throws Exception {
+        FlowRun run = run(new FlowDefinition(
+                List.of(new FlowNode("broken", "test-failing", Map.of(), null, true), new FlowNode("next", "test-upper", Map.of("text", "b"))),
+                List.of()), Map.of("name", "x"));
+        assertTrue(run.completed(), String.valueOf(run.failure()));
+        assertEquals(BlockRun.Status.FAILED, run.blocks().get(0).status());
+        assertTrue(run.blocks().get(0).error().contains("coordinates outside supported geometry"), run.blocks().get(0).error());
+        assertEquals("B", run.context().values().get("next").get("text"));
+    }
+
+    @Test
+    void aRequiredNodeFedByASkippedOneStillFails() throws Exception {
+        FlowRun run = run(new FlowDefinition(
+                List.of(new FlowNode("sum", "test-sum", Map.of("b", 1), null, true), new FlowNode("after", "test-sum", Map.of("b", 1))),
+                List.of(new FlowConnection("inputs.n", "sum.a"), new FlowConnection("sum.total", "after.a"))),
+                java.util.Collections.singletonMap("name", "x"));
+        assertEquals("after", run.failure().nodeId());
+    }
+
+    @Test
     void enforcesTheBlockTimeout() throws Exception {
         long start = System.currentTimeMillis();
         FlowRun run = run(new FlowDefinition(List.of(new FlowNode("slow", "test-slow", Map.of())), List.of()), Map.of("name", "x"));

@@ -123,6 +123,31 @@ caixa do imóvel (só contorno, cinza), seta de norte, barra de escala e as coor
 Geometrias simplificadas (`ST_SimplifyPreserveTopology`) na resolução da imagem. Sem rede, sem
 tiles: só os dados do banco, então o PDF fica autocontido.
 
+### `report-area` — Área do relatório (CAR ou polígono)
+
+Começa um relatório que serve tanto para um imóvel do CAR quanto para qualquer polígono. Código:
+`blocks.car.ReportAreaBlock`. Sem `DataRequirement` (com polígono só precisa do PostGIS); um código
+CAR numa instância sem os dados do car-agent-app falha dizendo isso.
+
+| Input | Tipo | |
+|---|---|---|
+| `codImovel` | string, opcional | código do SICAR; informe este **ou** `geometry` |
+| `geometry` | geometry, opcional | GeoJSON em lon/lat (SIRGAS 2000 ou WGS 84): Polygon, MultiPolygon, Feature ou FeatureCollection |
+| `name` | string, opcional | nome para mostrar quando é polígono |
+
+| Output | Tipo | Conteúdo |
+|---|---|---|
+| `source` / `isCar` | string / boolean | `car` ou `polygon` |
+| `codImovel` | string | o código; nulo para polígono. Ligue nos Blocks do CAR e marque esses nós como opcionais (ver ARCHITECTURE §47) |
+| `label` | string | o código CAR, o `name` ou "Área informada" |
+| `geometry`, `areaHa`, `centroidLat`, `centroidLon`, `bbox`, `vertices` | | como em `car-property-geometry` |
+
+Com código, lê a geometria vigente como o `car-property-geometry`. Com polígono: `ST_MakeValid`, só
+a parte poligonal, partes sobrepostas unidas (`ST_UnaryUnion`); a FeatureCollection vira uma
+GeometryCollection das suas geometrias. Falha com os dois ou nenhum, com polígono sem área e com
+coordenadas fora de ±180/±90 (UTM, por exemplo). No template, as seções do CAR ficam dentro de
+`{{#area.isCar}}...{{/area.isCar}}`.
+
 ## 2.1 Notas de implementação e dos dados (verificadas no banco de dev em 2026-10-26)
 
 - **Outputs que podem vir nulos são opcionais** no contrato real (`municipality`, rótulos, `condition`,
@@ -153,12 +178,12 @@ medem tudo em hectares geodésicos. Timeout de 30 s (consulta 25 s).
 
 | Block | Entradas | Saídas principais | Tabelas |
 |---|---|---|---|
-| `brgeo-municipalities` | `geometry` | `municipalities[] {ibgeCode, name, uf, intersectionHa, percentOfArea}`, `main`, `mainIbgeCode` (number, para ligar em Blocks por município), `count`, `areaHa`, `edition` | `ibge_municipality` (edição mais recente) |
+| `brgeo-municipalities` | `geometry` | `municipalities[] {ibgeCode, name, uf, intersectionHa, percentOfArea}`, `main`, `mainIbgeCode` (number, para ligar em Blocks por município), `mainUf` (sigla, para o `brgeo-crop-progress`), `count`, `areaHa`, `edition` | `ibge_municipality` (edição mais recente) |
 | `brgeo-biomes` | `geometry` | `biomes[] {code, name, intersectionHa, percentOfArea}`, `mainBiome`, `count`, `areaHa`, `edition` | `ibge_biome` |
 | `brgeo-embargoes` | `geometry`, `includeInactive?` (default true) | `embargoes[]` (até 100, ativos primeiro) `{term, series, seqTad, status, active, lifted, cancelled, formStatus, embargoedAt, liftedAt, liftType, changedAt, areaType, deterProdes, embargoedAreaHa, overlapHa, matchedBy, uf, municipalityIbge, processNumber, infractionNotice, judicialDecisions}`, `count`, `activeCount`, `hasActive`, `activeOverlapHa`, `lastEmbargoAt`, `truncated` | `ibama_embargo`, `ibama_embargo_decision` |
 | `brgeo-deter-alerts` | `geometry`, `dateFrom?`, `dateTo?` | `alerts[]` (até 200, mais novos primeiro), `byClass[] {className, count, overlapHa, firstDate, lastDate}`, `count`, `totalOverlapHa`, `lastAlertDate`, `monitored`, `coverage[]`, `truncated` | `inpe_deter_alert`, `ibge_biome` |
 | `brgeo-prodes` | `geometry`, `yearFrom?` | `byYear[] {product, productName, year, polygons, deforestedHa}`, `byProduct[] {..., firstYear, lastYear, deforestedHa, sinceCutoffHa}`, `count`, `maxDeforestedHa`, `lastYear`, `monitored`, `coverage[]` (com `lastYear` carregado) | `inpe_prodes_increment`, `ibge_biome` |
-| `brgeo-crop-production` | `municipalityIbge` (number), `year?`, `limit?` (15) | `year`, `crops[] {product, plantedHa, harvestedHa, quantity, quantityUnit, yieldKgHa, valueThousandBrl, shareOfHarvestedPercent}`, `count`, `totalHarvestedHa`, `totalValueThousandBrl`, `truncated` | `ibge_pam_value`, `ibge_pam_product` (SIDRA 5457) |
+| `brgeo-crop-production` | `municipalityIbge` (number), `year?`, `limit?` (15) | `year`, `crops[] {product, plantedHa, harvestedHa, quantity, quantityUnit, yieldKgHa, valueThousandBrl, shareOfHarvestedPercent}`, `count`, `totalHarvestedHa`, `totalValueThousandBrl`, `truncated`, `uf` (do código IBGE, para o `brgeo-crop-progress`) | `ibge_pam_value`, `ibge_pam_product` (SIDRA 5457) |
 | `brgeo-zarc-risk` | `municipalityIbge` (number), `crop`, `season?` (a mais recente), `soil?`, `cultivarGroup?`, `limit?` (30) | `found`, `message`, `crop`, `season`, `uf`, `municipality`, `ordinance`, `ordinanceDate`, `rows[] {croppingSystem, climateType, cultivarGroup, soil, risk[36], cells[36] {period, risk, label}, indicatedPeriods, lowestRisk, windows[] {risk, fromPeriod, toPeriod, from, to, label}}`, `count`, `truncated`, `periods[36] {period, from, to, label}`, `availableCrops` | `zarc_risk` (SISZARC) |
 | `brgeo-crop-progress` | `uf` (sigla ou nome), `crop?`, `operation?` (`sowing`/`harvest`), `maxAgeDays?` (60) | `found`, `message`, `state`, `latestWeekEnd`, `items[] {crop, season, operation, operationLabel, weekEnd, pctDone, previousWeekPct, weekChangePoints, lastYearPct, avg5yPct, vsAvg5yPoints, series[] {weekEnd, pctDone}}`, `count`, `availableStates` | `conab_crop_progress` |
 
@@ -251,7 +276,9 @@ os que o admin do Satellite Hub habilitou. Não pede processamento novo (ver [IN
 | `geometry` | geometry, opcional | combina as áreas do Satellite Hub que tocam a geometria (até 50, maior parte dentro primeiro) |
 | `areaId` | number, opcional | uma área do Satellite Hub pelo id (no lugar da geometria) |
 | `index` | string, opcional | `ndvi` (default), `evi`, `savi`, `ndre`, `gndvi`, `ndmi`, `ndwi`, `nbr` (Sentinel-2), `ndvi_landsat`, `ndmi_landsat` (Landsat), `rvi_s1` (Sentinel-1) ou outro habilitado |
-| `days` | number, opcional | tamanho da série, contado a partir da imagem mais recente; default 365 |
+| `days` | number, opcional | tamanho da série, contado para trás a partir de `to` ou, sem ele, da imagem mais recente; default 365 |
+| `from` | date, opcional | primeiro dia da série; com ele, `days` é ignorado |
+| `to` | date, opcional | último dia da série; default até a imagem mais recente |
 | `minValidPercent` | number, opcional | descarta imagens com menos desse % de área sem nuvem; default 50 |
 
 | Output | Tipo | Conteúdo |

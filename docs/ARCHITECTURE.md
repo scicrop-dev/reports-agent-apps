@@ -1265,11 +1265,11 @@ propósito, do desenho conceitual acima. A ordem das fases está em [ROADMAP.md]
 |---|---|
 | `engine` | `DataType` (tipos do §12, com coerção de valores vindos de formulário/JSON) |
 | `engine.block` | `ReportBlock` (+ `docs()`), `BlockDefinition`, `BlockPort`, `DataRequirement`, `BlockDocs` (documentação para o editor, fora do contrato), `BlockRegistry` (beans Spring), `BlockQueries` |
-| `engine.flow` | `FlowDefinition`/`FlowNode` (com `position` opcional, só layout)/`FlowConnection` (JSON gravado), `FlowValidator` (ids, tipos, inputs obrigatórios, ciclos, limite de nós), `FlowExecutor` (ordem topológica, timeout por Block e por execução), `ExecutionContext` |
+| `engine.flow` | `FlowDefinition`/`FlowNode` (com `position` opcional, só layout, e `optional`, §47.5.1)/`FlowConnection` (JSON gravado), `FlowValidator` (ids, tipos, inputs obrigatórios, ciclos, limite de nós; ordem topológica que, entre nós prontos, pega o declarado primeiro), `FlowExecutor` (timeout por Block e por execução, nós opcionais), `ExecutionContext` |
 | `catalog` | Leitura do catálogo (`HostCatalogClient` / `InformationSchemaCatalogClient`), `CatalogService` (cache curto), `BlockAvailabilityService` (AVAILABLE / STALE / MISSING_DATA), `BlockRelease` |
 | `template` | `TemplateRenderer` (Mustache estrito via JMustache), `TemplateScope` (variáveis conhecidas antes de rodar), `HtmlSanitizer` (jsoup, allowlist) |
 | `output` | `PdfRenderer` + `OpenHtmlToPdfRenderer` |
-| `blocks.car` | Blocks do CAR (contratos em [BLOCKS.md](BLOCKS.md)): `CarPropertyBlock`, `CarPropertyGeometryBlock`, `CarEnvironmentalLayersBlock`, `CarOverlapsBlock`, `CarHistoryBlock`, `CarPropertyMapBlock` + `PropertyMapRenderer` (Java2D); `CarTables`, `CarValues` |
+| `blocks.car` | Blocks do CAR (contratos em [BLOCKS.md](BLOCKS.md)): `CarPropertyBlock`, `CarPropertyGeometryBlock`, `CarEnvironmentalLayersBlock`, `CarOverlapsBlock`, `CarHistoryBlock`, `CarPropertyMapBlock` + `PropertyMapRenderer` (Java2D); `ReportAreaBlock` (`report-area`: CAR ou polígono, §47.5.1); `CarTables`, `CarValues` |
 | `blocks.brgeo` | Blocks do BR Geo ([BLOCKS.md](BLOCKS.md) §3): `BrGeoMunicipalitiesBlock`, `BrGeoBiomesBlock`, `BrGeoEmbargoesBlock`, `BrGeoDeterAlertsBlock`, `BrGeoProdesBlock`, `BrGeoCropProductionBlock`, `BrGeoZarcRiskBlock` (ZARC), `BrGeoCropProgressBlock` (CONAB); `MonitoringCoverage` (cobertura DETER/PRODES por bioma), `BrazilianStates` (UF: código IBGE, sigla, nome), `BrGeoTables`, `BrGeoValues` |
 | `blocks.brweather` | Blocks do BR Weather ([BLOCKS.md](BLOCKS.md) §3.1): `BrWeatherDailyBlock` (NASA POWER, gráfico com `IndexSeriesChart`), `BrWeatherRainfallBlock` (CHIRPS, lê os recortes do lake sob `reports.brweather.chirps-dir` com `HttpCogReader` + `LocalFileRangeFetcher`), `DailyBarChart`, `BrWeatherTables` |
 | `blocks.sathub` | `SatelliteHubIndexSeriesBlock` ([BLOCKS.md](BLOCKS.md) §4) + `IndexSeriesChart` (Java2D); `SatelliteHubLatestImageBlock` (`sathub-latest-image`: última imagem Sentinel-2 lida na hora, índices com as fórmulas do Satellite Hub) |
@@ -1352,6 +1352,27 @@ POST /ready-made/{id}/instantiate          body {name?, description?} → 201 Re
   ADMIN/SCICROP liberam Blocks.
 - **Reexecução**: só existe a implementação atual de cada Block no app. Uma reexecução avisa quando a
   versão de um Block mudou desde a execução original e informa se os outputs saíram idênticos.
+
+## 47.5.1 Nós opcionais e relatórios "CAR ou polígono"
+
+- `nodes[].optional: true` diz que o relatório não depende do nó. Ele é **pulado** (`BlockRun`
+  `SKIPPED`) quando um input obrigatório fica sem valor: um input opcional do report em branco ou um
+  nó opcional anterior que não produziu nada. Se roda e **falha** ou estoura o tempo, a falha fica
+  registrada no `BlockRun` (`FAILED`/`TIMED_OUT`, com "optional node" na mensagem) e a execução
+  segue. Nos dois casos o nó entra no contexto com **todos os outputs nulos**, então o template
+  estrito continua achando os nomes e mostra o ramo vazio (`{{^node.found}}`). Um nó obrigatório
+  ligado a um opcional que não produziu nada falha como antes.
+- No editor, o nó tem a caixa "optional: the report goes on without it" (lista e inspetor) e mostra
+  "skipped" no grafo depois de uma prévia.
+- A ordem de execução respeita as dependências e, entre os nós prontos, segue a ordem declarada. Os
+  prontos declaram por último os nós lentos e não essenciais (a imagem Sentinel-2, até 110 s), para
+  não consumirem o tempo da execução (120 s) antes dos outros.
+- **CAR ou polígono.** O Block `report-area` recebe `codImovel` **ou** `geometry` e devolve a
+  geometria, `isCar` e `codImovel` (nulo para polígono). Os Blocks do CAR recebem `area.codImovel` e
+  são opcionais, então são pulados para um polígono. Os Blocks espaciais recebem `area.geometry`, e
+  os por município usam `brgeo-municipalities.mainIbgeCode`/`mainUf` (o município com a maior parte da
+  área). As seções do CAR no template ficam em `{{#area.isCar}}`. Um pronto assim continua exigindo
+  todos os seus Blocks liberados, inclusive os do CAR.
 
 ## 47.6 Relatórios prontos
 

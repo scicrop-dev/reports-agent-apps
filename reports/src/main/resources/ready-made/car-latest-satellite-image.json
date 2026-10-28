@@ -1,22 +1,26 @@
 {
   "id": "car-latest-satellite-image",
-  "version": "1.0.0",
-  "name": "Imagem de satélite mais recente do imóvel CAR",
-  "description": "A imagem Sentinel-2 mais recente e com poucas nuvens sobre o imóvel, em cor verdadeira, com os mapas e as estatísticas de NDVI, EVI, NDMI e NDRE calculados com as fórmulas do Satellite Hub.",
+  "version": "2.0.0",
+  "name": "Imagem de satélite mais recente (imóvel CAR ou polígono)",
+  "description": "A imagem Sentinel-2 mais recente e com poucas nuvens sobre um imóvel do CAR ou um polígono, em cor verdadeira, com os mapas e as estatísticas de NDVI, EVI, NDMI e NDRE calculados com as fórmulas do Satellite Hub.",
   "category": "Monitoramento",
   "inputs": [
-    { "name": "codImovel", "type": "string", "required": true, "label": "Código do imóvel no CAR" }
+    { "name": "codImovel", "type": "string", "required": false, "label": "Código do imóvel no CAR (ou deixe em branco e informe o polígono)" },
+    { "name": "area", "type": "geometry", "required": false, "label": "Polígono da área em GeoJSON, no lugar do código CAR" },
+    { "name": "areaName", "type": "string", "required": false, "label": "Nome da área (só para polígono)" }
   ],
   "flow": {
     "nodes": [
-      { "id": "property", "block": "car-property" },
-      { "id": "geometry", "block": "car-property-geometry" },
-      { "id": "image", "block": "sathub-latest-image", "values": { "indices": "ndvi,evi,ndmi,ndre" } }
+      { "id": "area", "block": "report-area" },
+      { "id": "property", "block": "car-property", "optional": true },
+      { "id": "image", "block": "sathub-latest-image", "values": {"indices": "ndvi,evi,ndmi,ndre"} }
     ],
     "connections": [
-      { "from": "inputs.codImovel", "to": "property.codImovel" },
-      { "from": "inputs.codImovel", "to": "geometry.codImovel" },
-      { "from": "geometry.geometry", "to": "image.geometry" }
+      { "from": "inputs.codImovel", "to": "area.codImovel" },
+      { "from": "inputs.area", "to": "area.geometry" },
+      { "from": "inputs.areaName", "to": "area.name" },
+      { "from": "area.codImovel", "to": "property.codImovel" },
+      { "from": "area.geometry", "to": "image.geometry" }
     ]
   },
   "templateHtmlFile": "car-latest-satellite-image.html",

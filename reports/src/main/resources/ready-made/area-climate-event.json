@@ -1,0 +1,51 @@
+{
+  "id": "area-climate-event",
+  "version": "1.0.0",
+  "name": "Laudo de evento climático (imóvel CAR ou polígono)",
+  "description": "Para um período de seca, estiagem, calor ou frio sobre um imóvel do CAR ou polígono: chuva diária (CHIRPS), veranicos, temperaturas extremas (NASA POWER), vegetação no período (Satellite Hub), imagem atual e, se informada a cultura, o ZARC.",
+  "category": "Clima",
+  "inputs": [
+    { "name": "codImovel", "type": "string", "required": false, "label": "Código do imóvel no CAR (ou deixe em branco e informe o polígono)" },
+    { "name": "area", "type": "geometry", "required": false, "label": "Polígono da área em GeoJSON, no lugar do código CAR" },
+    { "name": "areaName", "type": "string", "required": false, "label": "Nome da área (só para polígono)" },
+    { "name": "from", "type": "date", "required": true, "label": "Início do evento" },
+    { "name": "to", "type": "date", "required": true, "label": "Fim do evento" },
+    { "name": "crop", "type": "string", "required": false, "label": "Cultura (opcional), ex.: Soja, Milho 2ª safra" },
+    { "name": "index", "type": "string", "required": false, "label": "Índice da série (opcional): ndvi, evi, ndmi..." }
+  ],
+  "flow": {
+    "nodes": [
+      { "id": "area", "block": "report-area" },
+      { "id": "property", "block": "car-property", "optional": true },
+      { "id": "municipalities", "block": "brgeo-municipalities" },
+      { "id": "rain", "block": "brweather-rainfall", "optional": true },
+      { "id": "weather", "block": "brweather-daily-weather", "optional": true },
+      { "id": "series", "block": "sathub-index-series", "optional": true },
+      { "id": "zarc", "block": "brgeo-zarc-risk", "optional": true },
+      { "id": "image", "block": "sathub-latest-image", "values": {"indices": "ndvi,ndmi"}, "optional": true }
+    ],
+    "connections": [
+      { "from": "inputs.codImovel", "to": "area.codImovel" },
+      { "from": "inputs.area", "to": "area.geometry" },
+      { "from": "inputs.areaName", "to": "area.name" },
+      { "from": "area.codImovel", "to": "property.codImovel" },
+      { "from": "area.geometry", "to": "municipalities.geometry" },
+      { "from": "area.geometry", "to": "rain.geometry" },
+      { "from": "inputs.from", "to": "rain.from" },
+      { "from": "inputs.to", "to": "rain.to" },
+      { "from": "area.geometry", "to": "weather.geometry" },
+      { "from": "inputs.from", "to": "weather.from" },
+      { "from": "inputs.to", "to": "weather.to" },
+      { "from": "area.geometry", "to": "series.geometry" },
+      { "from": "inputs.index", "to": "series.index" },
+      { "from": "inputs.from", "to": "series.from" },
+      { "from": "inputs.to", "to": "series.to" },
+      { "from": "municipalities.mainIbgeCode", "to": "zarc.municipalityIbge" },
+      { "from": "inputs.crop", "to": "zarc.crop" },
+      { "from": "area.geometry", "to": "image.geometry" }
+    ]
+  },
+  "templateHtmlFile": "area-climate-event.html",
+  "templateCssFile": "report-base.css",
+  "page": { "size": "A4", "orientation": "portrait", "marginMm": 18 }
+}

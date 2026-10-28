@@ -17,5 +17,9 @@ public record BlockRun(
         Instant finishedAt,
         long durationMs) {
 
-    public enum Status { COMPLETED, FAILED, TIMED_OUT }
+    /**
+     * SKIPPED: an optional node whose required input had no value. An optional node that fails keeps
+     * FAILED or TIMED_OUT, but the execution goes on (FlowNode#optional).
+     */
+    public enum Status { COMPLETED, SKIPPED, FAILED, TIMED_OUT }
 }

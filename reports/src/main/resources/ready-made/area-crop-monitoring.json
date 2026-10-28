@@ -1,0 +1,51 @@
+{
+  "id": "area-crop-monitoring",
+  "version": "1.0.0",
+  "name": "Acompanhamento de safra (imóvel CAR ou polígono)",
+  "description": "Desde o plantio: imagem Sentinel-2 mais recente com NDVI, NDMI e NDRE, evolução do índice nos talhões do Satellite Hub, chuva e temperatura do período (veranicos, graus-dia, calor e frio) e o andamento da safra no estado (CONAB).",
+  "category": "Monitoramento",
+  "inputs": [
+    { "name": "codImovel", "type": "string", "required": false, "label": "Código do imóvel no CAR (ou deixe em branco e informe o polígono)" },
+    { "name": "area", "type": "geometry", "required": false, "label": "Polígono da área em GeoJSON, no lugar do código CAR" },
+    { "name": "areaName", "type": "string", "required": false, "label": "Nome da área (só para polígono)" },
+    { "name": "from", "type": "date", "required": true, "label": "Início do acompanhamento (data de plantio)" },
+    { "name": "to", "type": "date", "required": false, "label": "Fim (opcional; padrão hoje)" },
+    { "name": "crop", "type": "string", "required": false, "label": "Cultura (opcional), ex.: Soja, Milho 2ª safra" },
+    { "name": "index", "type": "string", "required": false, "label": "Índice da série (opcional): ndvi, evi, ndmi, ndre..." }
+  ],
+  "flow": {
+    "nodes": [
+      { "id": "area", "block": "report-area" },
+      { "id": "property", "block": "car-property", "optional": true },
+      { "id": "municipalities", "block": "brgeo-municipalities" },
+      { "id": "series", "block": "sathub-index-series", "optional": true },
+      { "id": "rain", "block": "brweather-rainfall", "optional": true },
+      { "id": "weather", "block": "brweather-daily-weather", "optional": true },
+      { "id": "progress", "block": "brgeo-crop-progress", "optional": true },
+      { "id": "image", "block": "sathub-latest-image", "values": {"indices": "ndvi,ndmi,ndre"}, "optional": true }
+    ],
+    "connections": [
+      { "from": "inputs.codImovel", "to": "area.codImovel" },
+      { "from": "inputs.area", "to": "area.geometry" },
+      { "from": "inputs.areaName", "to": "area.name" },
+      { "from": "area.codImovel", "to": "property.codImovel" },
+      { "from": "area.geometry", "to": "municipalities.geometry" },
+      { "from": "area.geometry", "to": "series.geometry" },
+      { "from": "inputs.index", "to": "series.index" },
+      { "from": "inputs.from", "to": "series.from" },
+      { "from": "inputs.to", "to": "series.to" },
+      { "from": "area.geometry", "to": "rain.geometry" },
+      { "from": "inputs.from", "to": "rain.from" },
+      { "from": "inputs.to", "to": "rain.to" },
+      { "from": "area.geometry", "to": "weather.geometry" },
+      { "from": "inputs.from", "to": "weather.from" },
+      { "from": "inputs.to", "to": "weather.to" },
+      { "from": "municipalities.mainUf", "to": "progress.uf" },
+      { "from": "inputs.crop", "to": "progress.crop" },
+      { "from": "area.geometry", "to": "image.geometry" }
+    ]
+  },
+  "templateHtmlFile": "area-crop-monitoring.html",
+  "templateCssFile": "report-base.css",
+  "page": { "size": "A4", "orientation": "portrait", "marginMm": 18 }
+}

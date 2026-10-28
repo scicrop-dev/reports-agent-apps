@@ -1,0 +1,42 @@
+{
+  "id": "area-climate",
+  "version": "1.0.0",
+  "name": "Clima da área (imóvel CAR ou polígono)",
+  "description": "Chuva diária do CHIRPS e temperatura, umidade, vento e radiação do NASA POWER sobre um imóvel do CAR ou um polígono, num período à escolha: totais, dias de chuva, veranicos, dias quentes, noites frias e graus-dia, com gráficos.",
+  "category": "Clima",
+  "inputs": [
+    { "name": "codImovel", "type": "string", "required": false, "label": "Código do imóvel no CAR (ou deixe em branco e informe o polígono)" },
+    { "name": "area", "type": "geometry", "required": false, "label": "Polígono da área em GeoJSON, no lugar do código CAR" },
+    { "name": "areaName", "type": "string", "required": false, "label": "Nome da área (só para polígono)" },
+    { "name": "from", "type": "date", "required": false, "label": "Início do período (opcional)" },
+    { "name": "to", "type": "date", "required": false, "label": "Fim do período (opcional; padrão o último dia carregado)" },
+    { "name": "days", "type": "number", "required": false, "label": "Dias do período quando não há início (padrão 30, até 366)" }
+  ],
+  "flow": {
+    "nodes": [
+      { "id": "area", "block": "report-area" },
+      { "id": "property", "block": "car-property", "optional": true },
+      { "id": "municipalities", "block": "brgeo-municipalities" },
+      { "id": "rain", "block": "brweather-rainfall", "optional": true },
+      { "id": "weather", "block": "brweather-daily-weather", "optional": true }
+    ],
+    "connections": [
+      { "from": "inputs.codImovel", "to": "area.codImovel" },
+      { "from": "inputs.area", "to": "area.geometry" },
+      { "from": "inputs.areaName", "to": "area.name" },
+      { "from": "area.codImovel", "to": "property.codImovel" },
+      { "from": "area.geometry", "to": "municipalities.geometry" },
+      { "from": "area.geometry", "to": "rain.geometry" },
+      { "from": "inputs.from", "to": "rain.from" },
+      { "from": "inputs.to", "to": "rain.to" },
+      { "from": "inputs.days", "to": "rain.days" },
+      { "from": "area.geometry", "to": "weather.geometry" },
+      { "from": "inputs.from", "to": "weather.from" },
+      { "from": "inputs.to", "to": "weather.to" },
+      { "from": "inputs.days", "to": "weather.days" }
+    ]
+  },
+  "templateHtmlFile": "area-climate.html",
+  "templateCssFile": "report-base.css",
+  "page": { "size": "A4", "orientation": "portrait", "marginMm": 18 }
+}

@@ -1,0 +1,184 @@
+<div class="running-header">
+  <span class="rh-title">Janela de plantio</span>
+  <span class="rh-code">{{area.label}}</span>
+</div>
+
+<div class="cover">
+  <div class="cover-kicker">Janela de plantio e aptidão agrícola</div>
+  <h1>{{#area.isCar}}Imóvel rural {{area.codImovel}}{{/area.isCar}}{{^area.isCar}}{{area.label}}{{/area.isCar}}</h1>
+  <p class="cover-sub">{{#area.isCar}}{{property.municipality}} / {{property.uf}}{{/area.isCar}}{{^area.isCar}}{{#municipalities.main}}{{name}} / {{uf}}{{/municipalities.main}}{{^municipalities.main}}fora da malha municipal do IBGE{{/municipalities.main}}{{/area.isCar}}</p>
+  <table class="meta">
+    <tr><th>Área analisada</th><td>{{#area.isCar}}imóvel do CAR <span class="code">{{area.codImovel}}</span>{{/area.isCar}}{{^area.isCar}}polígono informado ({{area.vertices}} vértices){{/area.isCar}}</td></tr>
+    <tr><th>Área calculada</th><td>{{area.areaHa}} ha</td></tr>
+    <tr><th>Cultura</th><td>{{inputs.crop}}</td></tr>
+    <tr><th>Emitido em</th><td>{{report.generatedAt}}</td></tr>
+    <tr><th>Execução</th><td>{{#report.executionId}}nº {{report.executionId}} (versão {{report.version}} do relatório){{/report.executionId}}{{^report.executionId}}Prévia, não registrada no histórico{{/report.executionId}}</td></tr>
+  </table>
+  {{#property.removedAt}}
+  <p class="alert">Atenção: este imóvel foi removido da base do SICAR em {{property.removedAt}}. Os dados do CAR são os da última versão conhecida.</p>
+  {{/property.removedAt}}
+</div>
+
+<div class="section">
+  <h2><span class="num">0</span> Síntese</h2>
+  <table class="flags">
+    <tr><td class="flag-label">Cultura</td><td><span class="flag-neutral">{{inputs.crop}}</span>{{#zarc.found}} (ZARC: {{zarc.crop}}, safra {{zarc.season}}){{/zarc.found}}</td></tr>
+    <tr><td class="flag-label">Zoneada no município</td><td>{{#zarc.found}}<span class="flag-good">sim</span>, {{zarc.municipality}}/{{zarc.uf}}{{/zarc.found}}{{^zarc.found}}<span class="flag-bad">não</span>{{/zarc.found}}</td></tr>
+    {{#zarc.rows}}{{#-first}}
+    <tr><td class="flag-label">Janelas da primeira combinação ({{cultivarGroup}}, solo {{soil}})</td><td>{{#windows}}{{label}}<br>{{/windows}}{{^windows}}nenhuma{{/windows}}</td></tr>
+    {{/-first}}{{/zarc.rows}}
+    <tr><td class="flag-label">Chuva nos últimos 30 dias</td><td>{{#rain.found}}<span class="flag-neutral">{{rain.totalMm}} mm</span> em {{rain.rainyDays}} dia(s); maior sequência sem chuva de {{rain.longestDrySpell}} dias{{/rain.found}}{{^rain.found}}<span class="flag-neutral">sem dados</span>{{/rain.found}}</td></tr>
+    <tr><td class="flag-label">Andamento no estado (CONAB)</td><td>{{#progress.items}}{{crop}} {{season}}: {{operationLabel}} {{pctDone}}% em {{weekEnd}} (média de 5 anos: {{avg5yPct}}%)<br>{{/progress.items}}{{^progress.items}}<span class="flag-neutral">sem levantamento recente</span>{{/progress.items}}</td></tr>
+  </table>
+  <p class="note">A janela vale para o grupo de cultivar e o solo de cada linha da seção 2: confira os da área antes de decidir.</p>
+</div>
+
+<div class="section">
+  <h2><span class="num">1</span> Área analisada</h2>
+  <table class="kv">
+    {{#area.isCar}}
+    <tr><th>Código do imóvel no CAR</th><td class="code">{{area.codImovel}}</td></tr>
+    <tr><th>Município / UF declarados</th><td>{{property.municipality}} / {{property.uf}} (IBGE {{property.municipalityIbge}})</td></tr>
+    <tr><th>Tipo de imóvel</th><td>{{property.typeLabel}}</td></tr>
+    <tr><th>Situação no CAR</th><td>{{property.statusLabel}} ({{property.condition}})</td></tr>
+    <tr><th>Módulos fiscais</th><td>{{property.fiscalModules}}</td></tr>
+    <tr><th>Área declarada no CAR</th><td>{{property.declaredAreaHa}} ha</td></tr>
+    {{/area.isCar}}
+    {{^area.isCar}}
+    <tr><th>Nome</th><td>{{area.label}}</td></tr>
+    <tr><th>Origem da geometria</th><td>polígono informado por quem rodou o relatório (não é um imóvel do CAR)</td></tr>
+    {{/area.isCar}}
+    <tr><th>Área calculada da geometria</th><td>{{area.areaHa}} ha</td></tr>
+    <tr><th>Ponto de referência (dentro da área)</th><td>latitude {{area.centroidLat}}, longitude {{area.centroidLon}}</td></tr>
+    <tr><th>Municípios (malha IBGE {{municipalities.edition}})</th><td>{{#municipalities.municipalities}}{{name}}/{{uf}} ({{percentOfArea}}%)<br>{{/municipalities.municipalities}}{{^municipalities.municipalities}}fora da malha municipal{{/municipalities.municipalities}}</td></tr>
+  </table>
+</div>
+
+<div class="section">
+  <h2><span class="num">2</span> Zoneamento agrícola de risco climático (ZARC)</h2>
+  {{#zarc.found}}
+  <p>Zoneamento Agrícola de Risco Climático (ZARC) de <strong>{{zarc.crop}}</strong> em {{zarc.municipality}}/{{zarc.uf}}, safra {{zarc.season}} ({{zarc.ordinance}}, de {{zarc.ordinanceDate}}). O ZARC indica, por decêndio, quando semear com risco de perda por clima de até 20%, 30% ou 40%; fora dessas janelas o plantio não é indicado.</p>
+  {{#zarc.rows}}{{#-first}}
+  <table class="grid">
+    <thead><tr><th>Manejo</th><th>Grupo de cultivar</th><th>Solo</th><th>Janelas de semeadura indicadas (risco)</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr><td>{{croppingSystem}}</td><td>{{cultivarGroup}}</td><td>{{soil}}</td><td>{{#windows}}{{label}}<br>{{/windows}}{{^windows}}nenhuma{{/windows}}</td></tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/zarc.rows}}
+  <h3>Risco por decêndio</h3>
+  <table class="zarc">
+    <thead><tr><th class="zl">Grupo / solo</th><th colspan="3">jan</th><th colspan="3">fev</th><th colspan="3">mar</th><th colspan="3">abr</th><th colspan="3">mai</th><th colspan="3">jun</th><th colspan="3">jul</th><th colspan="3">ago</th><th colspan="3">set</th><th colspan="3">out</th><th colspan="3">nov</th><th colspan="3">dez</th></tr></thead>
+    <tbody>
+    {{#zarc.rows}}<tr><td class="zl">{{cultivarGroup}} / {{soil}}</td>{{#cells}}<td class="z z-{{risk}}"></td>{{/cells}}</tr>
+    {{/zarc.rows}}
+    </tbody>
+  </table>
+  <div class="legend"><span class="legend-item"><span class="swatch z-20"></span> risco de 20%</span><span class="legend-item"><span class="swatch z-30"></span> 30%</span><span class="legend-item"><span class="swatch z-40"></span> 40%</span><span class="legend-item"><span class="swatch z-0"></span> não indicado</span></div>
+  {{#zarc.truncated}}<p class="note">A tabela mostra as primeiras combinações de manejo, grupo e solo; o ZARC tem {{zarc.count}} para esta cultura no município.</p>{{/zarc.truncated}}
+  <p class="note">Cada linha é uma combinação de grupo de cultivar (ciclo) e tipo de solo (AD1 a AD6, da menor à maior água disponível). Confira o grupo da cultivar e o solo da área antes de usar a janela.</p>
+  {{/zarc.found}}
+  {{^zarc.found}}
+  <p class="alert">O ZARC não traz {{inputs.crop}} para o município da área{{#zarc.message}} ({{zarc.message}}){{/zarc.message}}. Sem zoneamento, a lavoura não tem acesso ao Proagro nem à subvenção do seguro rural para essa cultura.</p>
+  <p class="note">Culturas que o ZARC zoneia na safra: {{#zarc.availableCrops}}{{.}}; {{/zarc.availableCrops}}</p>
+  {{/zarc.found}}
+</div>
+
+<div class="section">
+  <h2><span class="num">3</span> Chuva nos últimos 30 dias</h2>
+  {{#rain.found}}
+  <table class="highlights">
+    <tr>
+      <td class="highlight"><div class="hl-label">Chuva acumulada</div><div class="hl-value">{{rain.totalMm}} mm</div><div class="hl-sub">{{rain.from}} a {{rain.to}}</div></td>
+      <td class="highlight"><div class="hl-label">Dias com chuva (1 mm ou mais)</div><div class="hl-value">{{rain.rainyDays}}</div><div class="hl-sub">de {{rain.daysWithData}} dias com dado</div></td>
+      <td class="highlight"><div class="hl-label">Maior sequência sem chuva</div><div class="hl-value">{{rain.longestDrySpell}} dias</div><div class="hl-sub">maior chuva: {{rain.maxDayMm}} mm em {{rain.maxDayDate}}</div></td>
+    </tr>
+  </table>
+  <img class="chart" src="{{rain.chart}}" alt="Chuva diária">
+  <p class="note">Chuva diária (mm) do CHIRPS v3, média dos {{rain.pixels}} pixel(s) de 0,05° (cerca de 5,5 km) sobre a área; média de {{rain.meanDailyMm}} mm por dia com dado. Dias sem recorte carregado: {{rain.missingDays}}; dias ainda da série preliminar (revisada depois): {{rain.preliminaryDays}}.{{^rain.wholePixels}} A área é menor que um pixel: valem os pixels ao redor dela.{{/rain.wholePixels}}</p>
+  {{/rain.found}}
+  {{^rain.found}}
+  <p class="alert">Sem dados de chuva para a área no período.{{#rain.message}} Detalhe: {{rain.message}}.{{/rain.message}}{{^rain.message}} A consulta não respondeu nesta execução; o detalhe está nos blocos da execução.{{/rain.message}}</p>
+  {{/rain.found}}
+</div>
+
+<div class="section">
+  <h2><span class="num">4</span> Temperatura nos últimos 30 dias</h2>
+  {{#weather.found}}
+  <table class="highlights">
+    <tr>
+      <td class="highlight"><div class="hl-label">Temperatura média</div><div class="hl-value">{{weather.meanT2m}} °C</div><div class="hl-sub">mín. {{weather.minT2m}} °C ({{weather.minT2mDate}}) · máx. {{weather.maxT2m}} °C ({{weather.maxT2mDate}})</div></td>
+      <td class="highlight"><div class="hl-label">Dias com máxima de 35 °C ou mais</div><div class="hl-value">{{weather.hotDays}}</div><div class="hl-sub">estresse térmico</div></td>
+      <td class="highlight"><div class="hl-label">Noites com mínima de 3 °C ou menos</div><div class="hl-value">{{weather.coldNights}}</div><div class="hl-sub">risco de geada</div></td>
+    </tr>
+  </table>
+  <img class="chart" src="{{weather.chart}}" alt="Temperatura diária">
+  <table class="kv">
+    <tr><th>Período</th><td>{{weather.from}} a {{weather.to}} ({{weather.daysWithData}} dias com dado)</td></tr>
+    <tr><th>Graus-dia acumulados (base 10 °C)</th><td>{{weather.degreeDays}}</td></tr>
+    <tr><th>Umidade relativa média</th><td>{{weather.meanRh2m}}%</td></tr>
+    <tr><th>Vento médio a 2 m</th><td>{{weather.meanWs2m}} m/s</td></tr>
+    <tr><th>Radiação solar média</th><td>{{weather.meanRadiation}} MJ/m² por dia</td></tr>
+    <tr><th>Chuva pelo NASA POWER (conferência)</th><td>{{weather.powerPrecipitationMm}} mm</td></tr>
+  </table>
+  <p class="note">NASA POWER (reanálise MERRA-2), células de 0,5° x 0,625° ponderadas pela parte da área em cada uma: {{#weather.cells}}{{lat}}, {{lon}} ({{weightPercent}}%); {{/weather.cells}}{{#weather.nearestCell}} a área não toca nenhuma célula carregada e foi usada a mais próxima.{{/weather.nearestCell}} No gráfico, a linha é a temperatura média do dia e a faixa vai da mínima à máxima.</p>
+  {{/weather.found}}
+  {{^weather.found}}
+  <p class="alert">Sem dados de temperatura para a área no período.{{#weather.message}} Detalhe: {{weather.message}}.{{/weather.message}}{{^weather.message}} A consulta não respondeu nesta execução; o detalhe está nos blocos da execução.{{/weather.message}}</p>
+  {{/weather.found}}
+</div>
+
+<div class="section">
+  <h2><span class="num">5</span> Andamento da safra no estado (CONAB)</h2>
+  {{#progress.found}}
+  <p>Levantamento semanal da CONAB em {{progress.state}}, semana terminada em {{progress.latestWeekEnd}}. Percentual da área do estado já semeada ou colhida.</p>
+  {{#progress.items}}{{#-first}}
+  <table class="grid">
+    <thead><tr><th>Cultura</th><th>Safra</th><th>Operação</th><th>Semana até</th><th class="r">Concluído</th><th class="r">Semana anterior</th><th class="r">Ano passado</th><th class="r">Média 5 anos</th><th class="r">Frente à média (p.p.)</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr><td>{{crop}}</td><td>{{season}}</td><td>{{operationLabel}}</td><td class="nowrap">{{weekEnd}}</td><td class="r"><strong>{{pctDone}}%</strong></td><td class="r">{{previousWeekPct}}</td><td class="r">{{lastYearPct}}</td><td class="r">{{avg5yPct}}</td><td class="r">{{vsAvg5yPoints}}</td></tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/progress.items}}
+  {{^progress.items}}<p class="empty">Nenhuma operação recente para a cultura no estado.</p>{{/progress.items}}
+  <p class="note">Dado do estado inteiro, não da área: mostra se a região está adiantada ou atrasada frente ao ano passado e à média de cinco anos.</p>
+  {{/progress.found}}
+  {{^progress.found}}
+  <p class="empty">A CONAB não tem andamento recente para o estado da área.{{#progress.message}} ({{progress.message}}){{/progress.message}}</p>
+  {{/progress.found}}
+</div>
+
+<div class="section">
+  <h2><span class="num">6</span> Perfil agrícola do município (IBGE, PAM)</h2>
+  {{#crops.crops}}{{#-first}}
+  <p>Lavouras de {{#municipalities.main}}{{name}}/{{uf}}{{/municipalities.main}} em {{crops.year}}: {{crops.totalHarvestedHa}} ha colhidos, valor de R$ {{crops.totalValueThousandBrl}} mil.</p>
+  <table class="grid">
+    <thead><tr><th>Lavoura</th><th class="r">Colhida (ha)</th><th class="r">% da área colhida</th><th class="r">Produção</th><th class="r">Rendimento (kg/ha)</th><th class="r">Valor (R$ mil)</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr><td>{{product}}</td><td class="r">{{harvestedHa}}</td><td class="r">{{shareOfHarvestedPercent}}</td><td class="r">{{quantity}} {{quantityUnit}}</td><td class="r">{{yieldKgHa}}</td><td class="r">{{valueThousandBrl}}</td></tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/crops.crops}}
+  {{^crops.crops}}<p class="empty">O IBGE não publicou lavouras para o município.</p>{{/crops.crops}}
+  <p class="note">Dados do município, não da área: servem de contexto sobre o que se cultiva e quanto rende na região.</p>
+</div>
+
+<div class="section">
+  <h2><span class="num">7</span> Fontes e limitações</h2>
+  <ul class="sources">
+    <li>Área: {{#area.isCar}}geometria vigente do imóvel no CAR (SICAR, coletado pelo car-agent-app; informação autodeclaratória){{/area.isCar}}{{^area.isCar}}polígono informado por quem rodou o relatório, corrigido para geometria válida{{/area.isCar}}. Áreas em SIRGAS 2000, com cálculo geodésico.</li>
+    <li>ZARC: portarias do MAPA por cultura, município e safra, carregadas pelo br-geo-agent-app. O enquadramento depende da cultivar e do solo efetivos.</li>
+    <li>Chuva: CHIRPS v3 (Climate Hazards Center, UC Santa Barbara), diária, 0,05°; os últimos dias vêm da série preliminar. Mantido pelo br-weather-agent-app.</li>
+    <li>Temperatura, umidade, vento e radiação: NASA POWER (MERRA-2), diário, células de 0,5° x 0,625°. É reanálise, não estação: suaviza extremos locais. Mantido pelo br-weather-agent-app.</li>
+    <li>Andamento da safra: CONAB, Progresso de Safra semanal, por estado.</li>
+    <li>Produção agrícola: IBGE, Produção Agrícola Municipal (SIDRA 5457).</li>
+    <li>O município usado no ZARC, na CONAB e na PAM é o que contém a maior parte da área.</li>
+    <li>Este relatório reúne bases públicas e não substitui vistoria em campo, laudo técnico assinado nem a análise do órgão ou do agente financeiro competente.</li>
+  </ul>
+</div>

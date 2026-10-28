@@ -1,0 +1,359 @@
+<div class="running-header">
+  <span class="rh-title">Dossiê para crédito rural</span>
+  <span class="rh-code">{{area.label}}</span>
+</div>
+
+<div class="cover">
+  <div class="cover-kicker">Dossiê para crédito rural</div>
+  <h1>{{#area.isCar}}Imóvel rural {{area.codImovel}}{{/area.isCar}}{{^area.isCar}}{{area.label}}{{/area.isCar}}</h1>
+  <p class="cover-sub">{{#area.isCar}}{{property.municipality}} / {{property.uf}}{{/area.isCar}}{{^area.isCar}}{{#municipalities.main}}{{name}} / {{uf}}{{/municipalities.main}}{{^municipalities.main}}fora da malha municipal do IBGE{{/municipalities.main}}{{/area.isCar}}</p>
+  <table class="meta">
+    <tr><th>Área analisada</th><td>{{#area.isCar}}imóvel do CAR <span class="code">{{area.codImovel}}</span>{{/area.isCar}}{{^area.isCar}}polígono informado ({{area.vertices}} vértices){{/area.isCar}}</td></tr>
+    <tr><th>Área calculada</th><td>{{area.areaHa}} ha</td></tr>
+    <tr><th>Cultura a financiar</th><td>{{inputs.crop}}</td></tr>
+    <tr><th>Emitido em</th><td>{{report.generatedAt}}</td></tr>
+    <tr><th>Execução</th><td>{{#report.executionId}}nº {{report.executionId}} (versão {{report.version}} do relatório){{/report.executionId}}{{^report.executionId}}Prévia, não registrada no histórico{{/report.executionId}}</td></tr>
+  </table>
+  {{#property.removedAt}}
+  <p class="alert">Atenção: este imóvel foi removido da base do SICAR em {{property.removedAt}}. Os dados do CAR são os da última versão conhecida.</p>
+  {{/property.removedAt}}
+</div>
+
+<div class="section">
+  <h2><span class="num">0</span> Verificações</h2>
+  <table class="flags">
+    <tr><td class="flag-label">Inscrição no CAR</td><td>{{#area.isCar}}<span class="flag-neutral">{{property.statusLabel}}</span> ({{property.condition}}){{/area.isCar}}{{^area.isCar}}<span class="flag-bad">não verificada</span>: a área foi informada como polígono, sem código CAR{{/area.isCar}}</td></tr>
+    {{#area.isCar}}
+    <tr><td class="flag-label">Reserva Legal declarada</td><td>{{#layers.hasLegalReserve}}<span class="flag-good">sim</span>, {{layers.summary.legalReservePercent}}% do imóvel{{/layers.hasLegalReserve}}{{^layers.hasLegalReserve}}<span class="flag-bad">não declarada</span>{{/layers.hasLegalReserve}}</td></tr>
+    <tr><td class="flag-label">Sobreposição com outros imóveis CAR</td><td>{{#overlaps.overlaps}}{{#-first}}<span class="flag-bad">{{overlaps.count}} imóvel(is)</span>, {{overlaps.totalOverlapHa}} ha{{/-first}}{{/overlaps.overlaps}}{{^overlaps.overlaps}}<span class="flag-good">nenhuma</span>{{/overlaps.overlaps}}</td></tr>
+    {{/area.isCar}}
+    <tr><td class="flag-label">Embargo do IBAMA ativo</td><td>{{#embargoes.hasActive}}<span class="flag-bad">sim: {{embargoes.activeCount}} termo(s)</span>, {{embargoes.activeOverlapHa}} ha{{/embargoes.hasActive}}{{^embargoes.hasActive}}<span class="flag-good">nenhum encontrado</span>{{/embargoes.hasActive}}</td></tr>
+    <tr><td class="flag-label">Desmatamento PRODES depois de 22/07/2008</td><td>{{#prodes.monitored}}{{#prodes.byProduct}}<span class="flag-bad">{{productName}}: {{sinceCutoffHa}} ha</span> (último ano {{lastYear}})<br>{{/prodes.byProduct}}{{^prodes.byProduct}}<span class="flag-good">nenhum incremento mapeado</span>{{/prodes.byProduct}}{{/prodes.monitored}}{{^prodes.monitored}}<span class="flag-neutral">área fora do PRODES carregado</span>{{/prodes.monitored}}</td></tr>
+    <tr><td class="flag-label">Alertas DETER</td><td>{{#deter.monitored}}{{#deter.byClass}}{{#-first}}<span class="flag-bad">{{deter.count}} alerta(s)</span>, o mais recente em {{deter.lastAlertDate}}{{/-first}}{{/deter.byClass}}{{^deter.byClass}}<span class="flag-good">nenhum</span>{{/deter.byClass}}{{/deter.monitored}}{{^deter.monitored}}<span class="flag-neutral">área não monitorada pelo DETER</span>{{/deter.monitored}}</td></tr>
+    <tr><td class="flag-label">{{inputs.crop}} zoneada no ZARC do município</td><td>{{#zarc.found}}<span class="flag-good">sim</span>, safra {{zarc.season}} ({{zarc.ordinance}}){{/zarc.found}}{{^zarc.found}}<span class="flag-bad">não</span>{{/zarc.found}}</td></tr>
+    <tr><td class="flag-label">Bioma</td><td>{{#biomes.mainBiome}}<span class="flag-neutral">{{biomes.mainBiome}}</span>{{/biomes.mainBiome}}{{^biomes.mainBiome}}<span class="flag-neutral">fora dos biomas mapeados</span>{{/biomes.mainBiome}}</td></tr>
+  </table>
+  <p class="note">Itens que costumam ser checados na concessão de crédito rural e no seguro, levantados nas bases públicas. A decisão e o enquadramento nas normas do Manual de Crédito Rural cabem ao agente financeiro.</p>
+</div>
+
+<div class="section">
+  <h2><span class="num">1</span> Área analisada</h2>
+  <table class="kv">
+    {{#area.isCar}}
+    <tr><th>Código do imóvel no CAR</th><td class="code">{{area.codImovel}}</td></tr>
+    <tr><th>Município / UF declarados</th><td>{{property.municipality}} / {{property.uf}} (IBGE {{property.municipalityIbge}})</td></tr>
+    <tr><th>Tipo de imóvel</th><td>{{property.typeLabel}}</td></tr>
+    <tr><th>Situação no CAR</th><td>{{property.statusLabel}} ({{property.condition}})</td></tr>
+    <tr><th>Módulos fiscais</th><td>{{property.fiscalModules}}</td></tr>
+    <tr><th>Área declarada no CAR</th><td>{{property.declaredAreaHa}} ha</td></tr>
+    {{/area.isCar}}
+    {{^area.isCar}}
+    <tr><th>Nome</th><td>{{area.label}}</td></tr>
+    <tr><th>Origem da geometria</th><td>polígono informado por quem rodou o relatório (não é um imóvel do CAR)</td></tr>
+    {{/area.isCar}}
+    <tr><th>Área calculada da geometria</th><td>{{area.areaHa}} ha</td></tr>
+    <tr><th>Ponto de referência (dentro da área)</th><td>latitude {{area.centroidLat}}, longitude {{area.centroidLon}}</td></tr>
+    <tr><th>Municípios (malha IBGE {{municipalities.edition}})</th><td>{{#municipalities.municipalities}}{{name}}/{{uf}} ({{percentOfArea}}%)<br>{{/municipalities.municipalities}}{{^municipalities.municipalities}}fora da malha municipal{{/municipalities.municipalities}}</td></tr>
+  </table>
+</div>
+
+<div class="section">
+  <h2><span class="num">2</span> Localização</h2>
+  {{#area.isCar}}
+  <div class="map-block">
+    <img class="map" src="{{map.image}}" alt="Mapa do imóvel">
+    <div class="legend">
+      <span class="legend-title">Legenda:</span>
+      <span class="legend-item"><span class="swatch swatch-outline"></span> Limite do imóvel</span>
+      {{#map.legend}}<span class="legend-item"><span class="swatch" style="background-color: {{color}};"></span> {{layerName}}</span> {{/map.legend}}
+      <span class="legend-item"><span class="swatch swatch-neighbor"></span> Imóveis vizinhos</span>
+    </div>
+  </div>
+  {{/area.isCar}}
+  {{^area.isCar}}<p>O desenho da área sobre a imagem de satélite está na seção 8.</p>{{/area.isCar}}
+  <table class="kv">
+    <tr><th>Bioma (IBGE {{biomes.edition}})</th><td>{{#biomes.biomes}}{{name}} ({{percentOfArea}}%)<br>{{/biomes.biomes}}{{^biomes.biomes}}fora dos biomas mapeados{{/biomes.biomes}}</td></tr>
+    <tr><th>Caixa envolvente (lon/lat)</th><td>{{area.bbox.minLon}}, {{area.bbox.minLat}} a {{area.bbox.maxLon}}, {{area.bbox.maxLat}}</td></tr>
+    <tr><th>Vértices do polígono</th><td>{{area.vertices}}</td></tr>
+  </table>
+  <h3>Municípios em que a área está (malha IBGE {{municipalities.edition}})</h3>
+  {{#municipalities.municipalities}}{{#-first}}
+  <table class="grid">
+    <thead><tr><th>Município</th><th>UF</th><th>Código IBGE</th><th class="r">Área no município (ha)</th><th class="r">% da área</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr><td>{{name}}</td><td>{{uf}}</td><td class="code">{{ibgeCode}}</td><td class="r">{{intersectionHa}}</td><td class="r">{{percentOfArea}}</td></tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/municipalities.municipalities}}
+  {{^municipalities.municipalities}}<p class="empty">A geometria não cruza nenhum município da malha do IBGE.</p>{{/municipalities.municipalities}}
+  {{#area.isCar}}<p class="note">A área calculada vem da geometria vigente, com cálculo geodésico; a declarada no CAR é {{property.declaredAreaHa}} ha. Diferenças pequenas são esperadas.</p>{{/area.isCar}}
+</div>
+
+<div class="section">
+  <h2><span class="num">3</span> Cadastro Ambiental Rural</h2>
+  {{#area.isCar}}
+  <h3>Situação do cadastro</h3>
+  <table class="kv">
+    <tr><th>Situação</th><td><strong>{{property.statusLabel}}</strong> ({{property.status}})</td></tr>
+    <tr><th>Condição</th><td>{{property.condition}}</td></tr>
+    <tr><th>Inscrição no CAR</th><td>{{property.registeredAt}}</td></tr>
+    <tr><th>Última atualização</th><td>{{property.updatedAt}}</td></tr>
+    <tr><th>Versão vigente desde</th><td>{{property.versionSince}}</td></tr>
+    <tr><th>Versões registradas</th><td>{{history.count}}</td></tr>
+  </table>
+  {{#history.versions}}{{#-first}}
+  <table class="grid">
+    <thead><tr><th>Válida de</th><th>Válida até</th><th>Situação</th><th>Condição</th><th class="r">Área declarada (ha)</th><th>Geometria alterada</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr><td>{{validFrom}}</td><td>{{validTo}}{{^validTo}}vigente{{/validTo}}</td><td>{{statusLabel}}</td><td>{{condition}}</td><td class="r">{{declaredAreaHa}}</td><td>{{#geometryChanged}}sim{{/geometryChanged}}{{^geometryChanged}}não{{/geometryChanged}}</td></tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/history.versions}}
+
+  <h3>Uso e cobertura declarados</h3>
+  <table class="highlights">
+    <tr>
+      <td class="highlight"><div class="hl-label">Reserva Legal</div><div class="hl-value">{{layers.summary.legalReservePercent}}%</div><div class="hl-sub">{{layers.summary.legalReserveHa}} ha</div></td>
+      <td class="highlight"><div class="hl-label">Vegetação nativa</div><div class="hl-value">{{layers.summary.nativeVegetationPercent}}%</div><div class="hl-sub">{{layers.summary.nativeVegetationHa}} ha</div></td>
+      <td class="highlight"><div class="hl-label">Áreas de Preservação Permanente</div><div class="hl-value">{{layers.summary.appPercent}}%</div><div class="hl-sub">{{layers.summary.appHa}} ha</div></td>
+    </tr>
+  </table>
+  {{^layers.hasLegalReserve}}<p class="alert">Não há Reserva Legal declarada na versão vigente do cadastro.</p>{{/layers.hasLegalReserve}}
+  {{#layers.layers}}{{#-first}}
+  <table class="grid">
+    <thead><tr><th>Camada</th><th>Temas</th><th class="r">Área declarada (ha)</th><th class="r">% do imóvel</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr><td><strong>{{layerName}}</strong></td><td class="themes">{{#themes}}{{themeName}} ({{count}} feição(ões), {{declaredAreaHa}} ha)<br>{{/themes}}</td><td class="r">{{declaredAreaHa}}</td><td class="r">{{percentOfProperty}}</td></tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/layers.layers}}
+  {{^layers.layers}}<p class="empty">Nenhuma feição de uso ou cobertura declarada na versão vigente.</p>{{/layers.layers}}
+  <p class="note">Percentuais sobre a área declarada do imóvel ({{layers.summary.propertyAreaHa}} ha). As camadas podem se sobrepor (APP dentro da Reserva Legal, por exemplo), então a soma pode passar de 100%.</p>
+
+  <h3>Sobreposições com outros imóveis CAR</h3>
+  {{#overlaps.overlaps}}{{#-first}}
+  <p>{{overlaps.count}} imóvel(is) vigente(s) se sobrepõe(m) a este, somando {{overlaps.totalOverlapHa}} ha (soma par a par; a mesma área pode ser contada mais de uma vez).</p>
+  <table class="grid">
+    <thead><tr><th>Imóvel</th><th>Situação</th><th class="r">Sobreposição (ha)</th><th class="r">% do imóvel</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr><td class="code">{{codImovel}}</td><td>{{statusLabel}}</td><td class="r">{{overlapHa}}</td><td class="r">{{percentOfProperty}}</td></tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/overlaps.overlaps}}
+  {{#overlaps.truncated}}<p class="note">A lista mostra as 100 maiores sobreposições.</p>{{/overlaps.truncated}}
+  {{^overlaps.overlaps}}<p class="ok">Nenhuma sobreposição com outros imóveis vigentes do CAR foi encontrada.</p>{{/overlaps.overlaps}}
+  {{/area.isCar}}
+  {{^area.isCar}}
+  <p class="empty">A área foi informada como polígono, então as informações do cadastro (situação, Reserva Legal, APP, sobreposições) não se aplicam. Para vê-las, rode o laudo com o código do imóvel no CAR.</p>
+  {{/area.isCar}}
+</div>
+
+<div class="section">
+  <h2><span class="num">4</span> Embargos do IBAMA</h2>
+  {{#embargoes.hasActive}}<p class="alert">Há {{embargoes.activeCount}} termo(s) de embargo ativo(s) sobre a área, somando {{embargoes.activeOverlapHa}} ha de sobreposição.</p>{{/embargoes.hasActive}}
+  {{#embargoes.embargoes}}{{#-first}}
+  <table class="grid">
+    <thead><tr><th>Termo (TAD)</th><th>Data</th><th>Situação</th><th>Tipo de área</th><th class="r">Área embargada (ha)</th><th class="r">Sobre a área (ha)</th><th class="r">Decisões judiciais</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr>
+        <td class="code">{{term}}</td>
+        <td class="nowrap">{{embargoedAt}}</td>
+        <td>{{#active}}<strong>ativo</strong>{{/active}}{{#lifted}}desembargado {{liftedAt}} ({{liftType}}){{/lifted}}{{#cancelled}}cancelado{{/cancelled}}</td>
+        <td>{{areaType}}</td>
+        <td class="r">{{embargoedAreaHa}}</td>
+        <td class="r">{{overlapHa}}</td>
+        <td class="r">{{judicialDecisions}}</td>
+      </tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/embargoes.embargoes}}
+  {{#embargoes.truncated}}<p class="note">A lista mostra os 100 primeiros termos (ativos primeiro).</p>{{/embargoes.truncated}}
+  {{^embargoes.embargoes}}<p class="ok">Nenhum termo de embargo do IBAMA foi encontrado sobre a área.</p>{{/embargoes.embargoes}}
+  <p class="note">Termos com polígono são cruzados pela área; termos publicados só com coordenada entram quando o ponto cai dentro dela (nesses, a coluna "Sobre a área" fica vazia). Embargos de órgãos estaduais não fazem parte desta base.</p>
+</div>
+
+<div class="section">
+  <h2><span class="num">5</span> Alertas de desmatamento e degradação (DETER)</h2>
+  {{#deter.monitored}}
+  {{#deter.byClass}}{{#-first}}
+  <p>{{deter.count}} alerta(s) do DETER sobre a área, somando {{deter.totalOverlapHa}} ha. O mais recente é de {{deter.lastAlertDate}}.</p>
+  <table class="grid">
+    <thead><tr><th>Classe</th><th class="r">Alertas</th><th class="r">Área na área analisada (ha)</th><th>Primeiro</th><th>Último</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr><td>{{className}}</td><td class="r">{{count}}</td><td class="r">{{overlapHa}}</td><td class="nowrap">{{firstDate}}</td><td class="nowrap">{{lastDate}}</td></tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/deter.byClass}}
+  {{^deter.byClass}}<p class="ok">Nenhum alerta do DETER foi encontrado sobre a área.</p>{{/deter.byClass}}
+  {{/deter.monitored}}
+  {{^deter.monitored}}<p class="alert">A área não está em região coberta por um produto DETER carregado no ambiente. A ausência de alertas, aqui, não significa ausência de desmatamento.</p>{{/deter.monitored}}
+  <p class="note">O DETER é um sistema de alerta, não a medição oficial do desmatamento (que é o PRODES). Áreas pequenas e cobertas por nuvens podem não ser detectadas.</p>
+</div>
+
+<div class="section">
+  <h2><span class="num">6</span> Desmatamento anual mapeado (PRODES)</h2>
+  {{#prodes.monitored}}
+  {{#prodes.byYear}}{{#-first}}
+  <table class="grid">
+    <thead><tr><th>Produto</th><th class="r">Ano PRODES</th><th class="r">Polígonos</th><th class="r">Área na área analisada (ha)</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr><td>{{productName}}</td><td class="r">{{year}}</td><td class="r">{{polygons}}</td><td class="r">{{deforestedHa}}</td></tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/prodes.byYear}}
+  {{^prodes.byYear}}<p class="ok">Nenhum incremento de desmatamento do PRODES foi mapeado na área.</p>{{/prodes.byYear}}
+  {{/prodes.monitored}}
+  {{^prodes.monitored}}<p class="alert">A área não está em região coberta por um produto PRODES carregado no ambiente.</p>{{/prodes.monitored}}
+  <p class="note">O ano PRODES vai de agosto a julho: o ano 2009 é o primeiro depois do marco do Código Florestal (22/07/2008). Produtos diferentes não são somados. Cobertura no ambiente: {{#prodes.coverage}}{{#intersectsArea}}{{productName}} {{#loaded}}carregado até {{lastYear}}{{/loaded}}{{^loaded}}não carregado{{/loaded}}; {{/intersectsArea}}{{/prodes.coverage}}</p>
+</div>
+
+<div class="section">
+  <h2><span class="num">7</span> Aptidão: zoneamento agrícola (ZARC)</h2>
+  {{#zarc.found}}
+  <p>Zoneamento Agrícola de Risco Climático (ZARC) de <strong>{{zarc.crop}}</strong> em {{zarc.municipality}}/{{zarc.uf}}, safra {{zarc.season}} ({{zarc.ordinance}}, de {{zarc.ordinanceDate}}). O ZARC indica, por decêndio, quando semear com risco de perda por clima de até 20%, 30% ou 40%; fora dessas janelas o plantio não é indicado.</p>
+  {{#zarc.rows}}{{#-first}}
+  <table class="grid">
+    <thead><tr><th>Manejo</th><th>Grupo de cultivar</th><th>Solo</th><th>Janelas de semeadura indicadas (risco)</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr><td>{{croppingSystem}}</td><td>{{cultivarGroup}}</td><td>{{soil}}</td><td>{{#windows}}{{label}}<br>{{/windows}}{{^windows}}nenhuma{{/windows}}</td></tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/zarc.rows}}
+  <h3>Risco por decêndio</h3>
+  <table class="zarc">
+    <thead><tr><th class="zl">Grupo / solo</th><th colspan="3">jan</th><th colspan="3">fev</th><th colspan="3">mar</th><th colspan="3">abr</th><th colspan="3">mai</th><th colspan="3">jun</th><th colspan="3">jul</th><th colspan="3">ago</th><th colspan="3">set</th><th colspan="3">out</th><th colspan="3">nov</th><th colspan="3">dez</th></tr></thead>
+    <tbody>
+    {{#zarc.rows}}<tr><td class="zl">{{cultivarGroup}} / {{soil}}</td>{{#cells}}<td class="z z-{{risk}}"></td>{{/cells}}</tr>
+    {{/zarc.rows}}
+    </tbody>
+  </table>
+  <div class="legend"><span class="legend-item"><span class="swatch z-20"></span> risco de 20%</span><span class="legend-item"><span class="swatch z-30"></span> 30%</span><span class="legend-item"><span class="swatch z-40"></span> 40%</span><span class="legend-item"><span class="swatch z-0"></span> não indicado</span></div>
+  {{#zarc.truncated}}<p class="note">A tabela mostra as primeiras combinações de manejo, grupo e solo; o ZARC tem {{zarc.count}} para esta cultura no município.</p>{{/zarc.truncated}}
+  <p class="note">Cada linha é uma combinação de grupo de cultivar (ciclo) e tipo de solo (AD1 a AD6, da menor à maior água disponível). Confira o grupo da cultivar e o solo da área antes de usar a janela.</p>
+  {{/zarc.found}}
+  {{^zarc.found}}
+  <p class="alert">O ZARC não traz {{inputs.crop}} para o município da área{{#zarc.message}} ({{zarc.message}}){{/zarc.message}}. Sem zoneamento, a lavoura não tem acesso ao Proagro nem à subvenção do seguro rural para essa cultura.</p>
+  <p class="note">Culturas que o ZARC zoneia na safra: {{#zarc.availableCrops}}{{.}}; {{/zarc.availableCrops}}</p>
+  {{/zarc.found}}
+</div>
+
+<div class="section">
+  <h2><span class="num">8</span> Imagem de satélite mais recente</h2>
+  {{#image.found}}
+  <table class="kv">
+    <tr><th>Data da imagem</th><td><strong>{{image.acquiredDate}}</strong> (há {{image.daysAgo}} dia(s)), {{image.scene.platform}}, quadrícula {{image.scene.mgrsTile}}</td></tr>
+    <tr><th>Nuvem sobre a área</th><td>{{image.areaCloudPercent}}% (cena inteira: {{image.scene.cloudCoverPercent}}%); {{image.coveragePercent}}% da área dentro da cena</td></tr>
+    <tr><th>Resolução</th><td>{{image.pixelSizeM}} m por pixel</td></tr>
+  </table>
+  <div class="map-block">
+    <img class="map" src="{{image.trueColor}}" alt="Imagem em cor verdadeira">
+    <div class="legend"><span class="legend-item"><span class="swatch swatch-outline"></span> limite da área</span> Sentinel-2 L2A em cor verdadeira, {{image.acquiredDate}}.</div>
+  </div>
+  {{#image.indices}}
+  <div class="map-block">
+    <h3>{{name}} - {{description}}</h3>
+    <img class="map index-map" src="{{image}}" alt="Mapa do {{name}}">
+    <div class="legend-bar"><table>
+      <tr>{{#legend}}<td class="legend-cell" style="background-color: {{color}};"></td>{{/legend}}</tr>
+      <tr>{{#legend}}<td class="legend-label">{{label}}</td>{{/legend}}</tr>
+    </table></div>
+    <table class="grid">
+      <thead><tr><th class="r">Média</th><th class="r">Mediana</th><th class="r">P10 a P90</th><th class="r">Mín. a máx.</th><th class="r">Área válida</th></tr></thead>
+      <tbody><tr><td class="r"><strong>{{mean}}</strong></td><td class="r">{{p50}}</td><td class="r">{{p10}} a {{p90}}</td><td class="r">{{min}} a {{max}}</td><td class="r">{{validPercent}}%</td></tr></tbody>
+    </table>
+  </div>
+  {{/image.indices}}
+  <p class="note">Cena {{image.scene.id}}. Aquisição única, não um mosaico: nuvens e sombras aparecem como foram fotografadas e ficam em cinza nos mapas dos índices, fora das estatísticas.</p>
+  {{/image.found}}
+  {{^image.found}}
+  <p class="alert">Nenhuma imagem Sentinel-2 utilizável sobre a área.{{#image.message}} Detalhe: {{image.message}}.{{/image.message}}{{^image.message}} A busca de imagens não respondeu nesta execução (o servidor precisa de saída para a AWS); o detalhe está nos blocos da execução.{{/image.message}}</p>
+  {{/image.found}}
+</div>
+
+<div class="section">
+  <h2><span class="num">9</span> Chuva nos últimos 12 meses</h2>
+  {{#rain.found}}
+  <table class="highlights">
+    <tr>
+      <td class="highlight"><div class="hl-label">Chuva acumulada</div><div class="hl-value">{{rain.totalMm}} mm</div><div class="hl-sub">{{rain.from}} a {{rain.to}}</div></td>
+      <td class="highlight"><div class="hl-label">Dias com chuva (1 mm ou mais)</div><div class="hl-value">{{rain.rainyDays}}</div><div class="hl-sub">de {{rain.daysWithData}} dias com dado</div></td>
+      <td class="highlight"><div class="hl-label">Maior sequência sem chuva</div><div class="hl-value">{{rain.longestDrySpell}} dias</div><div class="hl-sub">maior chuva: {{rain.maxDayMm}} mm em {{rain.maxDayDate}}</div></td>
+    </tr>
+  </table>
+  <img class="chart" src="{{rain.chart}}" alt="Chuva diária">
+  <p class="note">Chuva diária (mm) do CHIRPS v3, média dos {{rain.pixels}} pixel(s) de 0,05° (cerca de 5,5 km) sobre a área; média de {{rain.meanDailyMm}} mm por dia com dado. Dias sem recorte carregado: {{rain.missingDays}}; dias ainda da série preliminar (revisada depois): {{rain.preliminaryDays}}.{{^rain.wholePixels}} A área é menor que um pixel: valem os pixels ao redor dela.{{/rain.wholePixels}}</p>
+  {{/rain.found}}
+  {{^rain.found}}
+  <p class="alert">Sem dados de chuva para a área no período.{{#rain.message}} Detalhe: {{rain.message}}.{{/rain.message}}{{^rain.message}} A consulta não respondeu nesta execução; o detalhe está nos blocos da execução.{{/rain.message}}</p>
+  {{/rain.found}}
+</div>
+
+<div class="section">
+  <h2><span class="num">10</span> Histórico produtivo do município (IBGE, PAM)</h2>
+  {{#crops.crops}}{{#-first}}
+  <p>Lavouras de {{#municipalities.main}}{{name}}/{{uf}}{{/municipalities.main}} em {{crops.year}}: {{crops.totalHarvestedHa}} ha colhidos, valor de R$ {{crops.totalValueThousandBrl}} mil.</p>
+  <table class="grid">
+    <thead><tr><th>Lavoura</th><th class="r">Colhida (ha)</th><th class="r">% da área colhida</th><th class="r">Produção</th><th class="r">Rendimento (kg/ha)</th><th class="r">Valor (R$ mil)</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr><td>{{product}}</td><td class="r">{{harvestedHa}}</td><td class="r">{{shareOfHarvestedPercent}}</td><td class="r">{{quantity}} {{quantityUnit}}</td><td class="r">{{yieldKgHa}}</td><td class="r">{{valueThousandBrl}}</td></tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/crops.crops}}
+  {{^crops.crops}}<p class="empty">O IBGE não publicou lavouras para o município.</p>{{/crops.crops}}
+  <p class="note">Dados do município, não da área: servem de contexto sobre o que se cultiva e quanto rende na região.</p>
+</div>
+
+<div class="section">
+  <h2><span class="num">11</span> Andamento da safra no estado (CONAB)</h2>
+  {{#progress.found}}
+  <p>Levantamento semanal da CONAB em {{progress.state}}, semana terminada em {{progress.latestWeekEnd}}. Percentual da área do estado já semeada ou colhida.</p>
+  {{#progress.items}}{{#-first}}
+  <table class="grid">
+    <thead><tr><th>Cultura</th><th>Safra</th><th>Operação</th><th>Semana até</th><th class="r">Concluído</th><th class="r">Semana anterior</th><th class="r">Ano passado</th><th class="r">Média 5 anos</th><th class="r">Frente à média (p.p.)</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr><td>{{crop}}</td><td>{{season}}</td><td>{{operationLabel}}</td><td class="nowrap">{{weekEnd}}</td><td class="r"><strong>{{pctDone}}%</strong></td><td class="r">{{previousWeekPct}}</td><td class="r">{{lastYearPct}}</td><td class="r">{{avg5yPct}}</td><td class="r">{{vsAvg5yPoints}}</td></tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/progress.items}}
+  {{^progress.items}}<p class="empty">Nenhuma operação recente para a cultura no estado.</p>{{/progress.items}}
+  <p class="note">Dado do estado inteiro, não da área: mostra se a região está adiantada ou atrasada frente ao ano passado e à média de cinco anos.</p>
+  {{/progress.found}}
+  {{^progress.found}}
+  <p class="empty">A CONAB não tem andamento recente para o estado da área.{{#progress.message}} ({{progress.message}}){{/progress.message}}</p>
+  {{/progress.found}}
+</div>
+
+<div class="section">
+  <h2><span class="num">12</span> Fontes e limitações</h2>
+  <ul class="sources">
+    <li>Área: {{#area.isCar}}geometria vigente do imóvel no CAR (SICAR, coletado pelo car-agent-app; informação autodeclaratória){{/area.isCar}}{{^area.isCar}}polígono informado por quem rodou o relatório, corrigido para geometria válida{{/area.isCar}}. Áreas em SIRGAS 2000, com cálculo geodésico.</li>
+    <li>Biomas e malha municipal: IBGE. Embargos: IBAMA, dados abertos de termos de embargo. DETER e PRODES: INPE, TerraBrasilis. Mantidos em versões pelo br-geo-agent-app.</li>
+    <li>ZARC: portarias do MAPA por cultura, município e safra, carregadas pelo br-geo-agent-app. O enquadramento depende da cultivar e do solo efetivos.</li>
+    <li>Imagem: Sentinel-2 L2A (Copernicus/ESA) do catálogo Earth Search (Element 84), lida na hora; índices com as fórmulas e a máscara de nuvem do Satellite Hub.</li>
+    <li>Chuva: CHIRPS v3 (Climate Hazards Center, UC Santa Barbara), diária, 0,05°; os últimos dias vêm da série preliminar. Mantido pelo br-weather-agent-app.</li>
+    <li>Produção agrícola: IBGE, Produção Agrícola Municipal (SIDRA 5457).</li>
+    <li>Andamento da safra: CONAB, Progresso de Safra semanal, por estado.</li>
+    <li>Não consulta listas de trabalho escravo, unidades de conservação, terras indígenas nem bases estaduais; confira-as à parte.</li>
+    <li>Este relatório reúne bases públicas e não substitui vistoria em campo, laudo técnico assinado nem a análise do órgão ou do agente financeiro competente.</li>
+  </ul>
+</div>

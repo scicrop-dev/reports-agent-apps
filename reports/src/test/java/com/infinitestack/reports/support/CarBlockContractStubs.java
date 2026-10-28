@@ -22,6 +22,7 @@ import com.infinitestack.reports.blocks.car.CarOverlapsBlock;
 import com.infinitestack.reports.blocks.car.CarPropertyBlock;
 import com.infinitestack.reports.blocks.car.CarPropertyGeometryBlock;
 import com.infinitestack.reports.blocks.car.CarPropertyMapBlock;
+import com.infinitestack.reports.blocks.car.ReportAreaBlock;
 import com.infinitestack.reports.engine.block.BlockDefinition;
 import com.infinitestack.reports.engine.block.ExecutionMetadata;
 import com.infinitestack.reports.engine.block.ReportBlock;
@@ -41,7 +42,7 @@ public final class CarBlockContractStubs {
     /** @param bare true for a property with no layer, no legal reserve, no overlap and one version */
     public static List<ReportBlock> all(boolean bare) {
         return List.of(new Property(bare), new Geometry(), new EnvironmentalLayers(bare), new Overlaps(bare),
-                new History(bare), new PropertyMap(bare));
+                new History(bare), new PropertyMap(bare), new ReportArea());
     }
 
 
@@ -54,7 +55,7 @@ public final class CarBlockContractStubs {
     /** The real definitions, so a stub can never drift from the Block it stands for. */
     private static final Map<String, BlockDefinition> REAL = java.util.stream.Stream.of(
                     new CarPropertyBlock(null), new CarPropertyGeometryBlock(null), new CarEnvironmentalLayersBlock(null),
-                    new CarOverlapsBlock(null), new CarHistoryBlock(null), new CarPropertyMapBlock(null))
+                    new CarOverlapsBlock(null), new CarHistoryBlock(null), new CarPropertyMapBlock(null), new ReportAreaBlock(null))
             .map(ReportBlock::definition)
             .collect(java.util.stream.Collectors.toMap(BlockDefinition::id, d -> d));
 
@@ -98,6 +99,26 @@ public final class CarBlockContractStubs {
                     List.of(-52.21, -12.61), List.of(-52.17, -12.61), List.of(-52.17, -12.64), List.of(-52.21, -12.64), List.of(-52.21, -12.61))));
             return map("geometry", polygon, "areaHa", 1248.97, "centroidLat", -12.625314, "centroidLon", -52.190221,
                     "bbox", map("minLon", -52.21, "minLat", -12.64, "maxLon", -52.17, "maxLat", -12.61), "vertices", 5);
+        }
+    }
+
+    /** report-area: the CAR geometry for a code, the polygon itself otherwise; fails like the Block on both or neither. */
+    public static final class ReportArea extends Stub {
+        ReportArea() {
+            super("report-area");
+        }
+
+        @Override public Map<String, Object> execute(Map<String, Object> inputs, ExecutionMetadata metadata) {
+            Object code = inputs.get("codImovel");
+            Object polygon = inputs.get("geometry");
+            if ((code == null) == (polygon == null)) throw new IllegalArgumentException("give a CAR code or a polygon");
+            Map<String, Object> out = new Geometry().execute(inputs, metadata);
+            if (polygon != null) out.put("geometry", polygon);
+            out.put("source", code != null ? "car" : "polygon");
+            out.put("isCar", code != null);
+            out.put("codImovel", code);
+            out.put("label", code != null ? code : inputs.getOrDefault("name", "Área informada"));
+            return out;
         }
     }
 
