@@ -24,7 +24,8 @@ import com.infinitestack.reports.engine.block.ReportBlock;
 
 /**
  * {@code sathub-index-series}: the time series of a vegetation index (NDVI, EVI, NDMI, ...) that the
- * Satellite Hub app computed from Sentinel-2 scenes, for the Satellite Hub areas (fields, parcels)
+ * Satellite Hub app computed from the scenes of the index's collection (Sentinel-2, Landsat 8/9 or
+ * Sentinel-1), for the Satellite Hub areas (fields, parcels)
  * inside an area or for one area by id. Per acquisition date, the areas are combined weighting each
  * one by its valid pixels, so a big field counts more than a small one and cloudy pixels not at all.
  *
@@ -39,6 +40,15 @@ public class SatelliteHubIndexSeriesBlock implements ReportBlock {
     static final String INDICES = "satellite_hub_analytics_indices";
     static final String VALUES = "satellite_hub_analytics_values";
 
+    /** The collection of an index saved before Satellite Hub had several (its own default). */
+    static final String LEGACY_COLLECTION = "sentinel-2-l2a";
+
+    /** Satellite Hub collection id to the name shown in the report. */
+    static final Map<String, String> COLLECTION_NAMES = Map.of(
+            "sentinel-2-l2a", "Sentinel-2 L2A",
+            "landsat-c2-l2", "Landsat 8/9 Collection 2 Level-2",
+            "sentinel-1-rtc", "Sentinel-1 RTC (radar)");
+
     static final int MAX_AREAS = 50;
     static final int DEFAULT_DAYS = 365;
     static final double DEFAULT_MIN_VALID_PERCENT = 50;
@@ -47,8 +57,8 @@ public class SatelliteHubIndexSeriesBlock implements ReportBlock {
 
     private static final ObjectMapper JSON = new ObjectMapper();
 
-    static final String INDEX_SQL = "SELECT id, slug, name, description FROM " + SCHEMA + "." + INDICES
-            + " WHERE slug = ? AND enabled";
+    static final String INDEX_SQL = "SELECT id, slug, name, description, COALESCE(collection, '" + LEGACY_COLLECTION + "') AS collection"
+            + " FROM " + SCHEMA + "." + INDICES + " WHERE slug = ? AND enabled";
 
     static final String AREAS_BY_GEOMETRY_SQL = "WITH input AS ("
             + " SELECT ST_Transform(ST_CollectionExtract(ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(?), 4674)), 3), 4326) AS geom)"
@@ -84,18 +94,19 @@ public class SatelliteHubIndexSeriesBlock implements ReportBlock {
     @Override
     public BlockDefinition definition() {
         return new BlockDefinition("sathub-index-series", "Vegetation index series (Satellite Hub)",
-                "Sentinel-2 vegetation index time series computed by Satellite Hub for the fields in an area, with a chart",
+                "Vegetation index time series (Sentinel-2, Landsat or Sentinel-1) computed by Satellite Hub for the fields in an area, with a chart",
                 "1.0.0",
                 List.of(
                         BlockPort.optional("geometry", DataType.GEOMETRY,
                                 "area whose Satellite Hub fields are combined; connect car-property-geometry.geometry"),
                         BlockPort.optional("areaId", DataType.NUMBER, "one Satellite Hub area by id, instead of a geometry"),
-                        BlockPort.optional("index", DataType.STRING, "index slug: ndvi (default), evi, savi, ndre, gndvi, ndmi, ndwi, nbr"),
+                        BlockPort.optional("index", DataType.STRING, "index slug: ndvi (default), evi, savi, ndre, gndvi, ndmi, ndwi, nbr (Sentinel-2), ndvi_landsat, ndmi_landsat (Landsat), rvi_s1 (Sentinel-1) or any other enabled in Satellite Hub"),
                         BlockPort.optional("days", DataType.NUMBER, "length of the series, counted back from the latest image; default 365"),
                         BlockPort.optional("minValidPercent", DataType.NUMBER,
                                 "drop images with less than this % of valid (cloud-free) area; default 50")),
                 List.of(
-                        BlockPort.required("index", DataType.OBJECT, "{slug, name, description}"),
+                        BlockPort.required("index", DataType.OBJECT,
+                                "{slug, name, description, collection, collectionName}: collection is the Satellite Hub id (sentinel-2-l2a, landsat-c2-l2, sentinel-1-rtc)"),
                         BlockPort.required("areas", DataType.ARRAY,
                                 "Satellite Hub areas used, largest share first (up to 50): {id, farmName, blockName, parcelName, areaHa, insideHa}"),
                         BlockPort.required("areaCount", DataType.NUMBER, "number of areas used"),
@@ -111,7 +122,7 @@ public class SatelliteHubIndexSeriesBlock implements ReportBlock {
                         BlockPort.required("truncated", DataType.BOOLEAN, "more than 50 areas in the geometry")),
                 List.of(
                         DataRequirement.table(SCHEMA, AREAS, "id", "farm_name", "block_name", "parcel_name", "area_ha", "geom"),
-                        DataRequirement.table(SCHEMA, INDICES, "id", "slug", "name", "description", "enabled"),
+                        DataRequirement.table(SCHEMA, INDICES, "id", "slug", "name", "description", "collection", "enabled"),
                         DataRequirement.table(SCHEMA, VALUES, "index_id", "area_id", "acquired_at", "mean", "min_value",
                                 "max_value", "p10", "p90", "valid_pixels", "valid_area_pct")),
                 Duration.ofSeconds(30));
@@ -120,8 +131,8 @@ public class SatelliteHubIndexSeriesBlock implements ReportBlock {
     @Override
     public BlockDocs docs() {
         return new BlockDocs("Satellite Hub",
-                "Shows how the vegetation of an area behaved over time, from the Sentinel-2 indices that "
-                        + "Satellite Hub computes for each registered field: a table of dates and values and a chart ready for the PDF.",
+                "Shows how the vegetation of an area behaved over time, from the indices that Satellite Hub "
+                        + "computes for each registered field (Sentinel-2, Landsat 8/9 or Sentinel-1 radar, depending on the index): a table of dates and values and a chart ready for the PDF.",
                 List.of(
                         "Finds the Satellite Hub areas (farms, blocks, parcels) that intersect the geometry, or takes the one given by areaId.",
                         "Reads the index statistics Satellite Hub stored per image and area (mean, min, max, percentiles, valid pixels).",
@@ -131,13 +142,14 @@ public class SatelliteHubIndexSeriesBlock implements ReportBlock {
                 List.of(
                         "geometry: connect car-property-geometry.geometry to follow the fields inside a CAR property.",
                         "areaId: a report input of type number when the report is about one field.",
-                        "index: a fixed value (ndvi, evi, ndmi...) or a report input, to let the reader choose.",
+                        "index: a fixed value (ndvi, evi, ndmi, ndvi_landsat, rvi_s1...) or a report input, to let the reader choose; {{<node>.index.collectionName}} says which satellite it comes from.",
                         "chart goes straight into the template: <img src=\"{{<node>.chart}}\">."),
                 List.of(
                         "Only areas registered in Satellite Hub have data: a CAR property with no field there returns an empty series.",
                         "The index describes vegetation vigour; it does not identify the crop or prove deforestation.",
-                        "Images are Sentinel-2 L2A (10 m); clouds are masked by Satellite Hub, but haze and shadows can remain."),
-                "Satellite Hub agent app (Sentinel-2 L2A), tables gold.satellite_hub_areas, _analytics_indices and _analytics_values",
+                        "Sentinel-2 L2A is 10 m and Landsat 30 m, both with clouds masked by Satellite Hub (haze and shadows can remain); Sentinel-1 is radar, sees through clouds and its index (RVI) is on another scale (0 to 4).",
+                        "Landsat and Sentinel-1 series exist only where the Satellite Hub admin enabled those indices."),
+                "Satellite Hub agent app (Sentinel-2 L2A, Landsat 8/9 C2 L2, Sentinel-1 RTC), tables gold.satellite_hub_areas, _analytics_indices and _analytics_values",
                 "<img src=\"{{<node>.chart}}\"> NDVI atual: {{<node>.latestMean}} ({{<node>.latestDate}})");
     }
 
@@ -200,6 +212,9 @@ public class SatelliteHubIndexSeriesBlock implements ReportBlock {
             indexOut.put("slug", index.get(0).get("slug"));
             indexOut.put("name", index.get(0).get("name"));
             indexOut.put("description", index.get(0).get("description"));
+            String collection = String.valueOf(index.get(0).get("collection"));
+            indexOut.put("collection", collection);
+            indexOut.put("collectionName", COLLECTION_NAMES.getOrDefault(collection, collection));
 
             Map<String, Object> last = series.isEmpty() ? null : series.get(series.size() - 1);
             Map<String, Object> out = new LinkedHashMap<>();

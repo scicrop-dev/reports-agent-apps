@@ -17,8 +17,9 @@ import java.util.zip.Inflater;
 /**
  * {@link CogReader} over HTTP Range requests. Parses the TIFF IFDs (full resolution and
  * overviews; classic TIFF and BigTIFF), the GeoTIFF tags (ModelPixelScale, ModelTiepoint,
- * ProjectedCSType, GDAL_NODATA), and decodes DEFLATE (or uncompressed) tiles with horizontal
- * predictor (2) for 8- and 16-bit unsigned samples. Parsed headers are cached per URL for the life
+ * ProjectedCSType or GeographicType, GDAL_NODATA), and decodes DEFLATE (or uncompressed) tiles:
+ * 8- and 16-bit unsigned samples with the horizontal predictor (2), as the Sentinel-2 COGs, and
+ * 32-bit floats with the floating point predictor (3), as the CHIRPS clips of BR Weather. Parsed headers are cached per URL for the life
  * of the reader; tiles are not, each read fetches the tiles of its window.
  *
  * <p>The header is read with a first 64 KB range, which holds every IFD and tile array of a GDAL
@@ -52,7 +53,10 @@ public class HttpCogReader implements CogReader {
     private static final int GEO_KEY_DIRECTORY = 34735;
     private static final int GDAL_NODATA = 42113;
     private static final int GT_RASTER_TYPE_KEY = 1025;
+    private static final int GEOGRAPHIC_TYPE_KEY = 2048;
     private static final int PROJECTED_CS_TYPE_KEY = 3072;
+    private static final int SAMPLE_UNSIGNED = 1;
+    private static final int SAMPLE_FLOAT = 3;
 
     private static final int MAX_IFDS = 64;
 
@@ -65,7 +69,7 @@ public class HttpCogReader implements CogReader {
 
     /** One resolution of the image: the full one or an overview. */
     record Level(int width, int height, int tileWidth, int tileHeight, long[] tileOffsets, long[] tileByteCounts,
-                 int bitsPerSample, int compression, int predictor, double pixelSizeX, double pixelSizeY) {
+                 int bitsPerSample, int sampleFormat, int compression, int predictor, double pixelSizeX, double pixelSizeY) {
 
         int tilesAcross() {
             return (width + tileWidth - 1) / tileWidth;
@@ -211,7 +215,7 @@ public class HttpCogReader implements CogReader {
                 long count = level.tileByteCounts()[index];
                 if (count == 0) {
                     // Sparse tile (GDAL): never written, all zeros
-                    copyTile(new int[level.tileWidth() * level.tileHeight()], tx, ty, cog, level, window);
+                    copyTile(new float[level.tileWidth() * level.tileHeight()], tx, ty, cog, level, window);
                 } else {
                     tiles.add(new TileRef(tx, ty, level.tileOffsets()[index], count));
                 }
@@ -237,15 +241,15 @@ public class HttpCogReader implements CogReader {
                 TileRef tile = tiles.get(k);
                 int from = (int) (tile.offset() - start);
                 if (from + tile.byteCount() > bytes.length) throw new IOException("truncated tile in " + url);
-                int[] samples = decodeTile(bytes, from, (int) tile.byteCount(), cog.order(), level);
+                float[] samples = decodeTile(bytes, from, (int) tile.byteCount(), cog.order(), level);
                 copyTile(samples, tile.col(), tile.row(), cog, level, window);
             }
             i = j;
         }
     }
 
-    /** Inflates (when compressed) and undoes the horizontal predictor: one sample per pixel, unsigned. */
-    static int[] decodeTile(byte[] data, int offset, int length, ByteOrder order, Level level) throws IOException {
+    /** Inflates (when compressed) and undoes the predictor: one sample per pixel. */
+    static float[] decodeTile(byte[] data, int offset, int length, ByteOrder order, Level level) throws IOException {
         int pixels = level.tileWidth() * level.tileHeight();
         int bytesPerSample = level.bitsPerSample() / 8;
         byte[] raw;
@@ -258,6 +262,7 @@ public class HttpCogReader implements CogReader {
             raw = inflate(data, offset, length, pixels * bytesPerSample);
             rawOffset = 0;
         }
+        if (level.sampleFormat() == SAMPLE_FLOAT) return floats(raw, rawOffset, order, level);
         int[] samples = new int[pixels];
         boolean little = order == ByteOrder.LITTLE_ENDIAN;
         for (int p = 0; p < pixels; p++) {
@@ -278,7 +283,36 @@ public class HttpCogReader implements CogReader {
                 }
             }
         }
-        return samples;
+        float[] out = new float[pixels];
+        for (int p = 0; p < pixels; p++) out[p] = samples[p];
+        return out;
+    }
+
+    /**
+     * 32-bit float samples. With the floating point predictor (3, TIFF Technical Note 3) each row was
+     * split into byte planes, most significant byte first whatever the file's byte order, and the bytes
+     * of the row differenced: undo the differences, then rebuild each float from its four planes.
+     */
+    private static float[] floats(byte[] raw, int offset, ByteOrder order, Level level) {
+        int width = level.tileWidth();
+        float[] out = new float[width * level.tileHeight()];
+        if (level.predictor() != 3) {
+            ByteBuffer buffer = ByteBuffer.wrap(raw, offset, out.length * 4).slice().order(order);
+            for (int p = 0; p < out.length; p++) out[p] = buffer.getFloat(4 * p);
+            return out;
+        }
+        int rowBytes = width * 4;
+        byte[] row = new byte[rowBytes];
+        for (int r = 0; r < level.tileHeight(); r++) {
+            System.arraycopy(raw, offset + r * rowBytes, row, 0, rowBytes);
+            for (int i = 1; i < rowBytes; i++) row[i] += row[i - 1];
+            for (int c = 0; c < width; c++) {
+                int bits = (row[c] & 0xFF) << 24 | (row[width + c] & 0xFF) << 16
+                        | (row[2 * width + c] & 0xFF) << 8 | (row[3 * width + c] & 0xFF);
+                out[r * width + c] = Float.intBitsToFloat(bits);
+            }
+        }
+        return out;
     }
 
     private static byte[] inflate(byte[] data, int offset, int length, int expected) throws IOException {
@@ -302,7 +336,7 @@ public class HttpCogReader implements CogReader {
     }
 
     /** Copies the part of a decoded tile inside the window, nodata as NaN. */
-    private static void copyTile(int[] samples, int tileCol, int tileRow, Cog cog, Level level, Window window) {
+    private static void copyTile(float[] samples, int tileCol, int tileRow, Cog cog, Level level, Window window) {
         int tileX = tileCol * level.tileWidth();
         int tileY = tileRow * level.tileHeight();
         int colFrom = Math.max(window.col0, tileX);
@@ -314,7 +348,7 @@ public class HttpCogReader implements CogReader {
             int src = (row - tileY) * level.tileWidth();
             int dst = (row - window.row0) * window.width;
             for (int col = colFrom; col < colTo; col++) {
-                int v = samples[src + col - tileX];
+                float v = samples[src + col - tileX];
                 window.values[dst + col - window.col0] = hasNodata && v == cog.nodata() ? Float.NaN : v;
             }
         }
@@ -387,6 +421,7 @@ public class HttpCogReader implements CogReader {
             double originX = tiepoint[3] - tiepoint[0] * sizeX;
             double originY = tiepoint[4] + tiepoint[1] * sizeY;
             int epsg = 0;
+            int geographic = 0;
             int rasterType = 1;
             long[] keys = longs(required(full, GEO_KEY_DIRECTORY));
             for (int k = 0; k < keys[3] && 4 + 4 * k + 3 < keys.length; k++) {
@@ -394,9 +429,11 @@ public class HttpCogReader implements CogReader {
                 boolean inlineValue = keys[4 + 4 * k + 1] == 0;
                 long value = keys[4 + 4 * k + 3];
                 if (id == PROJECTED_CS_TYPE_KEY && inlineValue) epsg = (int) value;
+                if (id == GEOGRAPHIC_TYPE_KEY && inlineValue) geographic = (int) value;
                 if (id == GT_RASTER_TYPE_KEY && inlineValue) rasterType = (int) value;
             }
-            if (epsg == 0) throw new IOException("COG without ProjectedCSTypeGeoKey: " + url);
+            if (epsg == 0) epsg = geographic; // lon/lat rasters (EPSG:4326) have no projected CRS
+            if (epsg == 0) throw new IOException("COG without ProjectedCSTypeGeoKey or GeographicTypeGeoKey: " + url);
             if (rasterType == 2) {
                 // PixelIsPoint: the tiepoint is the centre of its pixel
                 originX -= sizeX / 2;
@@ -460,21 +497,25 @@ public class HttpCogReader implements CogReader {
             int sampleFormat = (int) optional(ifd, SAMPLE_FORMAT, 1);
             if (!ifd.containsKey(TILE_WIDTH)) throw new IOException("not a tiled TIFF: " + url);
             if (samplesPerPixel != 1) throw new IOException("only single-band COGs are supported: " + url);
-            if ((bits != 8 && bits != 16) || sampleFormat != 1) {
-                throw new IOException("only 8/16-bit unsigned samples are supported, got " + bits + " bits, format "
+            boolean unsigned = (bits == 8 || bits == 16) && sampleFormat == SAMPLE_UNSIGNED;
+            boolean floating = bits == 32 && sampleFormat == SAMPLE_FLOAT;
+            if (!unsigned && !floating) {
+                throw new IOException("only 8/16-bit unsigned or 32-bit float samples are supported, got " + bits + " bits, format "
                         + sampleFormat + ": " + url);
             }
             if (compression != 1 && compression != 8 && compression != 32946) {
                 throw new IOException("unsupported TIFF compression " + compression + ": " + url);
             }
-            if (predictor != 1 && predictor != 2) throw new IOException("unsupported predictor " + predictor + ": " + url);
+            if (predictor != 1 && predictor != (floating ? 3 : 2)) {
+                throw new IOException("unsupported predictor " + predictor + " for " + bits + "-bit samples: " + url);
+            }
             int tileWidth = intTag(ifd, TILE_WIDTH);
             int tileHeight = intTag(ifd, TILE_LENGTH);
             long[] offsets = longs(required(ifd, TILE_OFFSETS));
             long[] counts = longs(required(ifd, TILE_BYTE_COUNTS));
             long tiles = (long) ((width + tileWidth - 1) / tileWidth) * ((height + tileHeight - 1) / tileHeight);
             if (offsets.length < tiles || counts.length < tiles) throw new IOException("incomplete tile arrays: " + url);
-            return new Level(width, height, tileWidth, tileHeight, offsets, counts, bits, compression, predictor,
+            return new Level(width, height, tileWidth, tileHeight, offsets, counts, bits, sampleFormat, compression, predictor,
                     sizeX, sizeY);
         }
 

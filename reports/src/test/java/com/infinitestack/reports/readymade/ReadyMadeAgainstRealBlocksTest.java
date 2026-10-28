@@ -3,6 +3,7 @@ package com.infinitestack.reports.readymade;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -26,6 +27,10 @@ import com.infinitestack.reports.support.CarBlockContractStubs;
 import com.infinitestack.reports.support.GeoBlockContractStubs;
 import com.infinitestack.reports.blocks.brgeo.BrGeoBiomesBlock;
 import com.infinitestack.reports.blocks.brgeo.BrGeoCropProductionBlock;
+import com.infinitestack.reports.blocks.brgeo.BrGeoCropProgressBlock;
+import com.infinitestack.reports.blocks.brgeo.BrGeoZarcRiskBlock;
+import com.infinitestack.reports.blocks.brweather.BrWeatherDailyBlock;
+import com.infinitestack.reports.blocks.brweather.BrWeatherRainfallBlockAccess;
 import com.infinitestack.reports.blocks.brgeo.BrGeoDeterAlertsBlock;
 import com.infinitestack.reports.blocks.brgeo.BrGeoEmbargoesBlock;
 import com.infinitestack.reports.blocks.brgeo.BrGeoMunicipalitiesBlock;
@@ -50,7 +55,9 @@ class ReadyMadeAgainstRealBlocksTest {
                 new CarOverlapsBlock(null), new CarHistoryBlock(null), new CarPropertyMapBlock(null),
                 new BrGeoMunicipalitiesBlock(null), new BrGeoBiomesBlock(null), new BrGeoEmbargoesBlock(null),
                 new BrGeoDeterAlertsBlock(null), new BrGeoProdesBlock(null), new BrGeoCropProductionBlock(null),
-                new SatelliteHubIndexSeriesBlock(null), new SatelliteHubLatestImageBlock(null, null, null));
+                new SatelliteHubIndexSeriesBlock(null), new SatelliteHubLatestImageBlock(null, null, null),
+                new BrGeoZarcRiskBlock(null), new BrGeoCropProgressBlock(null), new BrWeatherDailyBlock(null),
+                BrWeatherRainfallBlockAccess.create(null, Path.of("/nonexistent")));
     }
 
     @Test

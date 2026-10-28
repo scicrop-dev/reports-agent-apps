@@ -61,8 +61,11 @@ public class SatelliteHubLatestImageBlock implements ReportBlock {
     static final String SCHEMA = "gold";
     static final String INDICES = "satellite_hub_analytics_indices";
 
-    static final String INDICES_SQL = "SELECT slug, name, description, formula, mask_clouds, clamp_min, clamp_max,"
+    static final String INDICES_SQL = "SELECT slug, name, description, formula, collection, mask_clouds, clamp_min, clamp_max,"
             + " display_min, display_max, enabled FROM " + SCHEMA + "." + INDICES + " ORDER BY slug";
+
+    /** The Satellite Hub collection this Block reads; an index without collection is of it (Satellite Hub's legacy default). */
+    static final String COLLECTION = "sentinel-2-l2a";
 
     static final String DEFAULT_INDICES = "ndvi,evi,ndmi";
     static final double DEFAULT_MAX_CLOUD = 40;
@@ -108,7 +111,7 @@ public class SatelliteHubLatestImageBlock implements ReportBlock {
                         BlockPort.required("geometry", DataType.GEOMETRY,
                                 "area (GeoJSON Polygon or MultiPolygon, lon/lat SIRGAS 2000); connect car-property-geometry.geometry"),
                         BlockPort.optional("indices", DataType.STRING,
-                                "comma-separated Satellite Hub index slugs; default " + DEFAULT_INDICES),
+                                "comma-separated Satellite Hub index slugs of the Sentinel-2 collection; default " + DEFAULT_INDICES),
                         BlockPort.optional("maxCloudPercent", DataType.NUMBER, "scene cloud cover filter, percent; default 40"),
                         BlockPort.optional("maxAreaCloudPercent", DataType.NUMBER,
                                 "maximum cloud share inside the area, percent; a cloudier scene is skipped for the next older one; default 30"),
@@ -133,7 +136,7 @@ public class SatelliteHubLatestImageBlock implements ReportBlock {
                         BlockPort.required("candidatesTried", DataType.NUMBER, "scenes whose clouds over the area were checked"),
                         BlockPort.required("skipped", DataType.ARRAY,
                                 "scenes skipped for clouds over the area, newest first: {id, date, areaCloudPercent}")),
-                List.of(DataRequirement.table(SCHEMA, INDICES, "slug", "name", "description", "formula", "mask_clouds",
+                List.of(DataRequirement.table(SCHEMA, INDICES, "slug", "name", "description", "formula", "collection", "mask_clouds",
                         "clamp_min", "clamp_max", "display_min", "display_max", "enabled")),
                 Duration.ofSeconds(110));
     }
@@ -154,7 +157,7 @@ public class SatelliteHubLatestImageBlock implements ReportBlock {
                         "Draws the true color image and one map per index with the area outline, and computes mean, min, max, standard deviation and percentiles over the clear pixels inside the area."),
                 List.of(
                         "geometry: connect car-property-geometry.geometry.",
-                        "indices: a fixed value such as ndvi,evi,ndmi,ndre (the slugs Satellite Hub has enabled) or a report input.",
+                        "indices: a fixed value such as ndvi,evi,ndmi,ndre (the Sentinel-2 slugs Satellite Hub has enabled) or a report input; Landsat and Sentinel-1 indices (ndvi_landsat, rvi_s1...) are refused, their series come from sathub-index-series.",
                         "Images go straight into the template: <img src=\"{{<node>.trueColor}}\"> and, inside {{#<node>.indices}}, <img src=\"{{image}}\">.",
                         "Test {{#<node>.found}} before showing the image and {{^<node>.found}} to print {{<node>.message}}: no image is not a failure."),
                 List.of(
@@ -239,15 +242,26 @@ public class SatelliteHubLatestImageBlock implements ReportBlock {
     }
 
     private List<IndexDefinition> resolveIndices(List<String> slugs) {
+        // Satellite Hub also has Landsat and Sentinel-1 indices: their formulas name bands of another
+        // sensor (Landsat nir08 is not Sentinel-2 nir08), so only Sentinel-2 ones are offered.
         Map<String, Map<String, Object>> enabled = new LinkedHashMap<>();
+        Map<String, String> otherCollection = new LinkedHashMap<>();
         for (Map<String, Object> row : indexRows()) {
-            if (Boolean.TRUE.equals(row.get("enabled")) && row.get("slug") != null) enabled.put(row.get("slug").toString(), row);
+            if (!Boolean.TRUE.equals(row.get("enabled")) || row.get("slug") == null) continue;
+            String collection = row.get("collection") == null ? COLLECTION : row.get("collection").toString();
+            if (COLLECTION.equals(collection)) enabled.put(row.get("slug").toString(), row);
+            else otherCollection.put(row.get("slug").toString(), collection);
         }
         List<IndexDefinition> out = new ArrayList<>();
         for (String slug : slugs) {
             Map<String, Object> row = enabled.get(slug);
+            if (row == null && otherCollection.containsKey(slug)) {
+                throw new IllegalArgumentException("index '" + slug + "' is of the " + otherCollection.get(slug)
+                        + " collection; this Block reads Sentinel-2 only (" + COLLECTION + "); available: "
+                        + (enabled.isEmpty() ? "none" : String.join(", ", enabled.keySet())));
+            }
             if (row == null) {
-                throw new IllegalArgumentException("Satellite Hub has no enabled index '" + slug + "'; available: "
+                throw new IllegalArgumentException("Satellite Hub has no enabled Sentinel-2 index '" + slug + "'; available: "
                         + (enabled.isEmpty() ? "none" : String.join(", ", enabled.keySet())));
             }
             IndexFormula formula;
@@ -430,7 +444,8 @@ public class SatelliteHubLatestImageBlock implements ReportBlock {
         return out;
     }
 
-    static double[] bbox(List<List<double[][]>> polygons) {
+    /** {minLon, minLat, maxLon, maxLat} of the outer rings. */
+    public static double[] bbox(List<List<double[][]>> polygons) {
         double[] box = {Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY};
         for (List<double[][]> polygon : polygons) {
             for (double[] p : polygon.get(0)) {
@@ -450,7 +465,7 @@ public class SatelliteHubLatestImageBlock implements ReportBlock {
     }
 
     /** Polygon or MultiPolygon GeoJSON as polygons of rings of {lon, lat}. */
-    static List<List<double[][]>> polygons(Map<String, Object> geometry) {
+    public static List<List<double[][]>> polygons(Map<String, Object> geometry) {
         Object type = geometry.get("type");
         Object coordinates = geometry.get("coordinates");
         List<List<double[][]>> out = new ArrayList<>();

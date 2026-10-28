@@ -7,7 +7,7 @@ back oferece em 2026-10-26.
 
 | Integração | Estado | Onde |
 |---|---|---|
-| Satellite Hub, **leitura** do que ele já publicou (séries de índices por área) | **feito** | `sathub-index-series` ([BLOCKS.md](BLOCKS.md) §4) e o pronto `sathub-vegetation-monitoring` |
+| Satellite Hub, **leitura** do que ele já publicou (séries de índices por área, de qualquer coleção: Sentinel-2, Landsat, Sentinel-1) | **feito** | `sathub-index-series` ([BLOCKS.md](BLOCKS.md) §4) e o pronto `sathub-vegetation-monitoring` |
 | **Última imagem Sentinel-2** de qualquer área (ex.: um imóvel CAR), na hora, com as fórmulas de índice do Satellite Hub | **feito** (§1.2) | `sathub-latest-image` ([BLOCKS.md](BLOCKS.md) §4) e o pronto `car-latest-satellite-image` |
 | Satellite Hub, **pedir processamento** (cadastrar a área e calcular a série) para uma área nova | desenhado (§1.3) | precisa de uma rota no Satellite Hub; a porta plugin-a-plugin do back já existe |
 | Script Python do Skills Lab como Block | desenhado (§2) | precisa de uma porta interna nova no back |
@@ -23,7 +23,7 @@ O Satellite Hub publica três tabelas no gold, e elas bastam para um Block:
 | Tabela | Conteúdo |
 |---|---|
 | `gold.satellite_hub_areas` | áreas cadastradas (fazenda, bloco, talhão), geometria em WGS 84 (4326), `area_ha` |
-| `gold.satellite_hub_analytics_indices` | índices (NDVI, NDRE, GNDVI, NDMI, EVI, SAVI, NDWI, NBR), fórmula e coleção (Sentinel-2 L2A) |
+| `gold.satellite_hub_analytics_indices` | índices, fórmula e `collection`: Sentinel-2 L2A (NDVI, NDRE, GNDVI, NDMI, EVI, SAVI, NDWI, NBR), Landsat 8/9 C2 L2 (`ndvi_landsat`, `ndmi_landsat`) e Sentinel-1 RTC (`rvi_s1`); vazia = Sentinel-2 |
 | `gold.satellite_hub_analytics_values` | uma linha por índice × área × imagem: média, mediana, mín., máx., desvio, p10/p25/p75/p90, pixels válidos e % de área válida |
 
 O índice `(index_id, area_id, acquired_at DESC)` torna a série de uma área barata. O
@@ -44,7 +44,9 @@ limites e máscara de nuvem de `gold.satellite_hub_analytics_indices`, com a mes
 (reflectância = DN × 0,0001 sem offset; SCL 4 a 7 = limpo). Devolve PNGs (cor verdadeira e um mapa
 por índice) e as estatísticas da imagem, dentro do limite de 120 s da execução.
 
-Do Satellite Hub ele só lê as definições dos índices (é o gate do catálogo). Não grava nada nele e
+Do Satellite Hub ele só lê as definições dos índices (é o gate do catálogo), e só as da coleção
+`sentinel-2-l2a`: desde que o Satellite Hub passou a ter Landsat e Sentinel-1, um índice de outra
+coleção é recusado com mensagem, porque a fórmula dele nomeia bandas de outro sensor. Não grava nada nele e
 não gera série: é uma imagem, não um histórico. Exige saída HTTPS do host para
 `earth-search.aws.element84.com` e `sentinel-cogs.s3.us-west-2.amazonaws.com`.
 

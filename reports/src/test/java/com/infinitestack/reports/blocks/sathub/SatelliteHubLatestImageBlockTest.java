@@ -118,6 +118,14 @@ class SatelliteHubLatestImageBlockTest {
     }
 
     @Test
+    void refusesAnIndexOfAnotherCollection() {
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+                () -> block(List.of()).execute(inputs("ndvi_landsat"), null));
+        assertTrue(e.getMessage().contains("landsat-c2-l2 collection") && e.getMessage().contains("available: evi, ndmi, ndvi"),
+                e.getMessage());
+    }
+
+    @Test
     void definitionDoesNotTouchTheDependencies() {
         assertEquals("sathub-latest-image", new SatelliteHubLatestImageBlock(null, null, null).definition().id());
         assertEquals("Satellite Hub", new SatelliteHubLatestImageBlock(null, null, null).docs().category());
@@ -143,7 +151,15 @@ class SatelliteHubLatestImageBlockTest {
                 row("evi", "EVI", "2.5 * (nir - red) / (nir + 6 * red - 7.5 * blue + 1)", true),
                 row("nbr", "NBR", "(nir - swir22) / (nir + swir22)", false),
                 row("ndmi", "NDMI", "(nir - swir16) / (nir + swir16)", true),
-                row("ndvi", "NDVI", "(nir - red) / (nir + red)", true));
+                row("ndvi", "NDVI", "(nir - red) / (nir + red)", true),
+                // A Landsat index whose bands are also Sentinel-2 asset names: it must not be read from Sentinel-2.
+                row("ndvi_landsat", "NDVI (Landsat)", "(nir08 - red) / (nir08 + red)", true, "landsat-c2-l2"));
+    }
+
+    static Map<String, Object> row(String slug, String name, String formula, boolean enabled, String collection) {
+        Map<String, Object> m = row(slug, name, formula, enabled);
+        m.put("collection", collection);
+        return m;
     }
 
     static Map<String, Object> row(String slug, String name, String formula, boolean enabled) {
@@ -152,6 +168,7 @@ class SatelliteHubLatestImageBlockTest {
         m.put("name", name);
         m.put("description", name + " index");
         m.put("formula", formula);
+        m.put("collection", slug.equals("evi") ? null : "sentinel-2-l2a"); // null = Satellite Hub's legacy default, Sentinel-2
         m.put("mask_clouds", true);
         m.put("clamp_min", -1.0);
         m.put("clamp_max", 1.0);

@@ -181,4 +181,33 @@ class HttpCogReaderTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("32720");
     }
+
+    /**
+     * {@code cog/rain-4326.tif}: a clip like BR Weather's CHIRPS days (GDAL 3.8, float32, EPSG:4326,
+     * 256 px tiles, DEFLATE + floating point predictor 3, nodata -9999), 300 x 260 pixels of 0.05
+     * degree from (-74.5, 6.0); value ((col * 3 + row * 7) % 97) / 4, nodata at rows 40-59, columns 250-279.
+     */
+    @Test
+    void readsFloatSamplesWithTheFloatingPointPredictorInLonLat() throws Exception {
+        String rain = Path.of(getClass().getResource("/cog/rain-4326.tif").toURI()).toString();
+        HttpCogReader.Cog cog = reader.header(rain);
+        assertThat(cog.epsg()).isEqualTo(4326);
+        assertThat(cog.originX()).isCloseTo(-74.5, offset(1e-9));
+        assertThat(cog.originY()).isCloseTo(6.0, offset(1e-9));
+        assertThat(cog.nodata()).isEqualTo(-9999.0);
+
+        // Crosses the tile border (256) on both axes and reaches the last row
+        RasterGrid grid = new RasterGrid(40, 30, -74.5 + 240 * 0.05, 6.0 - 230 * 0.05, 0.05, 4326);
+        Raster raster = reader.read(rain, grid, Resampling.NEAREST);
+        for (int row = 0; row < grid.height(); row++) {
+            for (int col = 0; col < grid.width(); col++) {
+                int c = 240 + col;
+                int r = 230 + row;
+                float expected = r >= 40 && r < 60 && c >= 250 && c < 280 ? Float.NaN : ((c * 3 + r * 7) % 97) / 4.0f;
+                assertThat(raster.get(col, row)).as("col %d row %d", c, r).isEqualTo(expected);
+            }
+        }
+        RasterGrid nodata = new RasterGrid(5, 5, -74.5 + 255 * 0.05, 6.0 - 42 * 0.05, 0.05, 4326);
+        assertThat(reader.read(rain, nodata, Resampling.NEAREST).values()).containsOnly(Float.NaN);
+    }
 }
