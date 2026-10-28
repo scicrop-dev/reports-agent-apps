@@ -173,6 +173,12 @@ cena tem identidade fixa: o JSON é determinístico e o script identifica a cena
 sha256(nome do arquivo + conteúdo), que o Block calcula igual (`SceneRequest.sceneSha256`, testado
 contra um vetor gerado pelo `scene._sha256` do script).
 
+**Dono das tabelas:** o script registra `gold.is_geo_sam_*` no catálogo na fonte do app que pediu a
+rodada. Ele usa o `IS_APP_ID` que o back põe no ambiente do script quando a rodada vem da porta
+(infinitestack-back#1287, autenticado) e, em instância sem o #1287, o `appId` dos `params`. O REPORTS
+manda sempre `appId: "reports"` (o `infinitestack.plugin.runtime-id`); com o `IS_APP_ID`, o script o
+ignora. Não há variável no `.env` do pacote para isso (o antigo `ISGEOSAM_APP_ID` saiu).
+
 **Por que o JSON vai por arquivo:** o `trueColor` passa de 250 KB e a porta aceita só 64 KB de
 `params`. O Block grava `reports-isgeosam-<sha>.json` em `reports.isgeosam.staging-dir` (padrão
 `/opt/infinitestack/var/lake/staging`, o `ISGEOSAM_STAGING_DIR` do script), como `.part` + rename, e
@@ -181,18 +187,42 @@ Block que **escreve** no disco do host; o resto do app só lê.
 
 ### 3.2 O que a instância precisa (admin do IS)
 
-1. O is-geo-sam instalado num projeto do Skills Lab (README do pacote: zip, dependências pelo botão
-   verde do `requirements.txt`), com `ISGEOSAM_APP_ID=reports` no `.env`, para as tabelas entrarem no
-   catálogo na fonte do REPORTS.
-2. Um workflow nesse projeto com um único bloco `Script` (`is-geo-sam/main.py`), por padrão de id
-   `is-geo-sam`.
-3. A liberação desse workflow para o REPORTS em `/opt/infinitestack/etc/reports-workflows.json`
-   (como no §2.1).
-4. No REPORTS: `REPORTS_ISGEOSAM_PROJECT_ID=<projectId>` (ou o input `projectId` do nó) e, se
-   diferente do padrão, `REPORTS_ISGEOSAM_WORKFLOW` e `REPORTS_ISGEOSAM_STAGING_DIR`. O processo do app
-   precisa poder escrever no staging do lake.
-5. Rodar o script uma vez (`main.py --schema` basta) para criar e registrar as tabelas; só então o
-   gate de catálogo deixa liberar o Block na tela de Blocks.
+1. **O is-geo-sam instalado** num projeto do Skills Lab (README do pacote: zip, dependências pelo
+   botão verde do `requirements.txt`), com um workflow `is-geo-sam` de um único bloco `Script`
+   (`is-geo-sam/main.py`). Nada a configurar no `.env` do pacote para o REPORTS.
+2. **A liberação do workflow para o REPORTS**, em `/opt/infinitestack/etc/reports-workflows.json`:
+
+   ```json
+   { "workflows": [ { "projectId": "<id do projeto do Skills Lab onde está o is-geo-sam>", "workflow": "is-geo-sam" } ] }
+   ```
+
+   **Por que:** a porta de workflows deixa um app iniciar rodadas de workflows do IS com o token
+   interno dele. O back só aceita os pares projeto + workflow listados nesse arquivo
+   (`AppWorkflowAccess`); sem o arquivo, nada é liberado. O projeto e o slug do workflow mudam de
+   cliente para cliente, então só quem instala pode nomeá-los: o `.ispz` não traz isso e o app nunca
+   cria o arquivo. O back relê o arquivo a cada chamada, sem reiniciar nada. Se o arquivo já libera
+   outros workflows (os do `skillslab-python`), acrescente a linha na mesma lista.
+
+   O REPORTS **lê** esse mesmo arquivo para saber o projeto: usa o `projectId` da liberação do
+   workflow `is-geo-sam`. `REPORTS_ISGEOSAM_PROJECT_ID` só é preciso se o workflow estiver liberado em
+   mais de um projeto (vale o primeiro da lista).
+3. **Escrita no staging:** o processo do app precisa poder escrever em `/opt/infinitestack/var/lake/staging`.
+
+Com isso o app faz o resto sozinho:
+
+- **Estrutura das tabelas (`IsGeoSamSchemaSetup`):** 30 s depois de subir, e a cada 5 min, o app
+  confere no catálogo se `gold.is_geo_sam_scene`, `_run` e `_candidate` estão lá. Faltando, e com a
+  liberação feita, ele inicia o workflow com `{"schemaOnly": true, "appId": "reports"}`: o script cria
+  as cinco tabelas vazias (com índices e chaves), registra-as na fonte `agente-is:reports` e termina
+  com `IS_GEO_SAM_RESULT {"status": "SCHEMA_READY", ...}`, sem carregar o modelo. O run aparece em
+  Workloads. Achou as tabelas, para de conferir; três runs sem resultado, desiste e diz no log (o
+  restart do app tenta de novo). O log do app mostra cada passo com o prefixo `[reports] is-geo-sam:`.
+- **Liberar o Block:** com as tabelas no catálogo, o Block `isgeosam-field-candidates` fica liberável
+  na tela de Blocks do REPORTS (o catálogo é relido a cada 60 s).
+
+Tabelas que já existam fora do catálogo (a situação da dev em 2026-10-28) entram nele pelo mesmo
+`schemaOnly`, que só confere a estrutura e refaz o registro. Tabela registrada na fonte errada: ver o
+README do is-geo-sam (`movegold` ou `deletest`).
 
 ### 3.3 Limites
 
