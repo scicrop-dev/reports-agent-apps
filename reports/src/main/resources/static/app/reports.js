@@ -298,6 +298,7 @@
     }
 
     async function selectVersion(number) {
+        const shown = state.view && state.view.version ? state.view.version.reportId + ':' + state.view.version.version : null;
         state.view = await api.get('/reports/' + state.report.id + '/versions/' + number);
         const v = state.view.version;
         state.inputs = (v.inputs || []).map((i) => Object.assign({}, i));
@@ -305,7 +306,8 @@
         state.page = Object.assign({}, v.page);
         state.dirty = false;
         state.discardArmed = false;
-        state.lastExecution = null;
+        // Saving reloads the same version: keep its preview. Another report or version starts clean.
+        if (shown !== state.report.id + ':' + v.version) clearRun();
         $('dirty').classList.add('hidden');
         templateEditor.setValue(v.templateHtml, v.templateCss);
         refreshVariables();
@@ -502,6 +504,7 @@
         }
         await api.del('/reports/' + state.report.id);
         state.report = null;
+        clearRun();
         state.dirty = false;
         await loadReports();
         showSection('reports');
@@ -593,9 +596,33 @@
         box.appendChild(executionSummary(execution));
         box.appendChild(blockRunsTable(execution.blocks || []));
         const frame = $('preview-frame');
-        frame.srcdoc = html || '';
+        frame.srcdoc = html ? withPreviewFrame(html) : '';
         frame.classList.toggle('hidden', !html);
         $('preview-empty').classList.toggle('hidden', !!html);
+    }
+
+    /** Back to "run a preview": the result of another report (or version) must not stay on screen. */
+    function clearRun() {
+        state.lastExecution = null;
+        clear($('run-result'));
+        const frame = $('preview-frame');
+        frame.srcdoc = '';
+        frame.classList.add('hidden');
+        $('preview-empty').classList.remove('hidden');
+    }
+
+    /**
+     * The report CSS is written for the PDF, where the page margins come from @page, so its body has
+     * no margin. In the preview frame only, show it as a sheet with margins on a grey background.
+     */
+    const PREVIEW_PAGE_CSS = '<style>html { background: #e5e7eb; }'
+        + ' body { box-sizing: border-box; max-width: 210mm; margin: 16px auto !important; padding: 18mm 16mm !important;'
+        + ' background: #ffffff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18); }'
+        + ' @media (max-width: 640px) { body { margin: 0 !important; padding: 16px !important; } }</style>';
+
+    function withPreviewFrame(html) {
+        const end = html.indexOf('</head>');
+        return end < 0 ? PREVIEW_PAGE_CSS + html : html.slice(0, end) + PREVIEW_PAGE_CSS + html.slice(end);
     }
 
     function executionSummary(execution) {
