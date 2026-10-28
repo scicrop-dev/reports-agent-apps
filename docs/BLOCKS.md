@@ -368,7 +368,7 @@ Regras:
   avaliada lê a SCL, e a aceita lê as bandas dos índices (tiles de 1024 px; um imóvel pequeno em 10 m
   ainda baixa de 1 a 4 tiles por banda).
 
-## 5. Block do Skills Lab (fonte: scripts Python dos projetos do Skills Lab)
+## 5. Blocks do Skills Lab (fonte: scripts Python dos projetos do Skills Lab)
 
 ### `skillslab-python` — Script Python (Skills Lab)
 
@@ -400,3 +400,60 @@ projeto tem liberado, sem iniciar nada.
 Sem `DataRequirement`: está sempre disponível para liberar. O que controla o que roda é a liberação
 do workflow na instância e o acesso do usuário ao workflow (`onBehalfOf`, conferido pelo back).
 Timeout próprio de 118 s, acima do `timeoutSeconds`, para o Block ainda parar o run e ler o log.
+
+### `isgeosam-field-candidates` — Candidatos a talhão (SAM)
+
+Propõe **candidatos a talhão** sobre a imagem de `sathub-latest-image` com o pacote is-geo-sam do
+Skills Lab (`scripts/is-geo-sam` no workspace, SAM 2.1 em CPU), e lê o resultado das tabelas
+`gold.is_geo_sam_*` que o próprio script cria. Código: `blocks.isgeosam.IsGeoSamFieldCandidatesBlock`;
+o desenho e o que a instância precisa estão em [INTEGRATIONS.md](INTEGRATIONS.md) §3.
+
+Todo candidato é `PENDING_REVIEW`: uma proposta para revisão humana, nunca um limite de talhão, de
+CAR, cadastral ou jurídico.
+
+| Input | Tipo | |
+|---|---|---|
+| `trueColor`, `imageCrs`, `imageTransform`, `imageBounds`, `widthPx`, `heightPx`, `pixelSizeM`, `scene` | os tipos de `sathub-latest-image`; opcionais | ligue cada um na saída de mesmo nome de `sathub-latest-image`. Sem `trueColor` o Block responde `NO_IMAGE` sem rodar nada |
+| `geometry` | geometry, opcional | a área (`report-area.geometry`); os candidatos são recortados nela |
+| `codImovel` | string, opcional | só metadado da cena |
+| `projectId` | string, opcional | projeto do Skills Lab com o is-geo-sam; padrão `reports.isgeosam.project-id` (`REPORTS_ISGEOSAM_PROJECT_ID`) |
+| `workflow` | string, opcional | workflow que roda `is-geo-sam/main.py`; padrão `reports.isgeosam.workflow` (`is-geo-sam`) |
+| `waitSeconds` | number, opcional | 0 a 90, padrão 60: quanto esperar uma segmentação nova; depois disso o run **continua** e o Block responde `PROCESSING` |
+
+| Output | Tipo | Conteúdo |
+|---|---|---|
+| `status` | string | `COMPLETED_WITH_REVIEW_REQUIRED`, `COMPLETED_NO_CANDIDATES`, `REJECTED`, `PROCESSING` ou `NO_IMAGE` |
+| `ready` | boolean | segmentação concluída (`COMPLETED_*`): lista e mapa valem |
+| `processing` | boolean | ainda rodando: gere o relatório de novo depois |
+| `hasCandidates` | boolean | ao menos um candidato |
+| `message` | string, opcional | por que não há resultado (imagem rejeitada, em andamento, sem imagem) |
+| `candidates` | array | do maior para o menor, até 300: `{number, objectId, areaHa, modelScore, stabilityScore, status, reviewFlags, hasFlags}`; `number` é o número desenhado no mapa |
+| `candidateCount` | number | candidatos do run (todos) |
+| `totalAreaHa` | number | soma das áreas listadas |
+| `truncated` | boolean | a lista parou em 300 |
+| `features` | object, opcional | os candidatos listados como FeatureCollection (EPSG:4326) |
+| `map` | string, opcional | a imagem com os candidatos numerados (PNG data URI); nulo se o CRS não for UTM WGS 84 nem lon/lat |
+| `reused` | boolean | o resultado veio de uma segmentação anterior da mesma imagem |
+| `runId`, `triggerId`, `model`, `segmentedAt` | string, opcionais | run do is-geo-sam, run do workflow (Workloads), modelo e fim da segmentação (UTC) |
+
+**Como responde** (o SAM leva cerca de 1 min por bloco de 1024 px, perto dos 120 s do relatório):
+
+1. Monta o JSON de workflow que o is-geo-sam lê (`SceneRequest`), **determinístico**: a mesma imagem
+   e a mesma área dão os mesmos bytes e o mesmo nome de arquivo (`reports-isgeosam-<sha>.json`), logo
+   a mesma cena para o script, que identifica a cena por sha256(nome + conteúdo).
+2. Há run concluído (`COMPLETED_*` ou `REJECTED`) dessa cena em `gold.is_geo_sam_run`? Mostra na hora.
+3. Há run `RUNNING` dessa cena, ou o arquivo já está no staging (menos de 30 min)? `PROCESSING`, sem
+   pedir de novo.
+4. Senão, confere a liberação do workflow, grava o JSON no staging (`.part` + rename), inicia o
+   workflow com `params = {"file": "<nome>"}` em nome do usuário e espera até `waitSeconds`.
+   Terminou: lê o resultado no gold. Não terminou: `PROCESSING`, e o run segue; a próxima execução do
+   relatório acha o resultado no passo 2. Run que termina sem resultado no gold falha o Block com a
+   linha `IS_GEO_SAM_RESULT` do script.
+
+O Block não para o run em nenhum caso (nem quando a execução desiste dele): o trabalho do SAM fica
+para o próximo relatório. Quem apaga o arquivo do staging é o script.
+
+`DataRequirement`s em `gold.is_geo_sam_scene` (`scene_id`, `sha256`), `gold.is_geo_sam_run` e
+`gold.is_geo_sam_candidate`: o Block só pode ser liberado depois que o script rodou uma vez
+(`main.py --schema` basta) e registrou as tabelas no catálogo (`ISGEOSAM_APP_ID=reports`).
+Timeout próprio de 100 s. Mantenha o `sizePx` de `sathub-latest-image` em 1024 ou menos (um bloco do SAM).

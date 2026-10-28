@@ -28,6 +28,7 @@ import com.infinitestack.reports.blocks.brgeo.BrGeoDeterAlertsBlock;
 import com.infinitestack.reports.blocks.brgeo.BrGeoEmbargoesBlock;
 import com.infinitestack.reports.blocks.brgeo.BrGeoMunicipalitiesBlock;
 import com.infinitestack.reports.blocks.brgeo.BrGeoProdesBlock;
+import com.infinitestack.reports.blocks.isgeosam.IsGeoSamFieldCandidatesBlock;
 import com.infinitestack.reports.blocks.sathub.IndexSeriesChart;
 import com.infinitestack.reports.blocks.sathub.SatelliteHubIndexSeriesBlock;
 import com.infinitestack.reports.blocks.sathub.SatelliteHubLatestImageBlock;
@@ -96,6 +97,7 @@ public final class GeoBlockContractStubs {
                                 "count", 2, "totalHarvestedHa", 434800.0, "totalValueThousandBrl", 2998000.0, "truncated", false, "uf", "MT")),
                 stub("sathub-index-series", in -> indexSeries(bare)),
                 stub("sathub-latest-image", in -> latestImage(bare)),
+                stub("isgeosam-field-candidates", in -> fieldCandidates(bare)),
                 stub("brgeo-zarc-risk", in -> zarc(bare)),
                 stub("brgeo-crop-progress", in -> cropProgress(bare)),
                 stub("brweather-daily-weather", in -> dailyWeather(bare)),
@@ -242,6 +244,23 @@ public final class GeoBlockContractStubs {
         return out;
     }
 
+    /** Full: a finished segmentation with two candidates. Bare: still running. */
+    private static Map<String, Object> fieldCandidates(boolean bare) {
+        Map<String, Object> out = map("status", bare ? "PROCESSING" : "COMPLETED_WITH_REVIEW_REQUIRED", "ready", !bare,
+                "processing", bare, "hasCandidates", !bare,
+                "message", bare ? "the segmentation did not finish within the wait (run t-9 goes on); generate the report again in a few minutes" : null);
+        out.putAll(map("candidates", bare ? List.of() : List.of(
+                        map("number", 1, "objectId", 7, "areaHa", 182.4, "modelScore", 0.962, "stabilityScore", 0.981,
+                                "status", "PENDING_REVIEW", "reviewFlags", "", "hasFlags", false),
+                        map("number", 2, "objectId", 3, "areaHa", 64.15, "modelScore", 0.911, "stabilityScore", 0.944,
+                                "status", "PENDING_REVIEW", "reviewFlags", "touches_image_edge, clipped_by_aoi", "hasFlags", true)),
+                "candidateCount", bare ? 0 : 2, "totalAreaHa", bare ? 0.0 : 246.55, "truncated", false,
+                "features", null, "map", bare ? null : tinyPng(0x556b2f)));
+        out.putAll(map("reused", !bare, "runId", bare ? null : "5b1f0c1e-0000-4000-8000-000000000001", "triggerId", "t-9",
+                "model", bare ? null : "sam2.1_hiera_small", "segmentedAt", bare ? null : "2026-10-28T15:02:11Z"));
+        return out;
+    }
+
     private static String tinyPng(int rgb) {
         BufferedImage image = new BufferedImage(8, 6, BufferedImage.TYPE_INT_RGB);
         for (int y = 0; y < 6; y++) for (int x = 0; x < 8; x++) image.setRGB(x, y, x < 4 ? rgb : 0x8a7354);
@@ -305,7 +324,8 @@ public final class GeoBlockContractStubs {
                     new BrGeoDeterAlertsBlock(null), new BrGeoProdesBlock(null), new BrGeoCropProductionBlock(null),
                     new SatelliteHubIndexSeriesBlock(null), new SatelliteHubLatestImageBlock(null, null, null),
                     new BrGeoZarcRiskBlock(null), new BrGeoCropProgressBlock(null), new BrWeatherDailyBlock(null),
-                    BrWeatherRainfallBlockAccess.create(null, Path.of("/nonexistent")))
+                    BrWeatherRainfallBlockAccess.create(null, Path.of("/nonexistent")),
+                    new IsGeoSamFieldCandidatesBlock(null, null, "/nonexistent", "", "is-geo-sam"))
             .map(ReportBlock::definition)
             .collect(Collectors.toMap(BlockDefinition::id, d -> d));
 

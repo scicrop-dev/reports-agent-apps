@@ -1,0 +1,86 @@
+<div class="running-header">
+  <span class="rh-title">Candidatos a talhão</span>
+  <span class="rh-code">{{area.label}}</span>
+</div>
+
+<div class="cover">
+  <div class="cover-kicker">Candidatos a talhão por segmentação de imagem - SAM sobre Sentinel-2</div>
+  <h1>{{#area.isCar}}Imóvel rural {{area.codImovel}}{{/area.isCar}}{{^area.isCar}}{{area.label}}{{/area.isCar}}</h1>
+  <p class="cover-sub">{{#area.isCar}}{{property.municipality}} / {{property.uf}}{{/area.isCar}}{{^area.isCar}}ponto de referência {{area.centroidLat}}, {{area.centroidLon}}{{/area.isCar}}</p>
+  <table class="meta">
+    <tr><th>Área analisada</th><td>{{#area.isCar}}imóvel do CAR <span class="code">{{area.codImovel}}</span>{{/area.isCar}}{{^area.isCar}}polígono informado ({{area.vertices}} vértices){{/area.isCar}}</td></tr>
+    <tr><th>Área calculada</th><td>{{area.areaHa}} ha</td></tr>
+    <tr><th>Emitido em</th><td>{{report.generatedAt}}</td></tr>
+    <tr><th>Execução</th><td>{{#report.executionId}}nº {{report.executionId}} (versão {{report.version}} do relatório){{/report.executionId}}{{^report.executionId}}Prévia, não registrada no histórico{{/report.executionId}}</td></tr>
+  </table>
+  <p class="alert">Os polígonos deste relatório são propostas de um modelo de segmentação, todas pendentes de revisão humana. Não são limites de talhão aprovados nem limites de CAR, cadastrais ou jurídicos.</p>
+</div>
+
+<div class="section">
+  <h2><span class="num">1</span> Imagem segmentada</h2>
+  {{#image.found}}
+  <table class="kv">
+    <tr><th>Data da imagem</th><td><strong>{{image.acquiredDate}}</strong> (há {{image.daysAgo}} dia(s)), {{image.scene.platform}}, quadrícula {{image.scene.mgrsTile}}</td></tr>
+    <tr><th>Nuvem sobre a área</th><td>{{image.areaCloudPercent}}% (cena inteira: {{image.scene.cloudCoverPercent}}%)</td></tr>
+    <tr><th>Resolução</th><td>{{image.pixelSizeM}} m por pixel, {{image.widthPx}} x {{image.heightPx}} pixels</td></tr>
+  </table>
+  {{/image.found}}
+  {{^image.found}}
+  <p class="alert">Nenhuma imagem Sentinel-2 utilizável sobre a área, então não há o que segmentar.{{#image.message}} Detalhe: {{image.message}}.{{/image.message}}</p>
+  {{/image.found}}
+
+  {{#fields.ready}}
+  <table class="kv">
+    <tr><th>Candidatos</th><td><strong>{{fields.candidateCount}}</strong>, somando {{fields.totalAreaHa}} ha{{#fields.truncated}} (a lista mostra os maiores){{/fields.truncated}}</td></tr>
+    <tr><th>Modelo</th><td>{{fields.model}}, segmentado em {{fields.segmentedAt}}{{#fields.reused}} (resultado de uma segmentação anterior da mesma imagem){{/fields.reused}}</td></tr>
+  </table>
+  {{#fields.map}}
+  <div class="map-block">
+    <img class="map" src="{{fields.map}}" alt="Candidatos a talhão sobre a imagem">
+    <div class="legend">Cada candidato tem uma cor e o número da tabela abaixo. Sentinel-2 L2A em cor verdadeira, {{image.acquiredDate}}.</div>
+  </div>
+  {{/fields.map}}
+  {{/fields.ready}}
+  {{#fields.processing}}
+  <p class="alert">A segmentação desta imagem ainda está em andamento. Gere o relatório de novo em alguns minutos: o resultado fica guardado e sai na hora.</p>
+  {{/fields.processing}}
+  {{#image.found}}{{#fields.message}}{{^fields.processing}}{{^fields.ready}}
+  <p class="alert">A imagem não pôde ser segmentada. Detalhe: {{fields.message}}.</p>
+  {{/fields.ready}}{{/fields.processing}}{{/fields.message}}{{/image.found}}
+  {{^fields.status}}
+  <p class="alert">A segmentação não rodou nesta execução. O motivo está nos blocos da execução (é preciso o pacote is-geo-sam instalado no Skills Lab e liberado para o REPORTS).</p>
+  {{/fields.status}}
+</div>
+
+{{#fields.candidates}}{{#-first}}
+<div class="section">
+  <h2><span class="num">2</span> Candidatos</h2>
+  <table class="grid">
+    <thead><tr><th class="r">Nº</th><th class="r">Área (ha)</th><th class="r">Score do modelo</th><th class="r">Estabilidade</th><th>Pontos de atenção na revisão</th></tr></thead>
+    <tbody>
+{{/-first}}
+      <tr><td class="r"><strong>{{number}}</strong></td><td class="r">{{areaHa}}</td><td class="r">{{modelScore}}</td><td class="r">{{stabilityScore}}</td><td>{{#hasFlags}}<span class="code">{{reviewFlags}}</span>{{/hasFlags}}{{^hasFlags}}-{{/hasFlags}}</td></tr>
+{{#-last}}
+    </tbody>
+  </table>
+  <p class="note">Pontos de atenção: touches_image_edge (encosta na borda da imagem, pode continuar fora dela), multipart (mais de uma parte), overlap_trimmed (cortado onde outro candidato melhor já cobria), clipped_by_aoi (cortado pelo limite da área), crosses_tile_border (atravessa a borda entre blocos da segmentação).</p>
+</div>
+{{/-last}}{{/fields.candidates}}
+{{#fields.ready}}{{^fields.hasCandidates}}
+<div class="section">
+  <p class="note">O modelo não encontrou nenhum candidato com área e qualidade suficientes nesta imagem.</p>
+</div>
+{{/fields.hasCandidates}}{{/fields.ready}}
+
+<div class="section">
+  <h2>Metodologia e limitações</h2>
+  <ul class="sources">
+    <li>Imagem: a cena Sentinel-2 L2A mais recente com poucas nuvens sobre a área (catálogo Earth Search, o mesmo do Satellite Hub), em cor verdadeira, com até 1024 pixels no lado maior.</li>
+    <li>Segmentação: pacote is-geo-sam do Skills Lab, com o modelo SAM 2.1 (Segment Anything, Meta, Apache-2.0) em modo automático, rodando em CPU. A imagem é dividida em blocos de 1024 pixels; as máscaras viram polígonos válidos, limpos num sistema métrico (UTM) e recortados na área.</li>
+    <li>Duplicatas (sobreposição alta com um candidato melhor) saem; sobreposições menores são cortadas do candidato de menor qualidade; candidatos vizinhos nunca são fundidos. Partes e buracos pequenos (menos de 0,5 ha) são removidos.</li>
+    <li>Score do modelo e estabilidade são as medidas de confiança do próprio SAM, de 0 a 1. Não são uma probabilidade de o polígono ser um talhão.</li>
+    <li>Com pixel de 10 m, divisas finas (estradas internas, carreadores, cercas) podem não aparecer, e talhões vizinhos com a mesma cobertura podem sair como um só candidato.</li>
+    <li>A mesma imagem não é segmentada de novo: um relatório posterior reaproveita o resultado guardado. Uma cena mais nova gera uma segmentação nova.</li>
+    <li>Área: {{#area.isCar}}geometria vigente do imóvel no CAR (SICAR, coletado pelo car-agent-app; informação autodeclaratória){{/area.isCar}}{{^area.isCar}}polígono informado por quem rodou o relatório, corrigido para geometria válida{{/area.isCar}}.</li>
+  </ul>
+</div>
