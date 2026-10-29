@@ -33,9 +33,17 @@ estão desenhados em [BLOCKS-FUTURO.md](BLOCKS-FUTURO.md).
 
 ## 2. Blocks do CAR (fonte: `apps/car-agent-app`, tabelas `gold.car_agent_app_*`)
 
-Todos recebem `codImovel` (string, obrigatório): o código do imóvel no SICAR
-(`UF-<IBGE>-<32 hex>`). Leem a **versão vigente** (`imovel_versao.valido_ate IS NULL`) e as
-**feições vigentes** (`feicao.valido_ate IS NULL`).
+Todos recebem `codImovel` (string, obrigatório), salvo `car-data-reference` e `car-in-area`: o
+código do imóvel no SICAR (`UF-<IBGE>-<32 hex>`). Leem a **versão vigente**
+(`imovel_versao.valido_ate IS NULL`) e as **feições vigentes** (`feicao.valido_ate IS NULL`).
+**Imóvel removido do SICAR** (`imovel.removido_em` preenchido): o loader fecha a versão vigente com
+`valido_ate = removido_em` na mesma carga, então os Blocks leem a **última versão**
+(`ORDER BY valido_de DESC LIMIT 1`, `CarTables.VERSION_IN_EFFECT`) e, por camada, o **último conjunto
+de feições**, salvo se ele foi fechado até o início dessa versão (camada já vazia;
+`CarTables.FEATURE_IN_EFFECT`). As feições de uma camada fecham na data de publicação do arquivo dela,
+que pode diferir de `removido_em`. Corrigido em 2026-10-29 (`car-property` 1.1.0,
+`car-property-geometry` 1.0.1, `car-environmental-layers` 1.1.0, `car-overlaps` 1.0.1, `car-history`
+1.1.0, `car-property-map` 1.0.1): antes, o imóvel removido saía como "não encontrado".
 
 ### `car-property` — Imóvel CAR
 
@@ -54,6 +62,10 @@ Todos recebem `codImovel` (string, obrigatório): o código do imóvel no SICAR
 | `updatedAt` | date | `imovel_versao.dat_atualizacao` |
 | `versionSince` | date | `imovel_versao.valido_de` |
 | `removedAt` | date, opcional | `imovel.removido_em` (null se o imóvel segue no SICAR) |
+| `removed` | boolean | `imovel.removido_em` não nulo (os dados são da última versão) |
+| `calculatedAreaHa` | number, opcional | `imovel_geometria.area_calc_ha` da geometria da versão lida |
+| `areaDifferencePct` | number, opcional | `(declarada - calculada) / calculada x 100`, 2 casas; nulo sem uma das duas |
+| `areaMismatch` | boolean | `abs(areaDifferencePct) > 5` (`CarPropertyBlock.AREA_MISMATCH_PCT`). Limiar de alerta, não critério legal |
 
 ### `car-property-geometry` — Geometria do imóvel
 
@@ -74,11 +86,17 @@ quando existir; senão, a soma dos temas. Nunca soma o agregado com as partes.
 
 | Output | Tipo | Conteúdo |
 |---|---|---|
-| `layers` | array | um item por camada presente, na ordem de `camada.ordem`: `{layer, layerName, declaredAreaHa, percentOfProperty, themes: [{theme, themeName, count, declaredAreaHa}]}` |
-| `summary` | object | `{propertyAreaHa, appHa, legalReserveHa, nativeVegetationHa, consolidatedHa, fallowHa, hydrographyHa, restrictedUseHa, administrativeEasementHa, appPercent, legalReservePercent, nativeVegetationPercent}`; camada ausente = 0 |
+| `layers` | array | um item por camada presente, na ordem de `camada.ordem`: `{layer, layerName, declaredAreaHa, areaSource, percentOfProperty, themes: [{theme, themeName, count, declaredAreaHa, areaSource}]}` |
+| `summary` | object | `{propertyAreaHa, appHa, legalReserveHa, nativeVegetationHa, consolidatedHa, fallowHa, hydrographyHa, restrictedUseHa, administrativeEasementHa, appPercent, legalReservePercent, nativeVegetationPercent, hydrographyCalculated}`; camada ausente = 0 |
 | `hasLegalReserve` | boolean | existe feição vigente de `RESERVA_LEGAL` |
 
 `propertyAreaHa` é a área declarada da versão vigente; percentuais com 2 casas.
+
+Feição sem `num_area` (todas as de `HIDROGRAFIA`) entra com `ST_Area(geom::geography) / 1e4` (1.1.0).
+`areaSource` diz de onde veio a área: `declared` (todas as feições declaram), `calculated` (nenhuma
+declara) ou `mixed`; na camada, considera só os temas que entram na área (o agregado, quando
+existe). `summary.hydrographyCalculated` é true quando a hidrografia tem parte calculada, para o
+template marcar "(calculada)". O nome `declaredAreaHa` foi mantido por compatibilidade.
 
 ### `car-overlaps` — Sobreposição com outros imóveis CAR
 
@@ -94,16 +112,21 @@ quando existir; senão, a soma dos temas. Nunca soma o agregado com as partes.
 | `totalOverlapHa` | number | soma das áreas de sobreposição par a par (pode contar a mesma área mais de uma vez) |
 | `truncated` | boolean | mais de 100 |
 
-Usa o índice GiST (`&&` + `ST_Intersects`), timeout próprio de 30 s.
+Usa o índice GiST (`&&` + `ST_Intersects`), timeout próprio de 30 s. Imóvel removido é comparado
+pela última geometria; os vizinhos são sempre vigentes.
 
 ### `car-history` — Histórico do cadastro
 
 | Output | Tipo | Conteúdo |
 |---|---|---|
-| `versions` | array | da mais antiga para a mais nova: `{validFrom, validTo, status, statusLabel, condition, declaredAreaHa, geometryChanged}` |
+| `versions` | array | da mais antiga para a mais nova: `{validFrom, validTo, status, statusLabel, condition, declaredAreaHa, calculatedAreaHa, areaChangeHa, areaChangePct, geometryChanged}` |
 | `count` | number | número de versões |
+| `removedAt` | date, opcional | `imovel.removido_em`; a última versão termina nessa data |
 
-`geometryChanged` = a versão aponta para uma geometria diferente da anterior.
+`geometryChanged` = a versão aponta para uma geometria diferente da anterior. `calculatedAreaHa` é
+`imovel_geometria.area_calc_ha` da `geometria_id` da versão. `areaChangeHa` / `areaChangePct`
+comparam com a versão **imediatamente anterior** (nulos na primeira; % nulo se a anterior for 0).
+Versão que só mudou atributos mantém a geometria: variação 0.
 
 ### `car-property-map` — Mapa do imóvel
 
@@ -122,6 +145,64 @@ vigentes por camada (cores fixas por camada, semitransparentes), os imóveis viz
 caixa do imóvel (só contorno, cinza), seta de norte, barra de escala e as coordenadas dos cantos.
 Geometrias simplificadas (`ST_SimplifyPreserveTopology`) na resolução da imagem. Sem rede, sem
 tiles: só os dados do banco, então o PDF fica autocontido.
+
+### `car-data-reference` — Data de referência da base SICAR
+
+| Input | Tipo | |
+|---|---|---|
+| `uf` | string, opcional | UF; informe este **ou** `codImovel` |
+| `codImovel` | string, opcional | a UF sai das duas primeiras letras; com os dois, precisam concordar |
+
+| Output | Tipo | Conteúdo |
+|---|---|---|
+| `uf` | string | UF lida |
+| `layers` | array | toda camada de `camada`, por `ordem`: `{layer, layerLabel, loaded, publishedAt, loadedAt}`; datas nulas se a camada nunca foi carregada |
+| `latestPublishedAt` / `oldestPublishedAt` | date, opcionais | maior / menor `publishedAt` entre as camadas carregadas |
+| `hasData` | boolean | alguma camada carregada |
+| `complete` | boolean | todas as camadas carregadas |
+
+Por camada, a última carga com `carga.status = 'concluida'` da UF (`data_publicacao` = data da
+publicação no SICAR; `concluida_em` = `loadedAt`, datetime). Cargas `carregando`/`falhou` não
+contam. A UF é a do arquivo do SICAR: imóveis de município de divisa com código de outra UF vêm no
+arquivo vizinho.
+
+### `car-quarantine` — Registros descartados na carga
+
+| Output | Tipo | Conteúdo |
+|---|---|---|
+| `items` | array | até 100, publicação mais recente primeiro: `{reason, reasonLabel, layer, layerLabel, detail, publishedAt, recordedAt}` |
+| `count` | number | total de registros descartados do código |
+| `truncated` | boolean | mais de 100 |
+| `hasItems` | boolean | algum registro descartado |
+| `byReason` | array | `{reason, reasonLabel, count, lastPublishedAt}`, mais frequente primeiro |
+
+Lê `descartado` por `cod_imovel` (`reason` = `duplicado`, `geometria_invalida` ou `orfao`;
+`detail` = `descartado.detalhe`, ex.: `kept: AT`; `publishedAt` = `carga.data_publicacao`). Não
+falha para código desconhecido (órfão é justamente imóvel não carregado). O loader descarta de novo
+a cada publicação, então `count` cresce com o número de cargas. Duplicado: o registro mantido (em
+geral o ativo) é o que os outros Blocks mostram.
+
+### `car-in-area` — Imóveis CAR numa área
+
+| Input | Tipo | |
+|---|---|---|
+| `geometry` | geometry | GeoJSON em lon/lat (Polygon, MultiPolygon, Feature, FeatureCollection), ex.: `report-area.geometry` |
+| `limit` | number, opcional | default 50 (1 a 500) |
+| `minOverlapHa` | number, opcional | default 0.01 |
+
+| Output | Tipo | Conteúdo |
+|---|---|---|
+| `properties` | array | maior sobreposição primeiro: `{codImovel, uf, municipality, statusLabel, typeLabel, declaredAreaHa, overlapHa, overlapPctOfArea, overlapPctOfProperty}` |
+| `count` / `truncated` / `hasProperties` | number / boolean / boolean | imóveis vigentes acima do mínimo; cortou no `limit`; algum imóvel |
+| `areaHa` | number | área do polígono (geodésica) |
+| `totalOverlapHa` | number | soma das sobreposições (terra declarada por dois imóveis conta duas vezes) |
+| `coveredHa` / `coveragePct` | number | parte da área dentro de algum CAR, com `ST_Union` das interseções (conta uma vez) |
+
+Polígono limpo como no `report-area` (`ST_MakeValid`, só polígonos, `ST_UnaryUnion`). Candidatos
+pelo índice GiST (`&&` + `ST_Intersects`) e só a geometria da versão vigente; imóveis removidos não
+entram. `overlapPctOfProperty` usa a área calculada do imóvel. A cobertura não depende do `limit`.
+Timeout de 30 s: pensado para áreas de fazenda a município. Responde, para um polígono ou dado GIS,
+"quais imóveis do CAR estão aqui".
 
 ### `report-area` — Área do relatório (CAR, polígono ou dado GIS) — 1.1.0
 
@@ -171,8 +252,8 @@ coordenadas fora de ±180/±90 (UTM, por exemplo). No template, as seções do C
 - **Outputs que podem vir nulos são opcionais** no contrato real (`municipality`, rótulos, `condition`,
   `fiscalModules`, `declaredAreaHa`, datas, `removedAt`): o executor recusa nulo em output obrigatório.
   O template imprime vazio para nulo.
-- **Hidrografia não tem `num_area` no SICAR** (nulo nas amostras): entra como 0 ha. Pendente decidir
-  se cai para a área calculada da geometria, marcada como "calculada".
+- **Hidrografia não tem `num_area` no SICAR**: usa a área calculada da geometria, marcada
+  `areaSource: calculated` (`car-environmental-layers` 1.1.0).
 - **Temas de APP se sobrepõem** (APP em vegetação nativa dentro de APP de rio): por isso a camada usa
   o tema agregado (`APP_TOTAL`) quando existe. Só APPS e SERVIDAO_ADMINISTRATIVA têm agregado.
 - `car-overlaps` calcula o percentual sobre a **área calculada** (coerente com a sobreposição, que é
@@ -184,7 +265,8 @@ coordenadas fora de ±180/±90 (UTM, por exemplo). No template, as seções do C
 - Temas dentro de uma camada saem ordenados pelo código.
 - No dev, BA não tem feições de RESERVA_LEGAL (as amostras com reserva são do AC) e nenhum imóvel tem
   `removido_em`; nenhuma amostra tem mais de uma versão. `geometryChanged = true` e `removedAt` só
-  estão cobertos por teste unitário e pelos dublês.
+  estão cobertos por teste unitário e pelos dublês. Imóvel removido, troca de conjunto de feições e
+  cargas falhas estão cobertos pelo `CarBlocksSyntheticDbTest` (PostGIS descartável, `REPORTS_TEST_DB_*`).
 - Tempos no dev, por imóvel: dados 45 a 70 ms por Block, mapa 170 a 280 ms; laudo inteiro ~0,5 s.
 
 ## 3. Blocks do BR Geo (fonte: `apps/br-geo-agent-app`, tabelas `gold.br_geo_agent_app_*`)
@@ -323,6 +405,10 @@ gerado com GDAL 3.8). Se as tabelas já existem no banco, o teste é pulado em v
 
 ## 4. Blocks do Satellite Hub (fonte: agent app `satellite-hub`, tabelas `gold.satellite_hub_*`)
 
+No gold (e no catálogo) só estão `satellite_hub_areas`, `satellite_hub_analytics_indices` e
+`satellite_hub_analytics_values`; cenas, assets e jobs ficam no schema `apps`, fora do catálogo, e
+nenhum Block os lê.
+
 ### `sathub-index-series` — Série de índice de vegetação
 
 Lê o que o Satellite Hub **já calculou e publicou** no gold (estatísticas por imagem e por área
@@ -357,7 +443,99 @@ No dev (2026-10-26), as 23 mil áreas do Satellite Hub ficam no norte da França
 isso nenhum imóvel CAR as cruza e o teste usa `areaId = 16991` ou um quadrado lá. A série tem 41
 imagens de 2026-04 a 2026-10.
 
+### `sathub-index-series` — mudança na 1.1.0
+
+O índice não é mais filtrado por `enabled`: um índice desabilitado mostra a série que o Satellite Hub
+calculou enquanto estava ligado, com `indexEnabled = false` (e `index.enabled`). Desabilitado **sem
+dados** para as áreas no período continua sendo falha, para um slug errado não virar série vazia.
+Os índices de Landsat e Sentinel-1 entram desabilitados na instalação do Satellite Hub, e o backfill
+padrão dele é de 180 dias (`SATHUB_BACKFILL_DAYS`): histórico longo de Landsat exige rodar o catálogo
+do Satellite Hub em modo período.
+
+| Output novo | Tipo | Conteúdo |
+|---|---|---|
+| `indexEnabled` | boolean | o índice está habilitado no Satellite Hub |
+
+### `sathub-index-compare` — Comparação de índices entre satélites
+
+Séries de vários índices da mesma área lado a lado, em geral um por satélite (Sentinel-2, Landsat 8/9,
+Sentinel-1), com o quanto concordam os que estão na mesma escala. Mesma leitura do
+`sathub-index-series` (áreas, média ponderada por pixels válidos, `minValidPercent`), código em
+`blocks.sathub.SatelliteHubIndexCompareBlock` + `SatelliteHubSeriesData` + `SeriesMath`.
+
+| Input | Tipo | |
+|---|---|---|
+| `geometry` / `areaId` | geometry / number, opcionais | como no `sathub-index-series` (um dos dois) |
+| `indices` | string, opcional | slugs separados por vírgula, até 6; default `ndvi,ndvi_landsat,rvi_s1`, dos quais ficam os que existem e têm dados (lista explícita: slug desconhecido é falha) |
+| `days` | number, opcional | tamanho do período, contado de `to` ou, sem ele, da imagem mais recente **de qualquer um** dos índices; default 365 |
+| `from` / `to` | date, opcionais | como no `sathub-index-series` |
+| `minValidPercent` | number, opcional | default 50 |
+| `maxDayGap` | number, opcional | duas imagens de índices diferentes contam como a mesma data se estiverem até N dias distantes; default 3 |
+
+| Output | Tipo | Conteúdo |
+|---|---|---|
+| `series` | array | um por índice com dados, na ordem pedida: `{index {slug, name, description, collection, collectionName, enabled}, points [{date, mean, p10, p90}], count, latest {date, mean}, periodMean, rightAxis}` |
+| `seriesCount` / `hasSeries` | number / boolean | índices com dados no período |
+| `withoutData` | array | slugs pedidos que existem mas não têm imagem no período |
+| `pairs` | array | pares na mesma escala: `{a, b, aName, bName, matchedDates, meanDiff, correlation}` |
+| `areas` / `areaCount` / `truncated` | | como no `sathub-index-series` |
+| `chart` | string | PNG `data:` 900 x 320, uma linha por índice, legenda no topo; outra escala no eixo da direita |
+
+- **Escala** = `clamp_min..clamp_max` do índice no Satellite Hub. A faixa mais comum vai para o eixo
+  esquerdo e as outras para o direito. Só índices com a mesma faixa formam par: RVI (radar, 0 a 4) x
+  óptico (-1 a 1) fica fora, por ser outra física e outra escala. Índice sem clamp é desenhado mas não
+  entra em par.
+- **Datas casadas:** para cada imagem de `a`, em ordem, a imagem ainda livre de `b` mais próxima dentro
+  de `maxDayGap` dias; cada imagem é usada uma vez. `meanDiff` é a média de `a - b` (viés) e
+  `correlation` o r de Pearson (nulo com menos de 3 datas ou com um lado constante).
+- Sentinel-2 (10 m) x Landsat (30 m): em talhão pequeno, a borda misturada do Landsat aparece como
+  viés. Uma queda pontual vista por um satélite e não pelo outro derruba a correlação.
+
+### `sathub-index-anomaly` — Quedas do índice
+
+Quedas bruscas de um índice (NDVI por padrão) na série do Satellite Hub: cada imagem é comparada com
+a mediana das imagens anteriores. Responde "caiu, quando, e está caído agora?".
+
+| Input | Tipo | |
+|---|---|---|
+| `geometry` / `areaId` | geometry / number, opcionais | como no `sathub-index-series` |
+| `index` | string, opcional | default `ndvi` |
+| `days`, `from`, `to`, `minValidPercent` | | como no `sathub-index-series` (definem o período **mostrado**) |
+| `dropThreshold` | number, opcional | queda absoluta, em unidades do índice; default 0,15 |
+| `baselineObservations` | number, opcional | tamanho da mediana móvel, 1 a 30; default 5 |
+
+| Output | Tipo | Conteúdo |
+|---|---|---|
+| `index` | object | `{slug, name, description, collection, collectionName, enabled}` |
+| `points` / `count` | array / number | `{date, value, baseline, delta, isDrop}`; `baseline`/`delta` nulos enquanto não há imagens anteriores suficientes |
+| `events` / `eventCount` / `hasDrops` | array / number / boolean | as quedas do período: `{date, value, baseline, delta}` |
+| `lastDropDate` | date, opcional | última queda do período |
+| `latestStatus` | string | `normal`, `drop` (a última imagem é queda) ou `no-data` |
+| `latestDate`, `latestValue`, `latestDelta` | opcionais | a última imagem do período |
+| `seasonalBaseline` / `hasSeasonalBaseline` | object, opcional / boolean | com 2 anos ou mais de histórico: `{month, years [{year, mean}], mean, observations, latestValue, anomaly}` |
+| `areas` / `areaCount` / `truncated` | | como no `sathub-index-series` |
+| `chart` | string | PNG `data:` 900 x 320: valor em linha, linha de base tracejada, quedas circuladas em vermelho |
+
+- Lê **todo o histórico até `to`**, para a linha de base já estar formada no início do período.
+- Linha de base = mediana das `baselineObservations` imagens **anteriores** (no mínimo 3, ou todas se
+  `baselineObservations` < 3); a própria imagem nunca entra. `delta = value - baseline`; queda quando
+  `delta <= -dropThreshold`. Depois de uma mudança duradoura (colheita), a linha de base acompanha em
+  cerca de metade de `baselineObservations` imagens e as seguintes deixam de ser queda.
+- **Baseline sazonal:** quando a primeira observação está pelo menos 2 anos antes da última imagem do
+  período, faz a média das observações do mesmo mês nos anos anteriores e dá
+  `anomaly = latestValue - mean`.
+- Queda não diz o porquê: colheita e roçada parecem desmatamento, fogo ou estresse; nuvem ou névoa
+  não mascarada cria queda de uma imagem só. O limiar é absoluto; no `rvi_s1` (0 a 4), aumente-o.
+
+Teste: `SatelliteHubSyntheticDbTest` roda os Blocks do Satellite Hub contra tabelas com o DDL do
+script de analytics num PostGIS descartável (`REPORTS_TEST_DB_*`); `SeriesMathTest` cobre as funções puras.
+
 ### `sathub-latest-image` — Última imagem Sentinel-2 da área
+
+**1.0.1:** `display_min`/`display_max` só existem quando o app Satellite Hub sobe (o script não as
+cria). O Block as lê por `to_jsonb(linha) ->> 'display_min'` (nulas se a coluna não existe, caindo na
+faixa padrão) e elas saíram do `DataRequirement`: o Block aparece também numa instância onde só os
+scripts rodaram.
 
 O Satellite Hub só processa as áreas cadastradas nele, em agenda, e guarda estatísticas, não
 imagens. Este Block vai **à mesma fonte que o Satellite Hub usa** (STAC Earth Search da Element 84 +
