@@ -114,8 +114,10 @@ Os prontos 2 a 12 usam o CSS comum `report-base.css` (o 1 mantém o seu). Um pro
 **todos** os seus Blocks estão utilizáveis, inclusive os opcionais. Por isso os prontos só do CAR (1)
 e só do BR Geo (3) continuam existindo: rodam onde só há uma das fontes.
 
-**CAR ou polígono.** Os prontos 2, 5 a 10 e 12 têm os inputs opcionais `codImovel`, `area` (geometry) e
-`areaName`; quem roda preenche o código **ou** o polígono. O Block `report-area` resolve a área, os
+**CAR, polígono ou dado GIS.** Os prontos 2, 5 a 10 e 12 têm os inputs opcionais `codImovel`, `area`
+(geometry), `areaName`, `gisDataset` (`"picker": "gis-dataset"`) e `gisFeature` (`"picker": "gis-feature"`);
+quem roda preenche o código, o polígono **ou** escolhe um dado GIS do Data Library (e, se quiser, uma
+feição dele). O template diz de onde veio a área com `{{#area.isGis}}`. O Block `report-area` resolve a área, os
 Blocks do CAR são nós opcionais ligados a `area.codImovel` (pulados para polígono) e o template mostra
 as seções do CAR em `{{#area.isCar}}`. Município e UF, para ZARC, CONAB e PAM, são os do município
 com a maior parte da área (`municipalities.mainIbgeCode`/`mainUf`).

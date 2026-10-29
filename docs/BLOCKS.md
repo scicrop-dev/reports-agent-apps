@@ -123,28 +123,46 @@ caixa do imóvel (só contorno, cinza), seta de norte, barra de escala e as coor
 Geometrias simplificadas (`ST_SimplifyPreserveTopology`) na resolução da imagem. Sem rede, sem
 tiles: só os dados do banco, então o PDF fica autocontido.
 
-### `report-area` — Área do relatório (CAR ou polígono)
+### `report-area` — Área do relatório (CAR, polígono ou dado GIS) — 1.1.0
 
-Começa um relatório que serve tanto para um imóvel do CAR quanto para qualquer polígono. Código:
-`blocks.car.ReportAreaBlock`. Sem `DataRequirement` (com polígono só precisa do PostGIS); um código
-CAR numa instância sem os dados do car-agent-app falha dizendo isso.
+Começa um relatório que serve para um imóvel do CAR, para qualquer polígono e para um dado GIS do
+Data Library (aba GIS, infinitestack-back#1248). Código: `blocks.car.ReportAreaBlock` +
+`blocks.gis.GisAreas`. Sem `DataRequirement` (com polígono só precisa do PostGIS); um código CAR numa
+instância sem os dados do car-agent-app, ou um dado GIS numa instância sem `bronze.is_geo_ref*`,
+falha dizendo isso.
 
 | Input | Tipo | |
 |---|---|---|
-| `codImovel` | string, opcional | código do SICAR; informe este **ou** `geometry` |
+| `codImovel` | string, opcional | código do SICAR; informe **um** de `codImovel`, `geometry` e `gisDataset` |
 | `geometry` | geometry, opcional | GeoJSON em lon/lat (SIRGAS 2000 ou WGS 84): Polygon, MultiPolygon, Feature ou FeatureCollection |
-| `name` | string, opcional | nome para mostrar quando é polígono |
+| `gisDataset` | string, opcional | conjunto GIS do Data Library, pelo `geo_id` ou pelo `geo_name` |
+| `gisFeature` | number, opcional | só esta feição (`geo_data_id`) do conjunto; padrão: todos os polígonos dele |
+| `name` | string, opcional | nome para mostrar quando é polígono ou dado GIS |
 
 | Output | Tipo | Conteúdo |
 |---|---|---|
-| `source` / `isCar` | string / boolean | `car` ou `polygon` |
-| `codImovel` | string | o código; nulo para polígono. Ligue nos Blocks do CAR e marque esses nós como opcionais (ver ARCHITECTURE §47) |
-| `label` | string | o código CAR, o `name` ou "Área informada" |
+| `source` / `isCar` / `isGis` | string / boolean / boolean | `car`, `polygon` ou `gis` |
+| `codImovel` | string | o código; nulo para polígono e GIS. Ligue nos Blocks do CAR e marque esses nós como opcionais (ver ARCHITECTURE §47) |
+| `label` | string | o código CAR, o `name`, a feição GIS ("Talhão 3 (Fazendas)"), o nome do conjunto ou "Área informada" |
+| `gisDatasetId`, `gisDatasetName`, `gisFeatureId`, `gisPolygons` | number / string / number / number | o conjunto e a feição GIS usados e quantos polígonos foram unidos; nulos fora do GIS |
 | `geometry`, `areaHa`, `centroidLat`, `centroidLon`, `bbox`, `vertices` | | como em `car-property-geometry` |
+
+**Dado GIS.** Lê os polígonos (`GeometryType` POLYGON/MULTIPOLYGON) de `bronze.is_geo_ref_data` do
+conjunto, ou só a feição pedida; pontos e linhas ficam de fora. Daí em diante é o caminho do polígono
+(geometria guardada em WGS 84 e lida como SIRGAS 2000, menos de 1 m de diferença). Conjunto sem
+polígono, feição que não é polígono e conjunto com mais de 5.000 polígonos sem feição escolhida
+falham com mensagem. O nome da feição sai do primeiro atributo preenchido entre `name`, `nome`,
+`label`, `title`, `titulo`, `fazenda`, `farm`, `talhao`, `field`, `parcel`, `cod_imovel`, `codigo`,
+`code`, `id` (qualquer caixa).
+
+**Formulário.** Um input de relatório pode declarar `"picker": "gis-dataset"` (lista os conjuntos,
+pela rota `GET {base}/api/gis/datasets`) ou `"picker": "gis-feature"` (lista as feições do conjunto
+escolhido, `GET {base}/api/gis/datasets/{id}/features`, até 1.000). Sem as tabelas GIS, a lista diz
+que não há dado GIS. As listas leem pelo pool somente leitura dos Blocks.
 
 Com código, lê a geometria vigente como o `car-property-geometry`. Com polígono: `ST_MakeValid`, só
 a parte poligonal, partes sobrepostas unidas (`ST_UnaryUnion`); a FeatureCollection vira uma
-GeometryCollection das suas geometrias. Falha com os dois ou nenhum, com polígono sem área e com
+GeometryCollection das suas geometrias. Falha com mais de uma origem ou nenhuma, com polígono sem área e com
 coordenadas fora de ±180/±90 (UTM, por exemplo). No template, as seções do CAR ficam dentro de
 `{{#area.isCar}}...{{/area.isCar}}`.
 

@@ -204,3 +204,28 @@ Block que **escreve** no disco do host; o resto do app só lê.
   até uma imagem nova aparecer.
 - Um `RUNNING` ou um arquivo no staging com mais de 30 min é dado como morto (backend reiniciado) e o
   Block pede de novo.
+
+## 4. Dados GIS do Data Library (área do relatório)
+
+### 4.1 Como funciona (feito em 2026-10-29)
+
+A aba GIS do Data Library (infinitestack-back#1248) grava cada shapefile, GeoJSON ou desenho em
+`bronze.is_geo_ref` (um conjunto: `geo_id`, `geo_name`, `geo_attributes` com categoria, descrição,
+contagem e área) e `bronze.is_geo_ref_data` (as feições: `geo_data` em EPSG:4326, qualquer tipo de
+geometria, `geo_data_attributes`). O catálogo as mostra na source `gis:infinitestack`.
+
+O REPORTS lê essas tabelas pelo pool somente leitura dos Blocks (`blocks.gis.GisAreas`):
+
+- `GET {base}/api/gis/datasets` e `GET {base}/api/gis/datasets/{id}/features` alimentam os inputs com
+  `picker` `gis-dataset` / `gis-feature` do formulário de execução;
+- o Block `report-area` (1.1.0) recebe `gisDataset` (+ `gisFeature`) e usa os polígonos do conjunto,
+  ou da feição, como a área do relatório (BLOCKS.md, `report-area`).
+
+### 4.2 Limites
+
+- Não há ACL por conjunto: quem roda relatórios vê todos os conjuntos GIS da instância, como no
+  Data Library.
+- Pontos e linhas não viram área; um conjunto com mais de 5.000 polígonos exige escolher a feição.
+- Sem `bronze.is_geo_ref*` (ninguém usou a aba GIS), a lista vem vazia e o `report-area` com
+  `gisDataset` falha dizendo isso. O `report-area` não declara `DataRequirement` dessas tabelas, para
+  continuar liberado em instâncias sem GIS.

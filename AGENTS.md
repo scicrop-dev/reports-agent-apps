@@ -91,8 +91,8 @@ mvn -q test                  # testes (nem todo app tem; ver src/test)
   formato e regras em [docs/READY-MADE-REPORTS.md](docs/READY-MADE-REPORTS.md). `mvn -q test` valida
   todos contra os contratos dos Blocks e gera HTML/PDF em `reports/target/ready-made/` para conferir.
   O conteúdo do relatório (template, nome, descrição) fica no idioma do relatório, não em inglês.
-- **Relatório "CAR ou polígono":** comece o Flow pelo Block `report-area` (inputs `codImovel`, `area`,
-  `areaName`), ligue os Blocks do CAR em `area.codImovel` e marque-os `"optional": true`; seções do CAR
+- **Relatório "CAR, polígono ou GIS":** comece o Flow pelo Block `report-area` (inputs `codImovel`, `area`,
+  `areaName`, `gisDataset` com `"picker": "gis-dataset"` e `gisFeature` com `"picker": "gis-feature"`), ligue os Blocks do CAR em `area.codImovel` e marque-os `"optional": true`; seções do CAR
   no template ficam em `{{#area.isCar}}`. Nó opcional é pulado sem input e não derruba a execução se
   falhar (outputs nulos); use isso para fontes de rede ou dado recente (ARCHITECTURE §47.5.1).
 - Template novo além de `isp-index`/`isp-status` não existe: a UI é uma página só, com JS em
