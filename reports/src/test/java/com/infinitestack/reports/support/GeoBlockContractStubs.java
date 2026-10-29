@@ -161,7 +161,7 @@ public final class GeoBlockContractStubs {
         if (!bare) {
             for (int i = 0; i < 30; i++, day = day.plusDays(1)) {
                 days.add(map("date", day.toString(), "t2m", 27.4, "t2mMax", 35.1, "t2mMin", 19.8, "rh2m", 58.2, "ws2m", 1.9,
-                        "radiation", 21.3, "precipitation", i % 4 == 0 ? 12.0 : 0.0));
+                        "radiation", 21.3, "precipitation", i % 4 == 0 ? 12.0 : 0.0, "et0Mm", i >= 28 ? null : 5.12));
             }
         }
         Map<String, Object> out = map("found", !bare, "message", bare ? "BR Weather has no NASA POWER data for this area" : null,
@@ -171,7 +171,8 @@ public final class GeoBlockContractStubs {
         out.putAll(map("meanT2m", bare ? null : 27.4, "maxT2m", bare ? null : 38.2, "maxT2mDate", bare ? null : "2026-10-08",
                 "minT2m", bare ? null : 16.1, "minT2mDate", bare ? null : "2026-09-30", "meanRh2m", bare ? null : 58.2,
                 "meanWs2m", bare ? null : 1.9, "meanRadiation", bare ? null : 21.3, "powerPrecipitationMm", bare ? null : 96.0,
-                "degreeDays", bare ? null : 522.0, "hotDays", bare ? 0 : 9, "coldNights", 0, "chart", tinyPng(0xc62828)));
+                "degreeDays", bare ? null : 522.0, "hotDays", bare ? 0 : 9, "coldNights", 0, "totalEt0Mm", bare ? null : 143.4,
+                "meanEt0Mm", bare ? null : 5.12, "et0Days", bare ? 0 : 28, "chart", tinyPng(0xc62828)));
         return out;
     }
 
@@ -193,7 +194,8 @@ public final class GeoBlockContractStubs {
                 "wholePixels", true, "days", days, "daysWithData", days.size(), "missingDays", bare ? 30 : 0);
         out.putAll(map("totalMm", bare ? null : 148.2, "meanDailyMm", bare ? null : 4.94, "maxDayMm", bare ? null : 18.4,
                 "maxDayDate", bare ? null : "2026-10-09", "rainyDays", bare ? 0 : 18, "longestDrySpell", bare ? 0 : 12,
-                "preliminaryDays", bare ? 0 : 4, "chart", chart));
+                "preliminaryDays", bare ? 0 : 4, "heavyRainDays", 0, "rx1dayMm", bare ? null : 18.4, "rx5dayMm", bare ? null : 43.0,
+                "drySpells10", bare ? 0 : 1, "drySpells15", 0, "chart", chart));
         return out;
     }
 

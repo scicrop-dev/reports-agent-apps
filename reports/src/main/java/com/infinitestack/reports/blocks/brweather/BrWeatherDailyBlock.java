@@ -1,10 +1,7 @@
 package com.infinitestack.reports.blocks.brweather;
 
-import static com.infinitestack.reports.blocks.brweather.BrWeatherTables.INPUT_CTE;
 import static com.infinitestack.reports.blocks.brweather.BrWeatherTables.POWER_CELL;
 import static com.infinitestack.reports.blocks.brweather.BrWeatherTables.POWER_DAILY;
-import static com.infinitestack.reports.blocks.brweather.BrWeatherTables.Q_POWER_CELL;
-import static com.infinitestack.reports.blocks.brweather.BrWeatherTables.Q_POWER_DAILY;
 import static com.infinitestack.reports.blocks.brweather.BrWeatherTables.requirement;
 import static com.infinitestack.reports.blocks.brweather.BrWeatherTables.round;
 
@@ -14,7 +11,6 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Base64;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,39 +37,12 @@ public class BrWeatherDailyBlock implements ReportBlock {
 
     static final int DEFAULT_DAYS = 30;
     static final int MAX_DAYS = 366;
-    static final int MAX_CELLS = 60;
-    /** Degrees: an area between cells (a point on a border) takes the nearest cell up to this far. */
-    static final double NEAREST_DEGREES = 1.0;
     static final double GDD_BASE = 10;
     static final double HOT_DAY = 35;
     static final double COLD_NIGHT = 3;
     static final int CHART_WIDTH = 900;
     static final int CHART_HEIGHT = 300;
     static final Duration QUERY_TIMEOUT = Duration.ofSeconds(25);
-
-    static final String CELLS_SQL = "WITH " + INPUT_CTE + ","
-            + " hit AS (SELECT c.lat, c.lon, c.elevation_m,"
-            + " ST_Area(ST_Intersection(ST_MakeValid(c.geom), input.geom)::geography) AS weight"
-            + " FROM " + Q_POWER_CELL + " c, input WHERE c.valid_to IS NULL AND ST_Intersects(c.geom, input.geom))"
-            + " SELECT lat, lon, elevation_m, weight, false AS nearest FROM hit"
-            + " UNION ALL SELECT * FROM (SELECT c.lat, c.lon, c.elevation_m, 1.0::double precision, true"
-            + " FROM " + Q_POWER_CELL + " c, input WHERE c.valid_to IS NULL AND NOT EXISTS (SELECT 1 FROM hit)"
-            + " AND ST_DWithin(c.geom, input.geom, " + NEAREST_DEGREES + ")"
-            + " ORDER BY c.geom <-> ST_Centroid(input.geom) LIMIT 1) n"
-            + " ORDER BY weight DESC, lat, lon";
-
-    /** Columns of the daily table and the output name of each. */
-    static final Map<String, String> PARAMETERS = linked(
-            "t2m", "t2m", "t2m_max", "t2mMax", "t2m_min", "t2mMin", "rh2m", "rh2m", "ws2m", "ws2m",
-            "allsky_sfc_sw_dwn", "radiation", "prectotcorr", "precipitation");
-
-    /** {@code %s}: the VALUES rows of the cells, then the weighted means. */
-    static final String DAILY_SQL = "WITH cells(lat, lon, weight) AS (VALUES %s)"
-            + " SELECT d.day%s FROM " + Q_POWER_DAILY + " d JOIN cells c ON d.lat = c.lat AND d.lon = c.lon"
-            + " WHERE d.valid_to IS NULL AND d.day BETWEEN ? AND ? GROUP BY d.day ORDER BY d.day";
-
-    static final String LATEST_SQL = "WITH cells(lat, lon, weight) AS (VALUES %s)"
-            + " SELECT max(d.day) FROM " + Q_POWER_DAILY + " d JOIN cells c ON d.lat = c.lat AND d.lon = c.lon WHERE d.valid_to IS NULL";
 
     private final BlockQueries queries;
     private final IndexSeriesChart chart = new IndexSeriesChart(new Color(0xC62828), "%.0f");
@@ -86,7 +55,7 @@ public class BrWeatherDailyBlock implements ReportBlock {
     public BlockDefinition definition() {
         return new BlockDefinition("brweather-daily-weather", "Daily weather (NASA POWER)",
                 "NASA POWER daily temperature, humidity, wind and radiation over an area, with a summary of the period and a temperature chart",
-                "1.0.0",
+                "1.1.0",
                 List.of(
                         BlockPort.required("geometry", DataType.GEOMETRY,
                                 "area, GeoJSON in SIRGAS 2000 (SRID 4674); connect car-property-geometry.geometry"),
@@ -102,8 +71,8 @@ public class BrWeatherDailyBlock implements ReportBlock {
                         BlockPort.required("cells", DataType.ARRAY, "POWER cells used: {lat, lon, elevationM, weightPercent} (centre of the cell)"),
                         BlockPort.required("nearestCell", DataType.BOOLEAN, "the area touches no cell and the nearest one was used"),
                         BlockPort.required("days", DataType.ARRAY,
-                                "one per day, oldest first: {date, t2m, t2mMax, t2mMin, rh2m, ws2m, radiation, precipitation}"
-                                        + " (C, C, C, %, m/s, MJ/m2/day, mm)"),
+                                "one per day, oldest first: {date, t2m, t2mMax, t2mMin, rh2m, ws2m, radiation, precipitation, et0Mm}"
+                                        + " (C, C, C, %, m/s, MJ/m2/day, mm, mm); et0Mm null when an input of the day is missing"),
                         BlockPort.required("daysWithData", DataType.NUMBER, "days in the series"),
                         BlockPort.optional("meanT2m", DataType.NUMBER, "mean temperature of the period, C"),
                         BlockPort.optional("maxT2m", DataType.NUMBER, "highest daily maximum, C"),
@@ -118,6 +87,10 @@ public class BrWeatherDailyBlock implements ReportBlock {
                         BlockPort.optional("degreeDays", DataType.NUMBER, "growing degree days, base 10 C, sum of max(0, mean - 10)"),
                         BlockPort.required("hotDays", DataType.NUMBER, "days with maximum of 35 C or more"),
                         BlockPort.required("coldNights", DataType.NUMBER, "days with minimum of 3 C or less (frost risk)"),
+                        BlockPort.optional("totalEt0Mm", DataType.NUMBER,
+                                "reference evapotranspiration (FAO-56 Penman-Monteith) summed over the days that have it, mm"),
+                        BlockPort.optional("meanEt0Mm", DataType.NUMBER, "mean daily ET0 over the days that have it, mm/day"),
+                        BlockPort.required("et0Days", DataType.NUMBER, "days with ET0 (the last days may lack radiation)"),
                         BlockPort.required("chart", DataType.STRING,
                                 "PNG chart of the daily mean temperature with the minimum to maximum band, as a data:image/png;base64 URL")),
                 List.of(
@@ -131,12 +104,14 @@ public class BrWeatherDailyBlock implements ReportBlock {
     public BlockDocs docs() {
         return new BlockDocs("BR Weather",
                 "Shows the weather of an area day by day (temperature, humidity, wind, solar radiation) from NASA POWER, "
-                        + "with a summary of the period: means, extremes, degree days, hot days and cold nights.",
+                        + "with a summary of the period: means, extremes, degree days, hot days, cold nights and the reference evapotranspiration (ET0).",
                 List.of(
                         "Finds the NASA POWER cells (0.5 x 0.625 degree, about 55 x 65 km) that touch the area; an area on no cell takes the nearest one.",
                         "Weights each cell by the part of the area inside it.",
                         "Takes the period from 'from' to 'to', or the last 'days' days up to the latest day BR Weather loaded.",
-                        "Averages each day over the cells, sums up the period and draws the temperature chart."),
+                        "Averages each day over the cells, sums up the period and draws the temperature chart.",
+                        "ET0 of each day: FAO-56 Penman-Monteith (grass reference) from the day's maximum and minimum temperature, "
+                                + "mean relative humidity, wind at 2 m and solar radiation, with the weighted latitude and elevation of the cells."),
                 List.of(
                         "geometry: connect car-property-geometry.geometry.",
                         "from / to: report inputs to follow a season (sowing to harvest); leave them empty for the last 30 days.",
@@ -145,7 +120,9 @@ public class BrWeatherDailyBlock implements ReportBlock {
                         "A cell is tens of kilometres wide: it describes the region of the area, not the field (relief and water bodies are smoothed out).",
                         "NASA POWER is a model reanalysis (MERRA-2, radiation from CERES), not a station; the last days are revised for about a month.",
                         "Days are in local solar time. Radiation of the most recent days may still be missing.",
-                        "Rain here is MERRA-2 and only a check: the rain of a report comes from brweather-rainfall (CHIRPS)."),
+                        "Rain here is MERRA-2 and only a check: the rain of a report comes from brweather-rainfall (CHIRPS).",
+                        "ET0 uses the daily mean humidity (FAO-56 eq. 19, POWER has no daily RH max/min) and is null on a day without "
+                                + "one of its inputs (usually the radiation of the last 1 or 2 days); totals and means count only the days with ET0 (et0Days)."),
                 "NASA POWER (NASA Langley, community AG), loaded by BR Weather into gold.br_weather_agent_app_nasa_power_daily",
                 "{{#<node>.found}}<img src=\"{{<node>.chart}}\"> De {{<node>.from}} a {{<node>.to}}: média {{<node>.meanT2m}} C,"
                         + " máxima {{<node>.maxT2m}} C em {{<node>.maxT2mDate}}{{/<node>.found}}");
@@ -159,59 +136,25 @@ public class BrWeatherDailyBlock implements ReportBlock {
         int days = inputs.get("days") instanceof Number n ? Math.max(1, Math.min(MAX_DAYS, n.intValue())) : DEFAULT_DAYS;
 
         return queries.read(QUERY_TIMEOUT, jdbc -> {
-            List<Map<String, Object>> cellRows = jdbc.queryForList(CELLS_SQL, geoJson);
-            if (cellRows.isEmpty()) return notFound("the area is outside the NASA POWER cells BR Weather loaded (Brazil)", List.of(), false);
-            if (cellRows.size() > MAX_CELLS) {
-                throw new IllegalArgumentException("the area touches " + cellRows.size() + " NASA POWER cells; at most " + MAX_CELLS);
-            }
-            double total = cellRows.stream().mapToDouble(r -> ((Number) r.get("weight")).doubleValue()).sum();
-            boolean nearest = Boolean.TRUE.equals(cellRows.get(0).get("nearest"));
-            List<Map<String, Object>> cells = new ArrayList<>();
-            List<Object> cellArgs = new ArrayList<>();
-            for (Map<String, Object> row : cellRows) {
-                double weight = total > 0 ? ((Number) row.get("weight")).doubleValue() / total : 1.0 / cellRows.size();
-                Map<String, Object> cell = new LinkedHashMap<>();
-                cell.put("lat", round(row.get("lat"), 3));
-                cell.put("lon", round(row.get("lon"), 3));
-                cell.put("elevationM", round(row.get("elevation_m"), 1));
-                cell.put("weightPercent", round(weight * 100, 2));
-                cells.add(cell);
-                cellArgs.add(row.get("lat"));
-                cellArgs.add(row.get("lon"));
-                cellArgs.add(weight);
-            }
-            String values = String.join(", ", Collections.nCopies(cellRows.size(), "(?::numeric, ?::numeric, ?::double precision)"));
+            PowerArea area = PowerArea.find(jdbc, geoJson);
+            if (area == null) return notFound("the area is outside the NASA POWER cells BR Weather loaded (Brazil)", List.of(), false);
 
-            Object latestValue = jdbc.queryForObject(String.format(LATEST_SQL, values), Object.class, cellArgs.toArray());
-            LocalDate latest = latestValue == null ? null : LocalDate.parse(latestValue.toString());
-            if (latest == null) return notFound("BR Weather has no NASA POWER day for the area yet", cells, nearest);
+            LocalDate latest = area.latest(jdbc);
+            if (latest == null) return notFound("BR Weather has no NASA POWER day for the area yet", area.cells, area.nearest);
             LocalDate end = to != null ? to : latest;
             LocalDate start = from != null ? from : end.minusDays(days - 1L);
             if (start.isAfter(end)) throw new IllegalArgumentException("from (" + start + ") is after to (" + end + ")");
             if (ChronoUnit.DAYS.between(start, end) >= MAX_DAYS) throw new IllegalArgumentException("the period is longer than " + MAX_DAYS + " days");
 
-            StringBuilder means = new StringBuilder();
-            for (String column : PARAMETERS.keySet()) {
-                means.append(", sum(d.").append(column).append(" * c.weight) / nullif(sum(CASE WHEN d.").append(column)
-                        .append(" IS NOT NULL THEN c.weight END), 0) AS ").append(column);
-            }
-            List<Object> args = new ArrayList<>(cellArgs);
-            args.add(java.sql.Date.valueOf(start));
-            args.add(java.sql.Date.valueOf(end));
-            List<Map<String, Object>> series = new ArrayList<>();
-            for (Map<String, Object> row : jdbc.queryForList(String.format(DAILY_SQL, values, means), args.toArray())) {
-                Map<String, Object> day = new LinkedHashMap<>();
-                day.put("date", row.get("day").toString());
-                PARAMETERS.forEach((column, name) -> day.put(name, round(row.get(column), 2)));
-                series.add(day);
-            }
+            List<Map<String, Object>> series = area.daily(jdbc, start, end);
+            for (Map<String, Object> day : series) day.put("et0Mm", area.penmanMonteith(day));
 
             Map<String, Object> out = summary(series);
             out.put("from", start.toString());
             out.put("to", end.toString());
             out.put("latestDay", latest.toString());
-            out.put("cells", cells);
-            out.put("nearestCell", nearest);
+            out.put("cells", area.cells);
+            out.put("nearestCell", area.nearest);
             out.put("chart", chart(series));
             if (series.isEmpty()) {
                 out.put("found", false);
@@ -256,6 +199,17 @@ public class BrWeatherDailyBlock implements ReportBlock {
         out.put("degreeDays", anyMean ? round(degreeDays, 1) : null);
         out.put("hotDays", hot);
         out.put("coldNights", cold);
+        double et0 = 0;
+        int et0Days = 0;
+        for (Map<String, Object> day : series) {
+            if (day.get("et0Mm") instanceof Double e) {
+                et0 += e;
+                et0Days++;
+            }
+        }
+        out.put("totalEt0Mm", et0Days == 0 ? null : round(et0, 1));
+        out.put("meanEt0Mm", et0Days == 0 ? null : round(et0 / et0Days, 2));
+        out.put("et0Days", et0Days);
         return out;
     }
 
@@ -314,9 +268,4 @@ public class BrWeatherDailyBlock implements ReportBlock {
         return LocalDate.parse(value.toString().substring(0, Math.min(10, value.toString().length())));
     }
 
-    private static Map<String, String> linked(String... pairs) {
-        Map<String, String> out = new LinkedHashMap<>();
-        for (int i = 0; i < pairs.length; i += 2) out.put(pairs[i], pairs[i + 1]);
-        return out;
-    }
 }
