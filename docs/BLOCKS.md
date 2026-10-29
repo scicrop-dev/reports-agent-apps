@@ -375,8 +375,10 @@ Clima da área: NASA POWER (temperatura, umidade, vento, radiação) e CHIRPS v3
 
 | Block | Entradas | Saídas principais | Tabelas / arquivos |
 |---|---|---|---|
-| `brweather-daily-weather` | `geometry`, `from?`, `to?`, `days?` | `found`, `message`, `from`, `to`, `latestDay`, `cells[] {lat, lon, elevationM, weightPercent}`, `nearestCell`, `days[] {date, t2m, t2mMax, t2mMin, rh2m, ws2m, radiation, precipitation}`, `daysWithData`, `meanT2m`, `maxT2m`/`maxT2mDate`, `minT2m`/`minT2mDate`, `meanRh2m`, `meanWs2m`, `meanRadiation`, `powerPrecipitationMm`, `degreeDays` (base 10 °C), `hotDays` (máx. ≥ 35 °C), `coldNights` (mín. ≤ 3 °C), `chart` (PNG 900 × 300) | `nasa_power_cell`, `nasa_power_daily` |
-| `brweather-rainfall` | `geometry`, `from?`, `to?`, `days?` | `found`, `message`, `from`, `to`, `latestDay`, `pixels`, `wholePixels`, `days[] {date, rainMm, preliminary}`, `daysWithData`, `missingDays`, `totalMm`, `meanDailyMm`, `maxDayMm`/`maxDayDate`, `rainyDays` (≥ 1 mm), `longestDrySpell`, `preliminaryDays`, `chart` (barras, PNG 900 × 260) | `chirps_day` + os recortes GeoTIFF no lake |
+| `brweather-daily-weather` (1.1.0) | `geometry`, `from?`, `to?`, `days?` | `found`, `message`, `from`, `to`, `latestDay`, `cells[] {lat, lon, elevationM, weightPercent}`, `nearestCell`, `days[] {date, t2m, t2mMax, t2mMin, rh2m, ws2m, radiation, precipitation, et0Mm}`, `daysWithData`, `meanT2m`, `maxT2m`/`maxT2mDate`, `minT2m`/`minT2mDate`, `meanRh2m`, `meanWs2m`, `meanRadiation`, `powerPrecipitationMm`, `degreeDays` (base 10 °C), `hotDays` (máx. ≥ 35 °C), `coldNights` (mín. ≤ 3 °C), `totalEt0Mm`, `meanEt0Mm`, `et0Days`, `chart` (PNG 900 × 300) | `nasa_power_cell`, `nasa_power_daily` |
+| `brweather-rainfall` (1.1.0) | `geometry`, `from?`, `to?`, `days?` | `found`, `message`, `from`, `to`, `latestDay`, `pixels`, `wholePixels`, `days[] {date, rainMm, preliminary}`, `daysWithData`, `missingDays`, `totalMm`, `meanDailyMm`, `maxDayMm`/`maxDayDate`, `rainyDays` (≥ 1 mm), `longestDrySpell`, `preliminaryDays`, `heavyRainDays` (≥ 50 mm), `rx1dayMm`, `rx5dayMm`, `drySpells10`, `drySpells15`, `chart` (barras, PNG 900 × 260) | `chirps_day` + os recortes GeoTIFF no lake |
+| `brweather-water-balance` | `geometry`, `from?`, `to?`, `days?` (90), `cadMm?` (50), `kc?` (1,0) | `found`, `message`, `from`, `to`, `latestRainDay`, `latestWeatherDay`, `cadMm`, `kc`, `days[] {date, rainMm, et0Mm, etcMm, etaMm, storageMm, deficitMm, excessMm, rainMissing, et0Estimated}`, `totalRainMm`, `totalEt0Mm`, `totalEtcMm`, `totalEtaMm`, `totalDeficitMm`, `totalExcessMm`, `finalStorageMm`, `finalStoragePercent`, `deficitDays` (déficit ≥ 1 mm), `maxConsecutiveDeficitDays`, `missingRainDays`, `estimatedEt0Days`, `cells`, `pixels`, `chart` (PNG 900 × 300) | `nasa_power_cell`, `nasa_power_daily`, `chirps_day` + recortes |
+| `brweather-temperature-anomaly` | `geometry`, `from?`, `to?`, `days?` | `found`, `message`, `from`, `to`, `latestDay`, `cells`, `nearestCell`, `daysWithData`, `meanT2m`/`climatologyT2m`/`anomalyT2m` (idem `T2mMax`, `T2mMin`), `hotDays`/`hotDayThresholdC` (> p90 das máximas), `coldNights`/`coldNightThresholdC` (< p10 das mínimas), `yearsUsed`, `firstYear`, `lastYear`, `perYear[] {year, meanT2m, meanT2mMax, meanT2mMin, current}` | `nasa_power_cell`, `nasa_power_daily` |
 
 Regras:
 
@@ -396,12 +398,37 @@ Regras:
 - **Segurança:** só arquivos sob `reports.brweather.chirps-dir` (`REPORTS_CHIRPS_DIR`, padrão
   `/opt/infinitestack/var/lake/bronze/br-weather-agent-app/chirps`, o mesmo do BR Weather) são lidos;
   um `path` da tabela fora dele falha o Block. Assim o Block não vira um leitor de arquivos do host.
-- Timeouts: 30 s (POWER) e 60 s (CHIRPS, um arquivo por dia; um ano leva alguns segundos).
+- **ET0.** Penman-Monteith FAO-56 diário (grama de referência) com as médias da área do dia: máxima,
+  mínima, UR média (eq. 19, o POWER não tem UR máx./mín. diárias), vento a 2 m e radiação, mais
+  latitude e elevação médias ponderadas das células (nível do mar se nenhuma tiver elevação). Sem algum
+  insumo, `et0Mm` é null (em geral a radiação dos 1 ou 2 últimos dias); totais e médias contam só
+  `et0Days`. Função pura em `Et0`, testada com os exemplos 8 e 18 do FAO-56.
+- **Extremos de chuva** (estilo ETCCDI): `rx5dayMm` só em 5 dias consecutivos com dado; um dia sem
+  dado quebra veranico e janela; veranico cortado pelo início ou fim do período conta com os dias de
+  dentro.
+- **Balanço hídrico.** Thornthwaite-Mather sequencial diário: ETc = kc x ET0; dia seco: negativo
+  acumulado += P - ETc e armazenamento = CAD x e^(NAc/CAD); dia úmido: armazenamento += P - ETc até a
+  CAD, o resto é excedente; ETa = P + o que o solo cedeu; déficit = ETc - ETa. O solo começa cheio
+  (armazenamento = CAD no dia anterior a `from`): comece o período semanas antes das datas de
+  interesse. `to` padrão = o menor entre o último dia do CHIRPS e o do POWER. Dia sem CHIRPS conta
+  0 mm (`rainMissing`); dia sem ET0 Penman-Monteith usa Hargreaves (FAO-56 eq. 52) e, sem
+  temperatura, a ET0 média do período (`et0Estimated`). Mesmos recortes e mesma regra de `chirps-dir`
+  do `brweather-rainfall` (classe `ChirpsClips`).
+- **Anomalia de temperatura.** A janela do período é deslocada para cada ano de 2000 ao último ano
+  fechado (o anterior ao último dia carregado); entra o ano com 90% ou mais dos dias da janela, cada
+  ano com o mesmo peso. Período num ano fechado entra na própria climatologia (`current`). Percentis
+  sobre todos os dias da janela (simplificação: períodos longos misturam estações). Custo: só SQL,
+  `LATERAL ... OFFSET 0` por célula x ano no índice `(lat, lon, day) WHERE valid_to IS NULL`
+  (3,1 mi linhas: 37 ms para 4 células x 30 dias; 1,4 s para 60 células x 366 dias).
+- Timeouts: 30 s (POWER), 60 s (CHIRPS e anomalia) e 90 s (balanço).
 
 **Teste:** `SourceBlocksSyntheticDbTest` roda o SQL dos Blocks de ZARC, CONAB e BR Weather contra
 tabelas sintéticas com as colunas dos apps de origem, num PostGIS descartável
 (`REPORTS_TEST_DB_URL`); o CHIRPS lê o recorte de teste `cog/rain-4326.tif` (float32, predictor 3,
 gerado com GDAL 3.8). Se as tabelas já existem no banco, o teste é pulado em vez de mexer nelas.
+`BrWeatherCalculationsTest` (sem banco: ET0, balanço, extremos, janelas) e
+`BrWeatherBlocksSyntheticDbTest` (mesmas variáveis; inclui a checagem do plano no índice) cobrem os
+Blocks de 1.1.0 e os novos.
 
 ## 4. Blocks do Satellite Hub (fonte: agent app `satellite-hub`, tabelas `gold.satellite_hub_*`)
 
