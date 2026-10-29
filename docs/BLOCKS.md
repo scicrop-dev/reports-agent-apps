@@ -202,7 +202,12 @@ medem tudo em hectares geodésicos. Timeout de 30 s (consulta 25 s).
 | `brgeo-deter-alerts` | `geometry`, `dateFrom?`, `dateTo?` | `alerts[]` (até 200, mais novos primeiro), `byClass[] {className, count, overlapHa, firstDate, lastDate}`, `count`, `totalOverlapHa`, `lastAlertDate`, `monitored`, `coverage[]`, `truncated` | `inpe_deter_alert`, `ibge_biome` |
 | `brgeo-prodes` | `geometry`, `yearFrom?` | `byYear[] {product, productName, year, polygons, deforestedHa}`, `byProduct[] {..., firstYear, lastYear, deforestedHa, sinceCutoffHa}`, `count`, `maxDeforestedHa`, `lastYear`, `monitored`, `coverage[]` (com `lastYear` carregado) | `inpe_prodes_increment`, `ibge_biome` |
 | `brgeo-crop-production` | `municipalityIbge` (number), `year?`, `limit?` (15) | `year`, `crops[] {product, plantedHa, harvestedHa, quantity, quantityUnit, yieldKgHa, valueThousandBrl, shareOfHarvestedPercent}`, `count`, `totalHarvestedHa`, `totalValueThousandBrl`, `truncated`, `uf` (do código IBGE, para o `brgeo-crop-progress`) | `ibge_pam_value`, `ibge_pam_product` (SIDRA 5457) |
-| `brgeo-zarc-risk` | `municipalityIbge` (number), `crop`, `season?` (a mais recente), `soil?`, `cultivarGroup?`, `limit?` (30) | `found`, `message`, `crop`, `season`, `uf`, `municipality`, `ordinance`, `ordinanceDate`, `rows[] {croppingSystem, climateType, cultivarGroup, soil, risk[36], cells[36] {period, risk, label}, indicatedPeriods, lowestRisk, windows[] {risk, fromPeriod, toPeriod, from, to, label}}`, `count`, `truncated`, `periods[36] {period, from, to, label}`, `availableCrops` | `zarc_risk` (SISZARC) |
+| `brgeo-zarc-risk` | `municipalityIbge` (number), `crop`, `season?` (a mais recente), `soil?`, `cultivarGroup?`, `limit?` (30) | `found`, `message`, `crop`, `season`, `uf`, `municipality`, `ordinance`, `ordinanceDate`, `rows[] {croppingSystem, climateType, cultivarGroup, soil, risk[36], cells[36] {period, risk, label}, indicatedPeriods, lowestRisk, windows[] {risk, fromPeriod, toPeriod, from, to, label}}`, `count`, `truncated`, `periods[36] {period, from, to, label}`, `availableCrops`, `matchedBy` (`code`/`name`, 1.1.0) | `zarc_risk` (SISZARC), `ibge_municipality` (nome, 1.1.0) |
+| `brgeo-zarc-cultivars` | `crop`, `uf?` ou `municipalityIbge?`, `season?` (a mais recente), `limit?` (50) | `found`, `message`, `crop`, `season`, `uf`, `cultivars[] {rnc, cultivar, adaptationRegion, group, cycle, attributes{}}`, `count`, `distinctCultivars`, `adaptationRegions`, `truncated`, `availableCrops` | `zarc_cultivar` (SISZARC) |
+| `brgeo-soil-units` | `geometry`, `limit?` (20) | `units[] {symbol, legend, order, suborder, greatGroup, texture, relief, stoniness, rockiness, erosion, components[], componentsCut, restrictions[], overlapHa, percent}`, `byOrder[] {order, overlapHa, percent}`, `mainOrder`, `flags {steepRelief, stony, rocky, organosol, vertisol}`, `restrictions[] {code, label, overlapHa, percent}`, `hasRestrictions`, `hasUnits`, `count`, `truncated`, `areaHa`, `edition` | `ibge_pedology_unit` (edição mais recente) |
+| `brgeo-soil-profiles` | `geometry`, `radiusKm?` (20, máx. 200), `limit?` (5, máx. 50) | `profiles[] {code, pointCode, type, distanceKm, inside, lat, lon, order, suborder, greatGroup, texture, drainage, relief, sand0_40Pct, silt0_40Pct, clay0_40Pct, covered0_40Cm, hasLabData, horizons[] {name, top, bottom, topCm, bottomCm, textureClass, sandPct, siltPct, clayPct}}`, `found`, `count`, `radiusKm`, `edition` | `ibge_pedology_point`, `ibge_pedology_horizon`, `ibge_pedology_analysis` |
+| `brgeo-census-evidence` | `geometry`, `bufferM?` (500, máx. 5000), `edgeToleranceM?` (30) | `status` (`trajeto_interno`, `trajeto_de_borda`, `trajeto_proximo`, `trajeto_nao_encontrado`, `dados_indisponiveis`), `routeInside`, `routeNear`, `dataAvailable`, `insideKm`, `insideMPerHa`, `minDistanceM`, `routesCrossing`, `routesNear`, `cnefeInside`, `cnefeNearCount`, `cnefeNear[]` (até 20) `{distanceM, inside, locality, address, number, situation, municipalityIbge, lat, lon}`, `truncated`, `bufferM`, `edgeToleranceM`, `year` | `census2017_route`, `census2017_cnefe`, `ibge_municipality` |
+| `brgeo-crop-production-history` | `municipalityIbge` (number), `product`, `years?` (10), `chartVariable?` (`harvestedHa`) | `found`, `message`, `product`, `series[] {year, plantedHa, harvestedHa, quantity, unit, yieldKgHa, valueThousandBrl}`, `count`, `fromYear`, `toYear`, `unit`, `chart` (PNG data URI), `chartVariable`, `availableProducts`, `uf` | `ibge_pam_value`, `ibge_pam_product` (SIDRA 5457) |
 | `brgeo-crop-progress` | `uf` (sigla ou nome), `crop?`, `operation?` (`sowing`/`harvest`), `maxAgeDays?` (60) | `found`, `message`, `state`, `latestWeekEnd`, `items[] {crop, season, operation, operationLabel, weekEnd, pctDone, previousWeekPct, weekChangePoints, lastYearPct, avg5yPct, vsAvg5yPoints, series[] {weekEnd, pctDone}}`, `count`, `availableStates` | `conab_crop_progress` |
 
 Regras de cada um:
@@ -235,6 +240,42 @@ Regras de cada um:
 - **PAM.** Tabela 5457 (lavouras temporárias e permanentes). Os totais vêm da linha `Total` (produto
   0). Subtotais como `Café (em grão) Total` são pulados para a mesma lavoura não contar duas vezes.
   Valores sigilosos ou ausentes (`X`, `...`, `-`) saem vazios.
+- **ZARC: município sem código (1.1.0).** O ingest deixa `cd_mun` vazio quando não resolve o nome do
+  SISZARC. Sem linha com o código, o `brgeo-zarc-risk` usa as linhas da UF sem código cujo nome bate
+  (sem acento/caixa) com o `nm_mun` da malha do IBGE; `matchedBy` diz `code` ou `name`. Sem
+  aproximação: grafias diferentes continuam sem casar.
+- **Cultivares do ZARC.** Uma linha por cultivar (RNC) x região de adaptação na UF e safra (a mais
+  recente com a cultura, se `season` vazio). `attributes` é o objeto plano do SISZARC, título da
+  coluna -> texto (vírgula decimal), e muda por cultura. `group`/`cycle` = primeiro título com
+  "grupo"/"ciclo". A região de adaptação não é resolvida por município (lista todas da UF), e
+  cultivares com mais de um mantenedor podem repetir (`variant`). A cultura casa pelo nome inteiro
+  e depois pelo trecho antes de " - " ou " (" ("SOJA - Glycine max" acha "Soja").
+- **Solos (unidades).** Pedologia IBGE 1:250.000, edição mais recente. Polígonos da mesma unidade
+  (`cod_simbolo`) são somados; os que só encostam na borda ficam de fora. `components` traz os
+  pedaços `componente`, `componente_cont1..3` como o IBGE grava: o dBase corta em 254 caracteres e
+  perde letras no corte, então os pedaços nunca são juntados. Restrições: relevo com "forte
+  ondulado", "montanhoso" ou "escarpado"; fase pedregosa ou rochosa preenchida (e não "não ..." ou
+  "sem ..."); ordem Organossolo ou Vertissolo. Escala de 1:250.000: é a associação de solos da
+  região, não o solo do talhão.
+- **Solos (perfis).** Pontos da edição mais recente dentro da área ou a até `radiusKm` da borda,
+  mais próximos primeiro (distância 0 = dentro). A análise liga ao horizonte por `cod_horizonte` =
+  `horizon.id` (o `CodMorfologiaFk` da planilha). Granulometria 0-40 cm = média dos horizontes
+  analisados ponderada pelos centímetros de 0-40 que cada um cobre, em g/kg -> %; areia = `areia_total`
+  ou a soma das cinco frações. `covered0_40Cm` diz quanto dos 40 cm tinha dado; sem análise,
+  `hasLabData` falso e granulometria vazia. Ajuda a escolher a classe AD do ZARC, sem substituí-la.
+- **Censo Agro 2017 (metodologia F3 do br-geo).** `trajeto_interno`: algum trajeto de recenseador
+  entra na área além de `edgeToleranceM` da borda (30 m, tolerância exploratória, não validada);
+  `trajeto_de_borda`: só cruza a faixa da borda ou passa por fora a até essa tolerância;
+  `trajeto_proximo`: o mais próximo está a até `bufferM`; `trajeto_nao_encontrado`: nenhum;
+  `dados_indisponiveis`: o BR Geo não tem trajetos dos municípios da área. CNEFE: endereços de
+  estabelecimentos dentro da área e os mais próximos a até `bufferM`. **É presença histórica, não
+  prova:** não diz que o imóvel foi recenseado nem que existe hoje; estrada pública cruza vários
+  imóveis; ausência não prova inexistência; estabelecimento censitário não é imóvel CAR.
+- **Série da PAM.** Mesmas variáveis do `brgeo-crop-production` (tabela 5457). O produto é casado sem
+  acento nem caixa; um começo de nome que serve a vários ("Café") pega o subtotal `... Total`, senão
+  o nome mais curto. Últimos `years` anos até o mais recente publicado para o produto no município.
+  `-` (zero do IBGE) sai 0; `X`, `..`, `...` saem vazios. Valor em mil reais correntes. O gráfico
+  (`YearBarChart`) é PNG de barras por ano da variável `chartVariable`.
 
 **Verificado no banco de dev (2026-10-26)** com `AC-1200302-7ECA40E36E154380BC739F9CB7E33DE0`
 (IRU, 34.836 ha, Feijó/AC, encadeado a partir de `car-property-geometry`): 99,79% em Feijó e 0,21%
