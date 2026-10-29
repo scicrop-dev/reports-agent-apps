@@ -1,20 +1,15 @@
 package com.infinitestack.reports.blocks.sathub;
 
-import java.sql.Date;
 import java.time.Duration;
-import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Base64;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import org.springframework.stereotype.Component;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.infinitestack.reports.engine.DataType;
 import com.infinitestack.reports.engine.block.BlockDefinition;
 import com.infinitestack.reports.engine.block.BlockDocs;
@@ -37,60 +32,13 @@ import com.infinitestack.reports.engine.block.ReportBlock;
 @Component
 public class SatelliteHubIndexSeriesBlock implements ReportBlock {
 
-    static final String SCHEMA = "gold";
-    static final String AREAS = "satellite_hub_areas";
-    static final String INDICES = "satellite_hub_analytics_indices";
-    static final String VALUES = "satellite_hub_analytics_values";
+    static final String SCHEMA = SatelliteHubSeriesData.SCHEMA;
+    static final String AREAS = SatelliteHubSeriesData.AREAS;
+    static final String INDICES = SatelliteHubSeriesData.INDICES;
+    static final String VALUES = SatelliteHubSeriesData.VALUES;
 
-    /** The collection of an index saved before Satellite Hub had several (its own default). */
-    static final String LEGACY_COLLECTION = "sentinel-2-l2a";
-
-    /** Satellite Hub collection id to the name shown in the report. */
-    static final Map<String, String> COLLECTION_NAMES = Map.of(
-            "sentinel-2-l2a", "Sentinel-2 L2A",
-            "landsat-c2-l2", "Landsat 8/9 Collection 2 Level-2",
-            "sentinel-1-rtc", "Sentinel-1 RTC (radar)");
-
-    static final int MAX_AREAS = 50;
-    static final int DEFAULT_DAYS = 365;
-    static final double DEFAULT_MIN_VALID_PERCENT = 50;
     static final int CHART_WIDTH = 900;
     static final int CHART_HEIGHT = 300;
-
-    private static final ObjectMapper JSON = new ObjectMapper();
-
-    static final String INDEX_SQL = "SELECT id, slug, name, description, COALESCE(collection, '" + LEGACY_COLLECTION + "') AS collection"
-            + " FROM " + SCHEMA + "." + INDICES + " WHERE slug = ? AND enabled";
-
-    static final String AREAS_BY_GEOMETRY_SQL = "WITH input AS ("
-            + " SELECT ST_Transform(ST_CollectionExtract(ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(?), 4674)), 3), 4326) AS geom)"
-            + " SELECT a.id, a.farm_name, a.block_name, a.parcel_name, a.area_ha,"
-            + " ST_Area(ST_Intersection(ST_MakeValid(a.geom), input.geom)::geography) / 1e4 AS inside_ha"
-            + " FROM input JOIN " + SCHEMA + "." + AREAS + " a ON a.geom && input.geom AND ST_Intersects(a.geom, input.geom)"
-            + " ORDER BY inside_ha DESC, a.id LIMIT " + (MAX_AREAS + 1);
-
-    static final String AREA_BY_ID_SQL = "SELECT a.id, a.farm_name, a.block_name, a.parcel_name, a.area_ha,"
-            + " a.area_ha AS inside_ha FROM " + SCHEMA + "." + AREAS + " a WHERE a.id = ?";
-
-    /** {@code %s} is the list of area id placeholders. */
-    static final String SERIES_SQL = "WITH v AS ("
-            + " SELECT v.* FROM " + SCHEMA + "." + VALUES + " v WHERE v.index_id = ? AND v.area_id IN (%s)"
-            + " AND v.valid_pixels > 0 AND v.valid_area_pct >= ?),"
-            + " last AS (SELECT max(acquired_at) AS at FROM v)"
-            + " SELECT v.acquired_at::date AS day,"
-            + " sum(v.mean * v.valid_pixels) / sum(v.valid_pixels) AS mean,"
-            + " min(v.min_value) AS min_value, max(v.max_value) AS max_value,"
-            + " sum(v.p10 * v.valid_pixels) / sum(v.valid_pixels) AS p10,"
-            + " sum(v.p90 * v.valid_pixels) / sum(v.valid_pixels) AS p90,"
-            + " avg(v.valid_area_pct) AS valid_pct, count(DISTINCT v.area_id) AS areas"
-            + " FROM v, last"
-            // A 'to' cuts the series at that day; a 'from' starts it there, else it goes 'days' back
-            // from 'to' (or from the latest image when there is no 'to').
-            + " WHERE (CAST(? AS date) IS NULL OR v.acquired_at < CAST(? AS date) + 1)"
-            + " AND CASE WHEN CAST(? AS date) IS NOT NULL THEN v.acquired_at >= CAST(? AS date)"
-            + " WHEN CAST(? AS date) IS NOT NULL THEN v.acquired_at >= CAST(? AS date) + 1 - make_interval(days => ?)"
-            + " ELSE v.acquired_at > last.at - make_interval(days => ?) END"
-            + " GROUP BY 1 ORDER BY 1";
 
     private final BlockQueries queries;
     private final IndexSeriesChart chart = new IndexSeriesChart();
@@ -103,12 +51,12 @@ public class SatelliteHubIndexSeriesBlock implements ReportBlock {
     public BlockDefinition definition() {
         return new BlockDefinition("sathub-index-series", "Vegetation index series (Satellite Hub)",
                 "Vegetation index time series (Sentinel-2, Landsat or Sentinel-1) computed by Satellite Hub for the fields in an area, with a chart",
-                "1.0.0",
+                "1.1.0",
                 List.of(
                         BlockPort.optional("geometry", DataType.GEOMETRY,
                                 "area whose Satellite Hub fields are combined; connect car-property-geometry.geometry"),
                         BlockPort.optional("areaId", DataType.NUMBER, "one Satellite Hub area by id, instead of a geometry"),
-                        BlockPort.optional("index", DataType.STRING, "index slug: ndvi (default), evi, savi, ndre, gndvi, ndmi, ndwi, nbr (Sentinel-2), ndvi_landsat, ndmi_landsat (Landsat), rvi_s1 (Sentinel-1) or any other enabled in Satellite Hub"),
+                        BlockPort.optional("index", DataType.STRING, "index slug: ndvi (default), evi, savi, ndre, gndvi, ndmi, ndwi, nbr (Sentinel-2), ndvi_landsat, ndmi_landsat (Landsat), rvi_s1 (Sentinel-1) or any other of Satellite Hub; a disabled index is read while it has data for the areas"),
                         BlockPort.optional("days", DataType.NUMBER,
                                 "length of the series, counted back from 'to' or, without it, from the latest image; default 365"),
                         BlockPort.optional("from", DataType.DATE, "first day of the series; when given, 'days' is ignored"),
@@ -117,7 +65,9 @@ public class SatelliteHubIndexSeriesBlock implements ReportBlock {
                                 "drop images with less than this % of valid (cloud-free) area; default 50")),
                 List.of(
                         BlockPort.required("index", DataType.OBJECT,
-                                "{slug, name, description, collection, collectionName}: collection is the Satellite Hub id (sentinel-2-l2a, landsat-c2-l2, sentinel-1-rtc)"),
+                                "{slug, name, description, collection, collectionName, enabled}: collection is the Satellite Hub id (sentinel-2-l2a, landsat-c2-l2, sentinel-1-rtc)"),
+                        BlockPort.required("indexEnabled", DataType.BOOLEAN,
+                                "the index is enabled in Satellite Hub; false = a disabled index, its series is the history computed while it was on"),
                         BlockPort.required("areas", DataType.ARRAY,
                                 "Satellite Hub areas used, largest share first (up to 50): {id, farmName, blockName, parcelName, areaHa, insideHa}"),
                         BlockPort.required("areaCount", DataType.NUMBER, "number of areas used"),
@@ -159,109 +109,65 @@ public class SatelliteHubIndexSeriesBlock implements ReportBlock {
                         "Only areas registered in Satellite Hub have data: a CAR property with no field there returns an empty series.",
                         "The index describes vegetation vigour; it does not identify the crop or prove deforestation.",
                         "Sentinel-2 L2A is 10 m and Landsat 30 m, both with clouds masked by Satellite Hub (haze and shadows can remain); Sentinel-1 is radar, sees through clouds and its index (RVI) is on another scale (0 to 4).",
-                        "Landsat and Sentinel-1 series exist only where the Satellite Hub admin enabled those indices."),
+                        "Landsat and Sentinel-1 series exist only where the Satellite Hub admin enabled those indices (they are installed disabled).",
+                        "A disabled index keeps its history: the series shows what was computed while it was enabled (indexEnabled = false) and stops there; a disabled index with no data for the areas is an error."),
                 "Satellite Hub agent app (Sentinel-2 L2A, Landsat 8/9 C2 L2, Sentinel-1 RTC), tables gold.satellite_hub_areas, _analytics_indices and _analytics_values",
                 "<img src=\"{{<node>.chart}}\"> NDVI atual: {{<node>.latestMean}} ({{<node>.latestDate}})");
     }
 
     @Override
     public Map<String, Object> execute(Map<String, Object> inputs, ExecutionMetadata metadata) {
-        Object geometry = inputs.get("geometry");
-        Long areaId = inputs.get("areaId") instanceof Number n ? n.longValue() : null;
-        if (geometry == null && areaId == null) throw new IllegalArgumentException("give a geometry or an areaId");
-        String slug = inputs.get("index") instanceof String s && !s.isBlank() ? s.trim().toLowerCase() : "ndvi";
-        int days = inputs.get("days") instanceof Number n ? Math.max(1, n.intValue()) : DEFAULT_DAYS;
-        LocalDate from = inputs.get("from") instanceof String f && !f.isBlank() ? LocalDate.parse(f.trim()) : null;
-        LocalDate to = inputs.get("to") instanceof String t && !t.isBlank() ? LocalDate.parse(t.trim()) : null;
-        if (from != null && to != null && from.isAfter(to)) throw new IllegalArgumentException("'from' is after 'to'");
-        double minValid = inputs.get("minValidPercent") instanceof Number n ? n.doubleValue() : DEFAULT_MIN_VALID_PERCENT;
+        SatelliteHubSeriesData.Window window = SatelliteHubSeriesData.Window.of(inputs);
+        String slug = inputs.get("index") instanceof String s && !s.isBlank() ? s.trim().toLowerCase(Locale.ROOT) : "ndvi";
 
         return queries.read(Duration.ofSeconds(25), jdbc -> {
-            List<Map<String, Object>> index = jdbc.queryForList(INDEX_SQL, slug);
-            if (index.isEmpty()) throw new IllegalArgumentException("Satellite Hub has no enabled index '" + slug + "'");
+            List<Map<String, Object>> index = SatelliteHubSeriesData.indices(jdbc, List.of(slug), false);
+            if (index.isEmpty()) throw new IllegalArgumentException("Satellite Hub has no index '" + slug + "'");
+            Map<String, Object> indexOut = SatelliteHubSeriesData.indexInfo(index.get(0));
+            boolean enabled = (Boolean) indexOut.get("enabled");
 
-            List<Map<String, Object>> areaRows = geometry != null
-                    ? jdbc.queryForList(AREAS_BY_GEOMETRY_SQL, geoJson(geometry))
-                    : jdbc.queryForList(AREA_BY_ID_SQL, areaId);
-            if (geometry == null && areaRows.isEmpty()) throw new IllegalArgumentException("Satellite Hub area " + areaId + " not found");
-            boolean truncated = areaRows.size() > MAX_AREAS;
-            List<Map<String, Object>> areas = new ArrayList<>();
-            for (Map<String, Object> row : areaRows.subList(0, Math.min(MAX_AREAS, areaRows.size()))) {
-                Map<String, Object> item = new LinkedHashMap<>();
-                item.put("id", ((Number) row.get("id")).longValue());
-                item.put("farmName", row.get("farm_name"));
-                item.put("blockName", row.get("block_name"));
-                item.put("parcelName", row.get("parcel_name"));
-                item.put("areaHa", round(row.get("area_ha"), 4));
-                item.put("insideHa", round(row.get("inside_ha"), 4));
-                areas.add(item);
+            SatelliteHubSeriesData.Areas areas = SatelliteHubSeriesData.areas(jdbc, window);
+            List<SatelliteHubSeriesData.Point> data = SatelliteHubSeriesData.series(jdbc, index.get(0).get("id"), areas.ids(), window);
+            // Before 1.1.0 a disabled index was refused; now its history is shown, but a disabled index
+            // with nothing to show is still an error, so a typo or a never-computed index stays visible.
+            if (!enabled && data.isEmpty()) {
+                throw new IllegalArgumentException("Satellite Hub index '" + slug + "' is disabled and has no data for these areas in the period");
             }
 
             List<Map<String, Object>> series = new ArrayList<>();
             List<IndexSeriesChart.Point> points = new ArrayList<>();
-            if (!areas.isEmpty()) {
-                List<Object> args = new ArrayList<>();
-                args.add(index.get(0).get("id"));
-                areas.forEach(a -> args.add(a.get("id")));
-                args.add(minValid);
-                Date toSql = to == null ? null : Date.valueOf(to);
-                Date fromSql = from == null ? null : Date.valueOf(from);
-                args.addAll(Arrays.asList(toSql, toSql, fromSql, fromSql, toSql, toSql, days, days));
-                String placeholders = String.join(", ", Collections.nCopies(areas.size(), "?"));
-                for (Map<String, Object> row : jdbc.queryForList(String.format(SERIES_SQL, placeholders), args.toArray())) {
-                    LocalDate day = LocalDate.parse(row.get("day").toString());
-                    Map<String, Object> item = new LinkedHashMap<>();
-                    item.put("date", day.toString());
-                    item.put("mean", round(row.get("mean"), 4));
-                    item.put("min", round(row.get("min_value"), 4));
-                    item.put("max", round(row.get("max_value"), 4));
-                    item.put("p10", round(row.get("p10"), 4));
-                    item.put("p90", round(row.get("p90"), 4));
-                    item.put("validAreaPercent", round(row.get("valid_pct"), 1));
-                    item.put("areas", ((Number) row.get("areas")).intValue());
-                    series.add(item);
-                    points.add(new IndexSeriesChart.Point(day, (Double) item.get("mean"), (Double) item.get("p10"), (Double) item.get("p90")));
-                }
+            for (SatelliteHubSeriesData.Point p : data) {
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("date", p.date().toString());
+                item.put("mean", p.mean());
+                item.put("min", p.min());
+                item.put("max", p.max());
+                item.put("p10", p.p10());
+                item.put("p90", p.p90());
+                item.put("validAreaPercent", p.validAreaPercent());
+                item.put("areas", p.areas());
+                series.add(item);
+                points.add(new IndexSeriesChart.Point(p.date(), p.mean(), p.p10() == null ? p.mean() : p.p10(),
+                        p.p90() == null ? p.mean() : p.p90()));
             }
-
-            Map<String, Object> indexOut = new LinkedHashMap<>();
-            indexOut.put("slug", index.get(0).get("slug"));
-            indexOut.put("name", index.get(0).get("name"));
-            indexOut.put("description", index.get(0).get("description"));
-            String collection = String.valueOf(index.get(0).get("collection"));
-            indexOut.put("collection", collection);
-            indexOut.put("collectionName", COLLECTION_NAMES.getOrDefault(collection, collection));
 
             Map<String, Object> last = series.isEmpty() ? null : series.get(series.size() - 1);
             Map<String, Object> out = new LinkedHashMap<>();
             out.put("index", indexOut);
-            out.put("areas", areas);
-            out.put("areaCount", areas.size());
+            out.put("indexEnabled", enabled);
+            out.put("areas", areas.items());
+            out.put("areaCount", areas.items().size());
             out.put("series", series);
             out.put("count", series.size());
             out.put("latestDate", last == null ? null : last.get("date"));
             out.put("latestMean", last == null ? null : last.get("mean"));
             out.put("periodMean", series.isEmpty() ? null
-                    : round(series.stream().mapToDouble(p -> (Double) p.get("mean")).average().orElse(0), 4));
-            out.put("periodMin", series.stream().map(p -> (Double) p.get("mean")).min(Double::compare).orElse(null));
-            out.put("periodMax", series.stream().map(p -> (Double) p.get("mean")).max(Double::compare).orElse(null));
+                    : SatelliteHubSeriesData.round(data.stream().mapToDouble(SatelliteHubSeriesData.Point::mean).average().orElse(0), 4));
+            out.put("periodMin", data.stream().map(SatelliteHubSeriesData.Point::mean).min(Double::compare).orElse(null));
+            out.put("periodMax", data.stream().map(SatelliteHubSeriesData.Point::mean).max(Double::compare).orElse(null));
             out.put("chart", "data:image/png;base64," + Base64.getEncoder().encodeToString(chart.render(points, CHART_WIDTH, CHART_HEIGHT)));
-            out.put("truncated", truncated);
+            out.put("truncated", areas.truncated());
             return out;
         });
-    }
-
-    private static String geoJson(Object geometry) {
-        try {
-            return JSON.writeValueAsString(geometry);
-        } catch (JsonProcessingException e) {
-            throw new IllegalArgumentException("geometry is not valid GeoJSON", e);
-        }
-    }
-
-    private static Double round(Object value, int scale) {
-        if (!(value instanceof Number n)) return null;
-        double factor = Math.pow(10, scale);
-        return Math.round(n.doubleValue() * factor) / factor;
     }
 }
