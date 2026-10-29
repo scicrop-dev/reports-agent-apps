@@ -23,6 +23,13 @@ public final class BrGeoTables {
     public static final String PAM_PRODUCT = "br_geo_agent_app_ibge_pam_product";
     public static final String ZARC_RISK = "br_geo_agent_app_zarc_risk";
     public static final String CONAB_PROGRESS = "br_geo_agent_app_conab_crop_progress";
+    public static final String ZARC_CULTIVAR = "br_geo_agent_app_zarc_cultivar";
+    public static final String PEDOLOGY_UNIT = "br_geo_agent_app_ibge_pedology_unit";
+    public static final String PEDOLOGY_POINT = "br_geo_agent_app_ibge_pedology_point";
+    public static final String PEDOLOGY_HORIZON = "br_geo_agent_app_ibge_pedology_horizon";
+    public static final String PEDOLOGY_ANALYSIS = "br_geo_agent_app_ibge_pedology_analysis";
+    public static final String CENSUS_ROUTE = "br_geo_agent_app_census2017_route";
+    public static final String CENSUS_CNEFE = "br_geo_agent_app_census2017_cnefe";
 
     public static final String Q_MUNICIPALITY = SCHEMA + "." + MUNICIPALITY;
     public static final String Q_BIOME = SCHEMA + "." + BIOME;
@@ -34,6 +41,13 @@ public final class BrGeoTables {
     public static final String Q_PAM_PRODUCT = SCHEMA + "." + PAM_PRODUCT;
     public static final String Q_ZARC_RISK = SCHEMA + "." + ZARC_RISK;
     public static final String Q_CONAB_PROGRESS = SCHEMA + "." + CONAB_PROGRESS;
+    public static final String Q_ZARC_CULTIVAR = SCHEMA + "." + ZARC_CULTIVAR;
+    public static final String Q_PEDOLOGY_UNIT = SCHEMA + "." + PEDOLOGY_UNIT;
+    public static final String Q_PEDOLOGY_POINT = SCHEMA + "." + PEDOLOGY_POINT;
+    public static final String Q_PEDOLOGY_HORIZON = SCHEMA + "." + PEDOLOGY_HORIZON;
+    public static final String Q_PEDOLOGY_ANALYSIS = SCHEMA + "." + PEDOLOGY_ANALYSIS;
+    public static final String Q_CENSUS_ROUTE = SCHEMA + "." + CENSUS_ROUTE;
+    public static final String Q_CENSUS_CNEFE = SCHEMA + "." + CENSUS_CNEFE;
 
     /** A requirement on one of the BR Geo tables, listing the columns the Block's SQL reads. */
     public static DataRequirement requirement(String table, String... columns) {
