@@ -14,24 +14,36 @@
     <tr><th>Emitido em</th><td>{{report.generatedAt}}</td></tr>
     <tr><th>Execução</th><td>{{#report.executionId}}nº {{report.executionId}} (versão {{report.version}} do relatório){{/report.executionId}}{{^report.executionId}}Prévia, não registrada no histórico{{/report.executionId}}</td></tr>
   </table>
-  {{#property.removedAt}}
-  <p class="alert">Atenção: este imóvel foi removido da base do SICAR em {{property.removedAt}}. Os dados do CAR são os da última versão conhecida.</p>
-  {{/property.removedAt}}
+  {{#property.removed}}
+  <p class="alert">Atenção: este imóvel foi removido da base do SICAR{{#property.removedAt}} em {{property.removedAt}}{{/property.removedAt}}. Os dados do CAR são os da última versão conhecida.</p>
+  {{/property.removed}}
+  {{#property.areaMismatch}}
+  <p class="alert">Atenção: a área declarada no CAR ({{property.declaredAreaHa}} ha) difere {{property.areaDifferencePct}}% da área calculada da geometria ({{property.calculatedAreaHa}} ha).</p>
+  {{/property.areaMismatch}}
 </div>
 
 <div class="section">
   <h2><span class="num">0</span> Verificações</h2>
   <table class="flags">
-    <tr><td class="flag-label">Inscrição no CAR</td><td>{{#area.isCar}}<span class="flag-neutral">{{property.statusLabel}}</span> ({{property.condition}}){{/area.isCar}}{{^area.isCar}}<span class="flag-bad">não verificada</span>: a área foi informada como polígono, sem código CAR{{/area.isCar}}</td></tr>
+    <tr><td class="flag-label">Inscrição no CAR</td><td>{{#area.isCar}}<span class="flag-neutral">{{property.statusLabel}}</span> ({{property.condition}}){{/area.isCar}}{{^area.isCar}}<span class="flag-bad">não verificada</span>: a área foi informada como {{#area.isGis}}dado GIS{{/area.isGis}}{{^area.isGis}}polígono{{/area.isGis}}, sem código CAR (veja os imóveis do CAR na área na seção 3){{/area.isCar}}</td></tr>
     {{#area.isCar}}
     <tr><td class="flag-label">Reserva Legal declarada</td><td>{{#layers.hasLegalReserve}}<span class="flag-good">sim</span>, {{layers.summary.legalReservePercent}}% do imóvel{{/layers.hasLegalReserve}}{{^layers.hasLegalReserve}}<span class="flag-bad">não declarada</span>{{/layers.hasLegalReserve}}</td></tr>
     <tr><td class="flag-label">Sobreposição com outros imóveis CAR</td><td>{{#overlaps.overlaps}}{{#-first}}<span class="flag-bad">{{overlaps.count}} imóvel(is)</span>, {{overlaps.totalOverlapHa}} ha{{/-first}}{{/overlaps.overlaps}}{{^overlaps.overlaps}}<span class="flag-good">nenhuma</span>{{/overlaps.overlaps}}</td></tr>
+    <tr><td class="flag-label">Imóvel removido do SICAR</td><td>{{#property.removed}}<span class="flag-bad">sim</span>{{#property.removedAt}}, em {{property.removedAt}}{{/property.removedAt}}{{/property.removed}}{{^property.removed}}<span class="flag-good">não</span>{{/property.removed}}</td></tr>
+    <tr><td class="flag-label">Área declarada x calculada</td><td>{{#property.areaMismatch}}<span class="flag-bad">diferença de {{property.areaDifferencePct}}%</span>{{/property.areaMismatch}}{{^property.areaMismatch}}<span class="flag-good">coerentes</span>{{#property.areaDifferencePct}} ({{property.areaDifferencePct}}%){{/property.areaDifferencePct}}{{/property.areaMismatch}}</td></tr>
+    <tr><td class="flag-label">Pendências na carga do SICAR</td><td>{{#quarantine.hasItems}}<span class="flag-bad">{{quarantine.count}} registro(s) descartado(s)</span> (seção 3){{/quarantine.hasItems}}{{^quarantine.hasItems}}{{#quarantine.count}}<span class="flag-good">nenhuma</span>{{/quarantine.count}}{{^quarantine.count}}<span class="flag-neutral">não consultadas</span>{{/quarantine.count}}{{/quarantine.hasItems}}</td></tr>
+    <tr><td class="flag-label">Base SICAR de referência</td><td>{{#carRef.hasData}}<span class="flag-neutral">{{carRef.uf}}, publicada até {{carRef.latestPublishedAt}}</span>{{/carRef.hasData}}{{^carRef.hasData}}<span class="flag-neutral">sem data registrada</span>{{/carRef.hasData}}</td></tr>
+    {{/area.isCar}}
+    {{^area.isCar}}
+    <tr><td class="flag-label">Imóveis do CAR na área</td><td>{{#inArea.hasProperties}}<span class="flag-neutral">{{inArea.count}} imóvel(is)</span>, cobrindo {{inArea.coveragePct}}% da área{{/inArea.hasProperties}}{{^inArea.hasProperties}}{{#inArea.count}}<span class="flag-bad">nenhum imóvel do CAR</span>{{/inArea.count}}{{^inArea.count}}<span class="flag-neutral">não consultado</span>{{/inArea.count}}{{/inArea.hasProperties}}</td></tr>
     {{/area.isCar}}
     <tr><td class="flag-label">Embargo do IBAMA ativo</td><td>{{#embargoes.hasActive}}<span class="flag-bad">sim: {{embargoes.activeCount}} termo(s)</span>, {{embargoes.activeOverlapHa}} ha{{/embargoes.hasActive}}{{^embargoes.hasActive}}<span class="flag-good">nenhum encontrado</span>{{/embargoes.hasActive}}</td></tr>
     <tr><td class="flag-label">Desmatamento PRODES depois de 22/07/2008</td><td>{{#prodes.monitored}}{{#prodes.byProduct}}<span class="flag-bad">{{productName}}: {{sinceCutoffHa}} ha</span> (último ano {{lastYear}})<br>{{/prodes.byProduct}}{{^prodes.byProduct}}<span class="flag-good">nenhum incremento mapeado</span>{{/prodes.byProduct}}{{/prodes.monitored}}{{^prodes.monitored}}<span class="flag-neutral">área fora do PRODES carregado</span>{{/prodes.monitored}}</td></tr>
     <tr><td class="flag-label">Alertas DETER</td><td>{{#deter.monitored}}{{#deter.byClass}}{{#-first}}<span class="flag-bad">{{deter.count}} alerta(s)</span>, o mais recente em {{deter.lastAlertDate}}{{/-first}}{{/deter.byClass}}{{^deter.byClass}}<span class="flag-good">nenhum</span>{{/deter.byClass}}{{/deter.monitored}}{{^deter.monitored}}<span class="flag-neutral">área não monitorada pelo DETER</span>{{/deter.monitored}}</td></tr>
     <tr><td class="flag-label">{{inputs.crop}} zoneada no ZARC do município</td><td>{{#zarc.found}}<span class="flag-good">sim</span>, safra {{zarc.season}} ({{zarc.ordinance}}){{/zarc.found}}{{^zarc.found}}<span class="flag-bad">não</span>{{/zarc.found}}</td></tr>
     <tr><td class="flag-label">Bioma</td><td>{{#biomes.mainBiome}}<span class="flag-neutral">{{biomes.mainBiome}}</span>{{/biomes.mainBiome}}{{^biomes.mainBiome}}<span class="flag-neutral">fora dos biomas mapeados</span>{{/biomes.mainBiome}}</td></tr>
+    <tr><td class="flag-label">Solo (IBGE 1:250.000)</td><td>{{#soil.hasUnits}}<span class="flag-neutral">{{soil.mainOrder}}</span>; {{#soil.hasRestrictions}}<span class="flag-bad">há restrições</span> (seção 8){{/soil.hasRestrictions}}{{^soil.hasRestrictions}}<span class="flag-good">sem restrição mapeada</span>{{/soil.hasRestrictions}}{{/soil.hasUnits}}{{^soil.hasUnits}}<span class="flag-neutral">sem dado</span>{{/soil.hasUnits}}</td></tr>
+    <tr><td class="flag-label">Censo Agro 2017 (presença histórica, não prova)</td><td>{{#census.dataAvailable}}{{#census.routeInside}}<span class="flag-neutral">trajeto de recenseador dentro da área</span>{{/census.routeInside}}{{^census.routeInside}}{{#census.routeNear}}<span class="flag-neutral">trajeto na borda ou perto da área</span>{{/census.routeNear}}{{^census.routeNear}}<span class="flag-neutral">nenhum trajeto a até {{census.bufferM}} m</span>{{/census.routeNear}}{{/census.routeInside}}; {{census.cnefeInside}} endereço(s) agropecuário(s) dentro{{/census.dataAvailable}}{{^census.dataAvailable}}<span class="flag-neutral">sem dado do Censo para a área</span>{{/census.dataAvailable}}</td></tr>
   </table>
   <p class="note">Itens que costumam ser checados na concessão de crédito rural e no seguro, levantados nas bases públicas. A decisão e o enquadramento nas normas do Manual de Crédito Rural cabem ao agente financeiro.</p>
 </div>
@@ -70,7 +82,7 @@
     </div>
   </div>
   {{/area.isCar}}
-  {{^area.isCar}}<p>O desenho da área sobre a imagem de satélite está na seção 8.</p>{{/area.isCar}}
+  {{^area.isCar}}<p>O desenho da área sobre a imagem de satélite está na seção 10.</p>{{/area.isCar}}
   <table class="kv">
     <tr><th>Bioma (IBGE {{biomes.edition}})</th><td>{{#biomes.biomes}}{{name}} ({{percentOfArea}}%)<br>{{/biomes.biomes}}{{^biomes.biomes}}fora dos biomas mapeados{{/biomes.biomes}}</td></tr>
     <tr><th>Caixa envolvente (lon/lat)</th><td>{{area.bbox.minLon}}, {{area.bbox.minLat}} a {{area.bbox.maxLon}}, {{area.bbox.maxLat}}</td></tr>
@@ -105,14 +117,46 @@
   </table>
   {{#history.versions}}{{#-first}}
   <table class="grid">
-    <thead><tr><th>Válida de</th><th>Válida até</th><th>Situação</th><th>Condição</th><th class="r">Área declarada (ha)</th><th>Geometria alterada</th></tr></thead>
+    <thead><tr><th>Válida de</th><th>Válida até</th><th>Situação</th><th>Condição</th><th class="r">Área declarada (ha)</th><th class="r">Área calculada (ha)</th><th class="r">Variação (ha / %)</th><th>Geometria alterada</th></tr></thead>
     <tbody>
   {{/-first}}
-      <tr><td>{{validFrom}}</td><td>{{validTo}}{{^validTo}}vigente{{/validTo}}</td><td>{{statusLabel}}</td><td>{{condition}}</td><td class="r">{{declaredAreaHa}}</td><td>{{#geometryChanged}}sim{{/geometryChanged}}{{^geometryChanged}}não{{/geometryChanged}}</td></tr>
+      <tr><td>{{validFrom}}</td><td>{{validTo}}{{^validTo}}{{#history.removedAt}}removido{{/history.removedAt}}{{^history.removedAt}}vigente{{/history.removedAt}}{{/validTo}}</td><td>{{statusLabel}}</td><td>{{condition}}</td><td class="r">{{declaredAreaHa}}</td><td class="r">{{calculatedAreaHa}}</td><td class="r">{{#areaChangeHa}}{{areaChangeHa}}{{#areaChangePct}} / {{areaChangePct}}%{{/areaChangePct}}{{/areaChangeHa}}{{^areaChangeHa}}-{{/areaChangeHa}}</td><td>{{#geometryChanged}}sim{{/geometryChanged}}{{^geometryChanged}}não{{/geometryChanged}}</td></tr>
   {{#-last}}
     </tbody>
   </table>
+  <p class="note">A variação compara a área calculada de cada versão com a da versão anterior.{{#history.removedAt}} O imóvel foi removido do SICAR em {{history.removedAt}}: a última versão termina nessa data.{{/history.removedAt}}</p>
   {{/-last}}{{/history.versions}}
+  {{#property.areaMismatch}}<p class="alert">A área declarada ({{property.declaredAreaHa}} ha) difere {{property.areaDifferencePct}}% da área calculada da geometria da versão lida ({{property.calculatedAreaHa}} ha). O limiar de 5% é de alerta, não um critério legal.</p>{{/property.areaMismatch}}
+
+  <h3>Data de referência da base SICAR</h3>
+  {{#carRef.hasData}}
+  <p>Os dados do CAR deste dossiê vêm da base do SICAR de {{carRef.uf}} publicada até <strong>{{carRef.latestPublishedAt}}</strong>{{#carRef.oldestPublishedAt}} (a camada mais antiga é de {{carRef.oldestPublishedAt}}){{/carRef.oldestPublishedAt}}. Alterações feitas no SICAR depois disso não aparecem aqui.{{^carRef.complete}} Nem todas as camadas foram carregadas para a UF.{{/carRef.complete}}</p>
+  {{#carRef.layers}}{{#-first}}
+  <table class="grid">
+    <thead><tr><th>Camada</th><th>Publicação no SICAR</th><th>Carregada em</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr><td>{{layerLabel}}</td><td>{{#loaded}}{{publishedAt}}{{/loaded}}{{^loaded}}não carregada{{/loaded}}</td><td>{{loadedAt}}</td></tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/carRef.layers}}
+  {{/carRef.hasData}}
+  {{^carRef.hasData}}<p class="empty">Sem data de referência da base SICAR para a UF do imóvel (carga não registrada ou consulta sem resposta nesta execução).</p>{{/carRef.hasData}}
+
+  {{#quarantine.hasItems}}
+  <h3>Pendências na carga do SICAR</h3>
+  <p class="alert">{{quarantine.count}} registro(s) com este código foram descartados nas cargas do SICAR. Os outros dados do dossiê são os do registro mantido; confira o cadastro no próprio SICAR.</p>
+  <table class="grid">
+    <thead><tr><th>Publicação</th><th>Camada</th><th>Motivo</th><th>Detalhe</th></tr></thead>
+    <tbody>
+    {{#quarantine.items}}
+      <tr><td class="nowrap">{{publishedAt}}</td><td>{{layerLabel}}</td><td>{{reason}}</td><td>{{detail}}</td></tr>
+    {{/quarantine.items}}
+    </tbody>
+  </table>
+  <p class="note">Motivos: duplicado = mais de um registro com o código (vale o mantido, em geral o ativo); geometria_invalida = geometria que não pôde ser corrigida; orfao = feição de um imóvel que não foi carregado. O descarte se repete a cada publicação, então a contagem cresce com as cargas.{{#quarantine.truncated}} A lista mostra os 100 mais recentes.{{/quarantine.truncated}}</p>
+  {{/quarantine.hasItems}}
 
   <h3>Uso e cobertura declarados</h3>
   <table class="highlights">
@@ -134,7 +178,7 @@
   </table>
   {{/-last}}{{/layers.layers}}
   {{^layers.layers}}<p class="empty">Nenhuma feição de uso ou cobertura declarada na versão vigente.</p>{{/layers.layers}}
-  <p class="note">Percentuais sobre a área declarada do imóvel ({{layers.summary.propertyAreaHa}} ha). As camadas podem se sobrepor (APP dentro da Reserva Legal, por exemplo), então a soma pode passar de 100%.</p>
+  <p class="note">Percentuais sobre a área declarada do imóvel ({{layers.summary.propertyAreaHa}} ha). As camadas podem se sobrepor (APP dentro da Reserva Legal, por exemplo), então a soma pode passar de 100%.{{#layers.summary.hydrographyCalculated}} Hidrografia: {{layers.summary.hydrographyHa}} ha (calculada): o SICAR não declara área para a hidrografia, que entra com a área da geometria.{{/layers.summary.hydrographyCalculated}}</p>
 
   <h3>Sobreposições com outros imóveis CAR</h3>
   {{#overlaps.overlaps}}{{#-first}}
@@ -152,7 +196,21 @@
   {{^overlaps.overlaps}}<p class="ok">Nenhuma sobreposição com outros imóveis vigentes do CAR foi encontrada.</p>{{/overlaps.overlaps}}
   {{/area.isCar}}
   {{^area.isCar}}
-  <p class="empty">A área foi informada como polígono, então as informações do cadastro (situação, Reserva Legal, APP, sobreposições) não se aplicam. Para vê-las, rode o laudo com o código do imóvel no CAR.</p>
+  <p class="empty">A área foi informada como {{#area.isGis}}dado GIS{{/area.isGis}}{{^area.isGis}}polígono{{/area.isGis}}, então as informações de um cadastro (situação, Reserva Legal, APP, sobreposições) não se aplicam. Para vê-las, rode o dossiê com o código do imóvel no CAR.</p>
+  <h3>Imóveis do CAR na área</h3>
+  {{#inArea.hasProperties}}
+  <p>{{inArea.count}} imóvel(is) vigente(s) do CAR cortam a área; <strong>{{inArea.coveredHa}} ha ({{inArea.coveragePct}}% da área)</strong> estão dentro de algum imóvel.</p>
+  <table class="grid">
+    <thead><tr><th>Imóvel</th><th>Município / UF</th><th>Situação</th><th class="r">Declarada (ha)</th><th class="r">Na área (ha)</th><th class="r">% da área</th><th class="r">% do imóvel</th></tr></thead>
+    <tbody>
+    {{#inArea.properties}}
+      <tr><td class="code">{{codImovel}}</td><td>{{municipality}} / {{uf}}</td><td>{{statusLabel}}</td><td class="r">{{declaredAreaHa}}</td><td class="r">{{overlapHa}}</td><td class="r">{{overlapPctOfArea}}</td><td class="r">{{overlapPctOfProperty}}</td></tr>
+    {{/inArea.properties}}
+    </tbody>
+  </table>
+  <p class="note">Maior sobreposição primeiro. A soma das sobreposições ({{inArea.totalOverlapHa}} ha) conta duas vezes a terra declarada por dois imóveis; a cobertura conta uma vez.{{#inArea.truncated}} A lista foi cortada no limite de 50 imóveis; a cobertura considera todos.{{/inArea.truncated}} Para o dossiê de cada imóvel, rode-o com o código.</p>
+  {{/inArea.hasProperties}}
+  {{^inArea.hasProperties}}{{#inArea.count}}<p class="alert">Nenhum imóvel vigente do CAR corta a área: ela não está inscrita no CAR.</p>{{/inArea.count}}{{^inArea.count}}<p class="empty">A consulta dos imóveis do CAR na área não respondeu nesta execução; o detalhe está nos blocos da execução.</p>{{/inArea.count}}{{/inArea.hasProperties}}
   {{/area.isCar}}
 </div>
 
@@ -254,7 +312,58 @@
 </div>
 
 <div class="section">
-  <h2><span class="num">8</span> Imagem de satélite mais recente</h2>
+  <h2><span class="num">8</span> Aptidão: solo da área</h2>
+  {{#soil.hasUnits}}
+  <p>Ordem de solo predominante: <strong>{{soil.mainOrder}}</strong>. Unidades do mapa de pedologia do IBGE (1:250.000, edição {{soil.edition}}) que a área cruza:</p>
+  {{#soil.units}}{{#-first}}
+  <table class="grid">
+    <thead><tr><th>Unidade</th><th>Legenda</th><th>Relevo</th><th class="r">Área (ha)</th><th class="r">% da área</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr><td class="code">{{symbol}}</td><td>{{legend}}</td><td>{{relief}}</td><td class="r">{{overlapHa}}</td><td class="r">{{percent}}</td></tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/soil.units}}
+  {{#soil.truncated}}<p class="note">A tabela mostra as maiores unidades; a área cruza {{soil.count}}.</p>{{/soil.truncated}}
+  {{#soil.hasRestrictions}}<p class="alert">Restrições ao uso agrícola nas unidades mapeadas: {{#soil.flags.steepRelief}}relevo forte ondulado, montanhoso ou escarpado; {{/soil.flags.steepRelief}}{{#soil.flags.stony}}fase pedregosa; {{/soil.flags.stony}}{{#soil.flags.rocky}}fase rochosa; {{/soil.flags.rocky}}{{#soil.flags.organosol}}Organossolo (solo orgânico); {{/soil.flags.organosol}}{{#soil.flags.vertisol}}Vertissolo (argila expansiva); {{/soil.flags.vertisol}}veja o relevo e a legenda de cada unidade na tabela.</p>{{/soil.hasRestrictions}}
+  {{^soil.hasRestrictions}}<p class="ok">Nenhuma restrição de relevo, pedregosidade, rochosidade, Organossolo ou Vertissolo nas unidades mapeadas.</p>{{/soil.hasRestrictions}}
+  <p class="note">Escala de 1:250.000: é a associação de solos da região, não o solo de cada talhão. Serve para apontar onde vale olhar com mais cuidado.</p>
+  {{/soil.hasUnits}}
+  {{^soil.hasUnits}}
+  <p class="empty">Sem unidade do mapa de pedologia do IBGE para a área (fora do mapa, ou a consulta não respondeu nesta execução; o detalhe está nos blocos da execução).</p>
+  {{/soil.hasUnits}}
+</div>
+
+<div class="section">
+  <h2><span class="num">9</span> Evidências do Censo Agropecuário 2017</h2>
+  <p class="alert">Presença histórica, não prova. O Censo Agro 2017 mostra por onde os recenseadores passaram e onde havia estabelecimentos agropecuários em 2017. Não diz que este imóvel foi recenseado nem que existe hoje; estrada pública cruza vários imóveis; ausência de trajeto não prova inexistência; estabelecimento censitário não é imóvel do CAR.</p>
+  {{#census.dataAvailable}}
+  <table class="kv">
+    <tr><th>Classificação</th><td><strong>{{#census.routeInside}}trajeto de recenseador dentro da área{{/census.routeInside}}{{^census.routeInside}}{{#census.routeNear}}trajeto só na borda ou a até {{census.bufferM}} m da área{{/census.routeNear}}{{^census.routeNear}}nenhum trajeto a até {{census.bufferM}} m{{/census.routeNear}}{{/census.routeInside}}</strong> ({{census.status}})</td></tr>
+    <tr><th>Trajeto dentro da área</th><td>{{census.insideKm}} km ({{census.insideMPerHa}} m por ha), em {{census.routesCrossing}} trecho(s)</td></tr>
+    <tr><th>Trechos a até {{census.bufferM}} m</th><td>{{census.routesNear}}{{#census.minDistanceM}}; o mais próximo a {{census.minDistanceM}} m (0 = cruza a área){{/census.minDistanceM}}</td></tr>
+    <tr><th>Endereços agropecuários do CNEFE</th><td>{{census.cnefeInside}} dentro da área; {{census.cnefeNearCount}} dentro ou a até {{census.bufferM}} m</td></tr>
+  </table>
+  {{#census.cnefeNear}}{{#-first}}
+  <table class="grid">
+    <thead><tr><th class="r">Distância (m)</th><th>Localidade</th><th>Endereço</th><th>Situação</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr><td class="r">{{#inside}}dentro{{/inside}}{{^inside}}{{distanceM}}{{/inside}}</td><td>{{locality}}</td><td>{{address}} {{number}}</td><td>{{situation}}</td></tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/census.cnefeNear}}
+  <p class="note">Metodologia F3 do BR Geo: trajeto "dentro" entra mais de {{census.edgeToleranceM}} m além da borda (tolerância exploratória, não validada); "borda" só passa pela faixa da borda; "próximo" fica a até {{census.bufferM}} m.{{#census.truncated}} A lista de endereços mostra os 20 mais próximos.{{/census.truncated}}</p>
+  {{/census.dataAvailable}}
+  {{^census.dataAvailable}}
+  <p class="empty">O BR Geo não tem os trajetos do Censo Agro 2017 para os municípios da área (ou a consulta não respondeu nesta execução).</p>
+  {{/census.dataAvailable}}
+</div>
+
+<div class="section">
+  <h2><span class="num">10</span> Imagem de satélite mais recente</h2>
   {{#image.found}}
   <table class="kv">
     <tr><th>Data da imagem</th><td><strong>{{image.acquiredDate}}</strong> (há {{image.daysAgo}} dia(s)), {{image.scene.platform}}, quadrícula {{image.scene.mgrsTile}}</td></tr>
@@ -287,7 +396,7 @@
 </div>
 
 <div class="section">
-  <h2><span class="num">9</span> Chuva nos últimos 12 meses</h2>
+  <h2><span class="num">11</span> Chuva nos últimos 12 meses</h2>
   {{#rain.found}}
   <table class="highlights">
     <tr>
@@ -305,7 +414,7 @@
 </div>
 
 <div class="section">
-  <h2><span class="num">10</span> Histórico produtivo do município (IBGE, PAM)</h2>
+  <h2><span class="num">12</span> Histórico produtivo do município (IBGE, PAM)</h2>
   {{#crops.crops}}{{#-first}}
   <p>Lavouras de {{#municipalities.main}}{{name}}/{{uf}}{{/municipalities.main}} em {{crops.year}}: {{crops.totalHarvestedHa}} ha colhidos, valor de R$ {{crops.totalValueThousandBrl}} mil.</p>
   <table class="grid">
@@ -322,7 +431,7 @@
 </div>
 
 <div class="section">
-  <h2><span class="num">11</span> Andamento da safra no estado (CONAB)</h2>
+  <h2><span class="num">13</span> Andamento da safra no estado (CONAB)</h2>
   {{#progress.found}}
   <p>Levantamento semanal da CONAB em {{progress.state}}, semana terminada em {{progress.latestWeekEnd}}. Percentual da área do estado já semeada ou colhida.</p>
   {{#progress.items}}{{#-first}}
@@ -344,10 +453,11 @@
 </div>
 
 <div class="section">
-  <h2><span class="num">12</span> Fontes e limitações</h2>
+  <h2><span class="num">14</span> Fontes e limitações</h2>
   <ul class="sources">
     <li>Área: {{#area.isCar}}geometria vigente do imóvel no CAR (SICAR, coletado pelo car-agent-app; informação autodeclaratória){{/area.isCar}}{{^area.isCar}}{{#area.isGis}}polígonos do dado GIS "{{area.gisDatasetName}}" do Data Library (armazenados em WGS 84), unidos e corrigidos para geometria válida{{/area.isGis}}{{^area.isGis}}polígono informado por quem rodou o relatório, corrigido para geometria válida{{/area.isGis}}{{/area.isCar}}. Áreas em SIRGAS 2000, com cálculo geodésico.</li>
-    <li>Biomas e malha municipal: IBGE. Embargos: IBAMA, dados abertos de termos de embargo. DETER e PRODES: INPE, TerraBrasilis. Mantidos em versões pelo br-geo-agent-app.</li>
+    <li>Biomas, malha municipal e pedologia (1:250.000): IBGE. Embargos: IBAMA, dados abertos de termos de embargo. DETER e PRODES: INPE, TerraBrasilis. Censo Agropecuário 2017 (trajetos dos recenseadores e CNEFE): IBGE. Mantidos em versões pelo br-geo-agent-app.</li>
+    <li>CAR: SICAR, carregado pelo car-agent-app por UF e camada; a data de referência é a da publicação no SICAR da última carga concluída. Registros descartados na carga (duplicados, geometria inválida, órfãos) ficam em quarentena e aparecem como pendências.</li>
     <li>ZARC: portarias do MAPA por cultura, município e safra, carregadas pelo br-geo-agent-app. O enquadramento depende da cultivar e do solo efetivos.</li>
     <li>Imagem: Sentinel-2 L2A (Copernicus/ESA) do catálogo Earth Search (Element 84), lida na hora; índices com as fórmulas e a máscara de nuvem do Satellite Hub.</li>
     <li>Chuva: CHIRPS v3 (Climate Hazards Center, UC Santa Barbara), diária, 0,05°; os últimos dias vêm da série preliminar. Mantido pelo br-weather-agent-app.</li>
