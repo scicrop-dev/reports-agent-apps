@@ -16,6 +16,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import com.infinitestack.reports.blocks.gis.GisAreas;
 import com.infinitestack.reports.engine.block.BlockPort;
 import com.infinitestack.reports.engine.block.BlockQueries;
 import com.infinitestack.reports.engine.block.ReportBlock;
@@ -237,9 +238,18 @@ class CarBlocksSyntheticDbTest {
     void geometryOfARemovedPropertyIsItsLastOne() throws Exception {
         Map<String, Object> out = run(new CarPropertyGeometryBlock(queries), Map.of("codImovel", REMOVED));
         assertEquals(area(box(-52.005, -12.0, -51.998, -11.99)), (Double) out.get("areaHa"), 0.001);
-        Map<String, Object> area = new ReportAreaBlock(queries).execute(Map.of("codImovel", REMOVED), null);
+        Map<String, Object> area = new ReportAreaBlock(queries, new GisAreas(queries)).execute(Map.of("codImovel", REMOVED), null);
         assertEquals(true, area.get("isCar"));
         assertEquals(out.get("areaHa"), area.get("areaHa"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void mapOfARemovedPropertyDrawsItsLastFeatures() throws Exception {
+        Map<String, Object> out = run(new CarPropertyMapBlock(queries), Map.of("codImovel", REMOVED, "width", 400, "height", 300));
+        assertTrue(((String) out.get("image")).startsWith("data:image/png;base64,"));
+        List<Map<String, Object>> legend = (List<Map<String, Object>>) out.get("legend");
+        assertTrue(legend.stream().anyMatch(l -> "RESERVA_LEGAL".equals(l.get("layer"))), legend.toString());
     }
 
     // ---------------------------------------------------------------- car-environmental-layers
