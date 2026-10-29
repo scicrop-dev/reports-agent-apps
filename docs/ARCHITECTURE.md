@@ -1412,7 +1412,17 @@ Detalhes, formato e catálogo em [READY-MADE-REPORTS.md](READY-MADE-REPORTS.md).
   `ReadyMadeReportsValidityTest` valida Flow e template contra os contratos dos Blocks, executa com
   saídas de exemplo e gera HTML/PDF em `reports/target/ready-made/`) e atualize o catálogo do
   READY-MADE-REPORTS.md. Os Blocks do teste são duplos dos contratos do [BLOCKS.md](BLOCKS.md)
-  (`support/CarBlockContractStubs`, `support/GeoBlockContractStubs`).
+  (`support/CarBlockContractStubs`, `support/GeoBlockContractStubs`), com uma saída "full" e uma
+  "bare" cada. O `ReadyMadeAgainstRealBlocksTest` instancia os Blocks reais (`realBlocks()`, sem
+  banco), exige que cada dublê tenha as mesmas portas do real e que todo Block da lista tenha dublê, e
+  valida cada pronto contra as definições reais. Block novo usado por um pronto entra nos três lugares.
+- **Catálogo (2026-10-29):** 14 prontos. Os que recebem a área (CAR, polígono ou GIS) usam
+  `report-area` + nós opcionais; as fontes novas (solo e perfis, Censo 2017, cultivares e série da PAM,
+  balanço hídrico, anomalia de temperatura, quedas e comparação de índices, data e quarentena do SICAR,
+  imóveis do CAR na área) entraram como nós opcionais. `area-soil-aptitude` e `area-car-properties`
+  são os prontos novos; o `report-base.css` ganhou as classes `ad-AD1`..`ad-AD6` (classe de solo do
+  ZARC). Os laudos só do CAR (`car-socioenvironmental`) e só do BR Geo (`brgeo-area-diagnosis`) só
+  recebem Blocks da própria fonte, para continuar rodando onde a outra não existe.
 - Um input opcional deixado em branco entra no modelo do template como `null`
   (`ExecutionService.coerceInputs`), para o template poder testá-lo sem erro de modo estrito.
 
