@@ -50,7 +50,15 @@
     </tr>
   </table>
   <img class="chart" src="{{rain.chart}}" alt="Chuva diária">
-  <p class="note">Chuva diária (mm) do CHIRPS v3, média dos {{rain.pixels}} pixel(s) de 0,05° (cerca de 5,5 km) sobre a área; média de {{rain.meanDailyMm}} mm por dia com dado. Dias sem recorte carregado: {{rain.missingDays}}; dias ainda da série preliminar (revisada depois): {{rain.preliminaryDays}}.{{^rain.wholePixels}} A área é menor que um pixel: valem os pixels ao redor dela.{{/rain.wholePixels}}</p>
+  <h3>Extremos de chuva e evapotranspiração</h3>
+  <table class="kv">
+    <tr><th>Maior chuva em 1 dia</th><td>{{rain.rx1dayMm}} mm{{#rain.maxDayDate}} ({{rain.maxDayDate}}){{/rain.maxDayDate}}</td></tr>
+    <tr><th>Maior chuva em 5 dias seguidos</th><td>{{#rain.rx5dayMm}}{{rain.rx5dayMm}} mm{{/rain.rx5dayMm}}{{^rain.rx5dayMm}}sem 5 dias seguidos com dado{{/rain.rx5dayMm}}</td></tr>
+    <tr><th>Dias com 50 mm ou mais</th><td>{{rain.heavyRainDays}}</td></tr>
+    <tr><th>Veranicos de 10 dias ou mais / de 15 dias ou mais</th><td>{{rain.drySpells10}} / {{rain.drySpells15}}</td></tr>
+    <tr><th>Evapotranspiração de referência (ET0)</th><td>{{#weather.totalEt0Mm}}{{weather.totalEt0Mm}} mm no período (média de {{weather.meanEt0Mm}} mm/dia em {{weather.et0Days}} dias){{/weather.totalEt0Mm}}{{^weather.totalEt0Mm}}sem dado do NASA POWER{{/weather.totalEt0Mm}}</td></tr>
+  </table>
+  <p class="note">Chuva diária (mm) do CHIRPS v3, média dos {{rain.pixels}} pixel(s) de 0,05° (cerca de 5,5 km) sobre a área; média de {{rain.meanDailyMm}} mm por dia com dado. Dias sem recorte carregado: {{rain.missingDays}}; dias ainda da série preliminar (revisada depois): {{rain.preliminaryDays}}.{{^rain.wholePixels}} A área é menor que um pixel: valem os pixels ao redor dela.{{/rain.wholePixels}} Extremos no estilo ETCCDI: um dia sem dado interrompe veranico e janela de 5 dias; veranico = dias seguidos com menos de 1 mm. A ET0 (Penman-Monteith FAO-56, grama de referência) é a demanda de água da atmosfera; chuva abaixo dela por semanas indica solo secando.</p>
   {{/rain.found}}
   {{^rain.found}}
   <p class="alert">Sem dados de chuva para a área no período.{{#rain.message}} Detalhe: {{rain.message}}.{{/rain.message}}{{^rain.message}} A consulta não respondeu nesta execução; o detalhe está nos blocos da execução.{{/rain.message}}</p>
@@ -84,11 +92,69 @@
 </div>
 
 <div class="section">
-  <h2><span class="num">4</span> Fontes e limitações</h2>
+  <h2><span class="num">4</span> Temperatura frente à média histórica</h2>
+  {{#anomaly.found}}
+  <table class="highlights">
+    <tr>
+      <td class="highlight"><div class="hl-label">Anomalia da temperatura média</div><div class="hl-value">{{anomaly.anomalyT2m}} °C</div><div class="hl-sub">{{anomaly.meanT2m}} °C no período; normal {{anomaly.climatologyT2m}} °C</div></td>
+      <td class="highlight"><div class="hl-label">Anomalia da máxima</div><div class="hl-value">{{anomaly.anomalyT2mMax}} °C</div><div class="hl-sub">{{anomaly.meanT2mMax}} °C; normal {{anomaly.climatologyT2mMax}} °C</div></td>
+      <td class="highlight"><div class="hl-label">Anomalia da mínima</div><div class="hl-value">{{anomaly.anomalyT2mMin}} °C</div><div class="hl-sub">{{anomaly.meanT2mMin}} °C; normal {{anomaly.climatologyT2mMin}} °C</div></td>
+    </tr>
+  </table>
+  <table class="kv">
+    <tr><th>Período comparado</th><td>{{anomaly.from}} a {{anomaly.to}} ({{anomaly.daysWithData}} dias com dado)</td></tr>
+    <tr><th>Climatologia</th><td>a mesma janela em {{anomaly.yearsUsed}} anos, de {{anomaly.firstYear}} a {{anomaly.lastYear}}</td></tr>
+    <tr><th>Dias quentes (máxima acima do percentil 90 da janela)</th><td>{{anomaly.hotDays}}{{#anomaly.hotDayThresholdC}} (acima de {{anomaly.hotDayThresholdC}} °C){{/anomaly.hotDayThresholdC}}</td></tr>
+    <tr><th>Noites frias (mínima abaixo do percentil 10 da janela)</th><td>{{anomaly.coldNights}}{{#anomaly.coldNightThresholdC}} (abaixo de {{anomaly.coldNightThresholdC}} °C){{/anomaly.coldNightThresholdC}}</td></tr>
+  </table>
+  {{#anomaly.perYear}}{{#-first}}
+  <h3>Mesma janela em cada ano da climatologia</h3>
+  <table class="grid">
+    <thead><tr><th>Ano</th><th class="r">Média (°C)</th><th class="r">Máxima média (°C)</th><th class="r">Mínima média (°C)</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr><td>{{year}}{{#current}} (o próprio período){{/current}}</td><td class="r">{{meanT2m}}</td><td class="r">{{meanT2mMax}}</td><td class="r">{{meanT2mMin}}</td></tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/anomaly.perYear}}
+  <p class="note">Anomalia = valor do período menos a média da mesma janela de datas nos anos completos desde 2000 (NASA POWER), cada ano com o mesmo peso. Positiva = mais quente que o normal. Em períodos longos, os percentis misturam estações.</p>
+  {{/anomaly.found}}
+  {{^anomaly.found}}
+  <p class="alert">Sem comparação com a média histórica.{{#anomaly.message}} Detalhe: {{anomaly.message}}.{{/anomaly.message}}{{^anomaly.message}} A consulta não respondeu nesta execução; o detalhe está nos blocos da execução.{{/anomaly.message}}</p>
+  {{/anomaly.found}}
+</div>
+
+<div class="section">
+  <h2><span class="num">5</span> Balanço hídrico do solo</h2>
+  {{#balance.found}}
+  <table class="highlights">
+    <tr>
+      <td class="highlight"><div class="hl-label">Água no solo no fim do período</div><div class="hl-value">{{balance.finalStoragePercent}}%</div><div class="hl-sub">{{balance.finalStorageMm}} mm de {{balance.cadMm}} mm (CAD) em {{balance.to}}</div></td>
+      <td class="highlight"><div class="hl-label">Dias com déficit hídrico</div><div class="hl-value">{{balance.deficitDays}}</div><div class="hl-sub">maior sequência: {{balance.maxConsecutiveDeficitDays}} dias</div></td>
+      <td class="highlight"><div class="hl-label">Déficit acumulado</div><div class="hl-value">{{balance.totalDeficitMm}} mm</div><div class="hl-sub">excedente: {{balance.totalExcessMm}} mm</div></td>
+    </tr>
+  </table>
+  <img class="chart" src="{{balance.chart}}" alt="Balanço hídrico diário">
+  <table class="kv">
+    <tr><th>Período</th><td>{{balance.from}} a {{balance.to}}</td></tr>
+    <tr><th>Chuva / ET0 / demanda da cultura (kc = {{balance.kc}})</th><td>{{balance.totalRainMm}} mm / {{balance.totalEt0Mm}} mm / {{balance.totalEtcMm}} mm</td></tr>
+    <tr><th>Evapotranspiração real</th><td>{{balance.totalEtaMm}} mm</td></tr>
+  </table>
+  <p class="note">Balanço hídrico sequencial diário (Thornthwaite-Mather): chuva do CHIRPS, ET0 do NASA POWER e capacidade de água disponível (CAD) padrão de {{balance.cadMm}} mm. O solo começa cheio no primeiro dia: em períodos curtos o déficit sai subestimado. Sem início nem dias informados, o balanço usa os últimos 90 dias. No gráfico, barras = chuva diária, linha verde = água no solo, linha vermelha = déficit do dia. Dias sem chuva carregada (contados como sem chuva): {{balance.missingRainDays}}; dias com ET0 estimada: {{balance.estimatedEt0Days}}. A CAD real depende do solo e da raiz: é um indicador, não uma medida.</p>
+  {{/balance.found}}
+  {{^balance.found}}
+  <p class="alert">Sem balanço hídrico para a área.{{#balance.message}} Detalhe: {{balance.message}}.{{/balance.message}}{{^balance.message}} A consulta não respondeu nesta execução; o detalhe está nos blocos da execução.{{/balance.message}}</p>
+  {{/balance.found}}
+</div>
+
+<div class="section">
+  <h2><span class="num">6</span> Fontes e limitações</h2>
   <ul class="sources">
     <li>Área: {{#area.isCar}}geometria vigente do imóvel no CAR (SICAR, coletado pelo car-agent-app; informação autodeclaratória){{/area.isCar}}{{^area.isCar}}{{#area.isGis}}polígonos do dado GIS "{{area.gisDatasetName}}" do Data Library (armazenados em WGS 84), unidos e corrigidos para geometria válida{{/area.isGis}}{{^area.isGis}}polígono informado por quem rodou o relatório, corrigido para geometria válida{{/area.isGis}}{{/area.isCar}}. Áreas em SIRGAS 2000, com cálculo geodésico.</li>
     <li>Chuva: CHIRPS v3 (Climate Hazards Center, UC Santa Barbara), diária, 0,05°; os últimos dias vêm da série preliminar. Mantido pelo br-weather-agent-app.</li>
-    <li>Temperatura, umidade, vento e radiação: NASA POWER (MERRA-2), diário, células de 0,5° x 0,625°. É reanálise, não estação: suaviza extremos locais. Mantido pelo br-weather-agent-app.</li>
+    <li>Temperatura, umidade, vento, radiação e ET0 (Penman-Monteith FAO-56): NASA POWER (MERRA-2), diário, células de 0,5° x 0,625°. É reanálise, não estação: suaviza extremos locais. A média histórica é a do próprio NASA POWER desde 2000. Mantido pelo br-weather-agent-app.</li>
+    <li>Balanço hídrico: modelo simplificado (Thornthwaite-Mather) com CAD padrão de 50 mm; não mede a umidade do solo.</li>
     <li>Sem início nem fim, o período são os últimos 30 dias carregados. Chuva e temperatura podem terminar em dias diferentes, conforme o que cada fonte já publicou.</li>
     <li>Este relatório reúne bases públicas e não substitui vistoria em campo, laudo técnico assinado nem a análise do órgão ou do agente financeiro competente.</li>
   </ul>

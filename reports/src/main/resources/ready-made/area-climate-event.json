@@ -1,8 +1,8 @@
 {
   "id": "area-climate-event",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "name": "Laudo de evento climático (imóvel CAR ou polígono)",
-  "description": "Para um período de seca, estiagem, calor ou frio sobre um imóvel do CAR ou polígono: chuva diária (CHIRPS), veranicos, temperaturas extremas (NASA POWER), vegetação no período (Satellite Hub), imagem atual e, se informada a cultura, o ZARC.",
+  "description": "Para um período de seca, estiagem, calor ou frio sobre um imóvel do CAR, polígono ou dado GIS: chuva diária (CHIRPS), extremos e veranicos, temperaturas extremas e anomalia frente à média desde 2000 (NASA POWER), vegetação e quedas do índice em torno do evento (Satellite Hub), imagem atual e, se informada a cultura, o ZARC.",
   "category": "Clima",
   "inputs": [
     { "name": "codImovel", "type": "string", "required": false, "label": "Código do imóvel no CAR (ou deixe em branco e informe o polígono ou um dado GIS)" },
@@ -24,6 +24,8 @@
       { "id": "weather", "block": "brweather-daily-weather", "optional": true },
       { "id": "series", "block": "sathub-index-series", "optional": true },
       { "id": "zarc", "block": "brgeo-zarc-risk", "optional": true },
+      { "id": "anomaly", "block": "brweather-temperature-anomaly", "optional": true },
+      { "id": "drops", "block": "sathub-index-anomaly", "optional": true },
       { "id": "image", "block": "sathub-latest-image", "values": {"indices": "ndvi,ndmi"}, "optional": true }
     ],
     "connections": [
@@ -46,6 +48,12 @@
       { "from": "inputs.to", "to": "series.to" },
       { "from": "municipalities.mainIbgeCode", "to": "zarc.municipalityIbge" },
       { "from": "inputs.crop", "to": "zarc.crop" },
+      { "from": "area.geometry", "to": "anomaly.geometry" },
+      { "from": "inputs.from", "to": "anomaly.from" },
+      { "from": "inputs.to", "to": "anomaly.to" },
+      { "from": "area.geometry", "to": "drops.geometry" },
+      { "from": "inputs.index", "to": "drops.index" },
+      { "from": "inputs.from", "to": "drops.from" },
       { "from": "area.geometry", "to": "image.geometry" }
     ]
   },

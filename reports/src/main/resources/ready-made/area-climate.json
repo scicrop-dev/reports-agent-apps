@@ -1,8 +1,8 @@
 {
   "id": "area-climate",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "name": "Clima da área (imóvel CAR ou polígono)",
-  "description": "Chuva diária do CHIRPS e temperatura, umidade, vento e radiação do NASA POWER sobre um imóvel do CAR ou um polígono, num período à escolha: totais, dias de chuva, veranicos, dias quentes, noites frias e graus-dia, com gráficos.",
+  "description": "Chuva diária do CHIRPS e temperatura, umidade, vento, radiação e ET0 do NASA POWER sobre um imóvel do CAR, um polígono ou um dado GIS, num período à escolha: totais, extremos de chuva e veranicos, anomalia de temperatura frente à média desde 2000, dias quentes, noites frias, graus-dia e balanço hídrico do solo, com gráficos.",
   "category": "Clima",
   "inputs": [
     { "name": "codImovel", "type": "string", "required": false, "label": "Código do imóvel no CAR (ou deixe em branco e informe o polígono ou um dado GIS)" },
@@ -20,7 +20,9 @@
       { "id": "property", "block": "car-property", "optional": true },
       { "id": "municipalities", "block": "brgeo-municipalities" },
       { "id": "rain", "block": "brweather-rainfall", "optional": true },
-      { "id": "weather", "block": "brweather-daily-weather", "optional": true }
+      { "id": "weather", "block": "brweather-daily-weather", "optional": true },
+      { "id": "anomaly", "block": "brweather-temperature-anomaly", "optional": true },
+      { "id": "balance", "block": "brweather-water-balance", "optional": true }
     ],
     "connections": [
       { "from": "inputs.codImovel", "to": "area.codImovel" },
@@ -37,7 +39,15 @@
       { "from": "area.geometry", "to": "weather.geometry" },
       { "from": "inputs.from", "to": "weather.from" },
       { "from": "inputs.to", "to": "weather.to" },
-      { "from": "inputs.days", "to": "weather.days" }
+      { "from": "inputs.days", "to": "weather.days" },
+      { "from": "area.geometry", "to": "anomaly.geometry" },
+      { "from": "inputs.from", "to": "anomaly.from" },
+      { "from": "inputs.to", "to": "anomaly.to" },
+      { "from": "inputs.days", "to": "anomaly.days" },
+      { "from": "area.geometry", "to": "balance.geometry" },
+      { "from": "inputs.from", "to": "balance.from" },
+      { "from": "inputs.to", "to": "balance.to" },
+      { "from": "inputs.days", "to": "balance.days" }
     ]
   },
   "templateHtmlFile": "area-climate.html",
