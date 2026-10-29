@@ -84,6 +84,10 @@ public final class CarBlockContractStubs {
                     "condition", "Aguardando análise", "fiscalModules", 12.5, "declaredAreaHa", 1250.4321,
                     "registeredAt", "2015-03-12", "updatedAt", "2023-08-30", "versionSince", "2023-09-02");
             out.put("removedAt", bare ? null : "2024-05-10");
+            out.put("removed", !bare);
+            out.put("calculatedAreaHa", 1248.97);
+            out.put("areaDifferencePct", 0.11);
+            out.put("areaMismatch", false);
             return out;
         }
     }
@@ -151,16 +155,20 @@ public final class CarBlockContractStubs {
             Map<String, Object> summary = map("propertyAreaHa", 1250.4321, "appHa", bare ? 0 : 88.1, "legalReserveHa", legalReserve,
                     "nativeVegetationHa", bare ? 0 : 640.75, "consolidatedHa", bare ? 0 : 512.3, "fallowHa", 0,
                     "hydrographyHa", bare ? 0 : 12.4, "restrictedUseHa", 0, "administrativeEasementHa", 0,
-                    "appPercent", bare ? 0 : 7.05, "legalReservePercent", bare ? 0 : 20.09, "nativeVegetationPercent", bare ? 0 : 51.24);
+                    "appPercent", bare ? 0 : 7.05, "legalReservePercent", bare ? 0 : 20.09, "nativeVegetationPercent", bare ? 0 : 51.24,
+                    "hydrographyCalculated", !bare);
             return map("layers", layers, "summary", summary, "hasLegalReserve", !bare);
         }
 
         private static Map<String, Object> layer(String layer, String name, double area, double percent, Object... themes) {
-            return map("layer", layer, "layerName", name, "declaredAreaHa", area, "percentOfProperty", percent, "themes", List.of(themes));
+            String source = "HIDROGRAFIA".equals(layer) ? "calculated" : "declared";
+            return map("layer", layer, "layerName", name, "declaredAreaHa", area, "areaSource", source,
+                    "percentOfProperty", percent, "themes", List.of(themes));
         }
 
         private static Map<String, Object> theme(String theme, String name, int count, double area) {
-            return map("theme", theme, "themeName", name, "count", count, "declaredAreaHa", area);
+            String source = theme.startsWith("RIO") || theme.equals("NASCENTE") ? "calculated" : "declared";
+            return map("theme", theme, "themeName", name, "count", count, "declaredAreaHa", area, "areaSource", source);
         }
     }
 
@@ -195,18 +203,25 @@ public final class CarBlockContractStubs {
         @Override public Map<String, Object> execute(Map<String, Object> inputs, ExecutionMetadata metadata) {
             List<Object> versions = new ArrayList<>();
             if (!bare) {
-                versions.add(version("2015-03-12", "2019-06-01", "Pendente", "Aguardando análise", 1262.0, false));
-                versions.add(version("2019-06-01", "2023-09-02", "Ativo", "Aguardando análise", 1250.4321, true));
+                versions.add(version("2015-03-12", "2019-06-01", "Pendente", "Aguardando análise", 1262.0, 1260.12, null, null, false));
+                versions.add(version("2019-06-01", "2023-09-02", "Ativo", "Aguardando análise", 1250.4321, 1248.97, -11.15, -0.88, true));
             }
-            versions.add(version("2023-09-02", null, "Ativo", "Aguardando análise", 1250.4321, false));
-            return map("versions", versions, "count", versions.size());
+            versions.add(version("2023-09-02", null, "Ativo", "Aguardando análise", 1250.4321, 1248.97, bare ? null : 0.0,
+                    bare ? null : 0.0, false));
+            Map<String, Object> out = map("versions", versions, "count", versions.size());
+            out.put("removedAt", null);
+            return out;
         }
 
         private static Map<String, Object> version(String from, String to, String statusLabel, String condition,
-                                                   double area, boolean geometryChanged) {
+                                                   double area, double calculated, Double changeHa, Double changePct,
+                                                   boolean geometryChanged) {
             Map<String, Object> v = new HashMap<>(map("validFrom", from, "status", "AT", "statusLabel", statusLabel,
-                    "condition", condition, "declaredAreaHa", area, "geometryChanged", geometryChanged));
+                    "condition", condition, "declaredAreaHa", area, "calculatedAreaHa", calculated,
+                    "geometryChanged", geometryChanged));
             v.put("validTo", to);
+            v.put("areaChangeHa", changeHa);
+            v.put("areaChangePct", changePct);
             return v;
         }
     }
