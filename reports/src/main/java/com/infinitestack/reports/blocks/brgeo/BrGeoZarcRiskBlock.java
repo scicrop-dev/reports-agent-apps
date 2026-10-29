@@ -1,5 +1,7 @@
 package com.infinitestack.reports.blocks.brgeo;
 
+import static com.infinitestack.reports.blocks.brgeo.BrGeoTables.MUNICIPALITY;
+import static com.infinitestack.reports.blocks.brgeo.BrGeoTables.Q_MUNICIPALITY;
 import static com.infinitestack.reports.blocks.brgeo.BrGeoTables.Q_ZARC_RISK;
 import static com.infinitestack.reports.blocks.brgeo.BrGeoTables.ZARC_RISK;
 import static com.infinitestack.reports.blocks.brgeo.BrGeoTables.requirement;
@@ -36,6 +38,11 @@ import com.infinitestack.reports.engine.block.ReportBlock;
  * <p>The table has no index on the municipality, so the Block first lists the (season, crop) pairs
  * with a skip scan over the scope index (season, crop, ...) and then reads one crop in its seasons
  * and the municipality's state, which that index narrows down.
+ *
+ * <p>BR Geo resolves the ZARC municipality name to an IBGE code when it loads the table and leaves
+ * {@code cd_mun} empty when it cannot. When no row has the code, the Block falls back to the rows of
+ * the state without code whose name matches (accents and case ignored) the IBGE name of the
+ * municipality ({@code nm_mun} of the municipal grid).
  */
 @Component
 public class BrGeoZarcRiskBlock implements ReportBlock {
@@ -52,10 +59,14 @@ public class BrGeoZarcRiskBlock implements ReportBlock {
             + " SELECT season, crop FROM p";
 
     /** {@code %s} is the list of season placeholders. */
-    static final String RISK_SQL = "SELECT season, cropping_system, climate_type, ordinance, ordinance_date, municipality,"
+    static final String RISK_SQL = "SELECT season, cropping_system, climate_type, ordinance, ordinance_date, cd_mun, municipality,"
             + " cultivar_group, soil, risk FROM " + Q_ZARC_RISK
-            + " WHERE season IN (%s) AND crop = ? AND uf = ? AND cd_mun = ? AND valid_to IS NULL"
+            + " WHERE season IN (%s) AND crop = ? AND uf = ? AND (cd_mun = ? OR cd_mun IS NULL) AND valid_to IS NULL"
             + " ORDER BY cropping_system, climate_type, cultivar_group, soil";
+
+    /** The IBGE name of a municipality, from the most recent edition of the grid that has it. */
+    static final String NAME_SQL = "SELECT nm_mun FROM " + Q_MUNICIPALITY + " WHERE cd_mun = ? AND valid_to IS NULL"
+            + " ORDER BY edition DESC LIMIT 1";
 
     private final BlockQueries queries;
 
@@ -67,7 +78,7 @@ public class BrGeoZarcRiskBlock implements ReportBlock {
     public BlockDefinition definition() {
         return new BlockDefinition("brgeo-zarc-risk", "Climate risk zoning (ZARC) of a crop",
                 "ZARC (MAPA): sowing risk of a crop in a municipality per ten-day period, by cultivar group and soil, with the sowing windows",
-                "1.0.0",
+                "1.1.0",
                 List.of(
                         BlockPort.required("municipalityIbge", DataType.NUMBER,
                                 "IBGE municipality code (7 digits); connect car-property.municipalityIbge or brgeo-municipalities.mainIbgeCode"),
@@ -83,6 +94,8 @@ public class BrGeoZarcRiskBlock implements ReportBlock {
                         BlockPort.optional("season", DataType.STRING, "the season used"),
                         BlockPort.optional("uf", DataType.STRING, "state of the municipality"),
                         BlockPort.optional("municipality", DataType.STRING, "municipality name as the ZARC prints it"),
+                        BlockPort.optional("matchedBy", DataType.STRING,
+                                "how the municipality was found in the ZARC: code (IBGE code) or name (the code was empty, matched by name)"),
                         BlockPort.optional("ordinance", DataType.STRING, "MAPA ordinance number"),
                         BlockPort.optional("ordinanceDate", DataType.DATE, "ordinance date"),
                         BlockPort.required("rows", DataType.ARRAY,
@@ -93,7 +106,8 @@ public class BrGeoZarcRiskBlock implements ReportBlock {
                         BlockPort.required("periods", DataType.ARRAY, "the 36 ten-day periods, for a table header: {period, from, to, label}"),
                         BlockPort.required("availableCrops", DataType.ARRAY, "crops the ZARC has in the season (any state), to pick from")),
                 List.of(requirement(ZARC_RISK, "season", "crop", "cropping_system", "climate_type", "uf", "ordinance",
-                        "ordinance_date", "cd_mun", "municipality", "cultivar_group", "soil", "risk", "valid_to")),
+                        "ordinance_date", "cd_mun", "municipality", "cultivar_group", "soil", "risk", "valid_to"),
+                        requirement(MUNICIPALITY, "edition", "cd_mun", "nm_mun", "valid_to")),
                 BrGeoValues.BLOCK_TIMEOUT);
     }
 
@@ -108,6 +122,8 @@ public class BrGeoZarcRiskBlock implements ReportBlock {
                         "Takes the season given or the latest one with the crop for the municipality (calendar seasons such as 2026/2027 "
                                 + "first, then 'Sem Safra', 'Perenes'...).",
                         "Reads the risk table of the municipality: one row per management, climate type, cultivar group and soil class (AD1 to AD6).",
+                        "Finds the municipality by its IBGE code; when BR Geo could not resolve the ZARC name to a code (code empty), "
+                                + "by the IBGE name of the municipality in the state, accents and case ignored (matchedBy says which).",
                         "Turns each row's 36 ten-day periods into sowing windows: runs of consecutive periods with the same risk, "
                                 + "joined across the turn of the year."),
                 List.of(
@@ -167,13 +183,14 @@ public class BrGeoZarcRiskBlock implements ReportBlock {
             args.add(zarcCrop);
             args.add(uf);
             args.add(cdMun);
-            List<Map<String, Object>> rows = jdbc.query(String.format(RISK_SQL, placeholders), (rs, i) -> {
+            List<Map<String, Object>> found = jdbc.query(String.format(RISK_SQL, placeholders), (rs, i) -> {
                 Map<String, Object> row = new LinkedHashMap<>();
                 row.put("season", rs.getString("season"));
                 row.put("croppingSystem", rs.getString("cropping_system"));
                 row.put("climateType", rs.getString("climate_type"));
                 row.put("ordinance", rs.getString("ordinance"));
                 row.put("ordinanceDate", BrGeoValues.isoDate(rs, "ordinance_date"));
+                row.put("cdMun", rs.getString("cd_mun"));
                 row.put("municipality", rs.getString("municipality"));
                 row.put("cultivarGroup", rs.getString("cultivar_group"));
                 row.put("soil", rs.getString("soil"));
@@ -181,7 +198,17 @@ public class BrGeoZarcRiskBlock implements ReportBlock {
                 return row;
             }, args.toArray());
 
-            String used = seasons.stream().filter(s -> rows.stream().anyMatch(r -> s.equals(r.get("season")))).findFirst().orElse(null);
+            String matchedBy = "code";
+            List<Map<String, Object>> rows = ofMunicipality(found, cdMun, null);
+            if (rows.isEmpty() && found.stream().anyMatch(r -> r.get("cdMun") == null)) {
+                List<String> names = jdbc.queryForList(NAME_SQL, String.class, cdMun);
+                if (!names.isEmpty()) {
+                    rows = ofMunicipality(found, cdMun, names.get(0));
+                    matchedBy = "name";
+                }
+            }
+            final List<Map<String, Object>> matched = rows;
+            String used = seasons.stream().filter(s -> matched.stream().anyMatch(r -> s.equals(r.get("season")))).findFirst().orElse(null);
             List<Map<String, Object>> chosen = new ArrayList<>();
             for (Map<String, Object> row : rows) {
                 if (!row.get("season").equals(used)) continue;
@@ -207,6 +234,7 @@ public class BrGeoZarcRiskBlock implements ReportBlock {
             out.put("season", used);
             out.put("uf", uf);
             out.put("municipality", first.get("municipality"));
+            out.put("matchedBy", matchedBy);
             out.put("ordinance", first.get("ordinance"));
             out.put("ordinanceDate", first.get("ordinanceDate"));
             out.put("rows", outRows);
@@ -216,6 +244,23 @@ public class BrGeoZarcRiskBlock implements ReportBlock {
             out.put("availableCrops", cropsOf(pairs, used));
             return out;
         });
+    }
+
+    /**
+     * The rows of the municipality: those with its IBGE code or, when {@code name} is given, those without
+     * code whose ZARC name folds like it ("Santo Antônio do Leverger" and "santo antonio do leverger").
+     */
+    static List<Map<String, Object>> ofMunicipality(List<Map<String, Object>> rows, String cdMun, String name) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        String folded = name == null ? null : BrazilianStates.fold(name);
+        for (Map<String, Object> row : rows) {
+            Object code = row.get("cdMun");
+            if (name == null ? cdMun.equals(code)
+                    : code == null && folded.equals(BrazilianStates.fold((String) row.get("municipality")))) {
+                out.add(row);
+            }
+        }
+        return out;
     }
 
     /** Calendar seasons (2026/2027) newest first, then the others ("Sem Safra", "Perenes") by name. */
@@ -240,7 +285,7 @@ public class BrGeoZarcRiskBlock implements ReportBlock {
         out.put("message", message);
         for (String name : List.of("crop", "season")) out.put(name, null);
         out.put("uf", uf);
-        for (String name : List.of("municipality", "ordinance", "ordinanceDate")) out.put(name, null);
+        for (String name : List.of("municipality", "matchedBy", "ordinance", "ordinanceDate")) out.put(name, null);
         out.put("rows", List.of());
         out.put("count", 0);
         out.put("truncated", false);
