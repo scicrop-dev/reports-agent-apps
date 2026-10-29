@@ -1,8 +1,8 @@
 {
   "id": "municipality-agri-bulletin",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "name": "Boletim agrícola do município",
-  "description": "Para um município (código IBGE): as lavouras e quanto rendem (IBGE, PAM), o andamento semanal da safra no estado (CONAB) e, se informada a cultura, as janelas de semeadura do ZARC.",
+  "description": "Para um município (código IBGE): as lavouras e quanto rendem (IBGE, PAM), o andamento semanal da safra no estado (CONAB) e, se informada a cultura, a série histórica dela no município, as janelas de semeadura do ZARC e as cultivares indicadas.",
   "category": "Agricultura",
   "inputs": [
     { "name": "municipalityIbge", "type": "number", "required": true, "label": "Código IBGE do município (7 dígitos)" },
@@ -13,7 +13,9 @@
     "nodes": [
       { "id": "crops", "block": "brgeo-crop-production" },
       { "id": "progress", "block": "brgeo-crop-progress", "optional": true },
-      { "id": "zarc", "block": "brgeo-zarc-risk", "optional": true }
+      { "id": "zarc", "block": "brgeo-zarc-risk", "optional": true },
+      { "id": "history", "block": "brgeo-crop-production-history", "optional": true },
+      { "id": "cultivars", "block": "brgeo-zarc-cultivars", "values": {"limit": 15}, "optional": true }
     ],
     "connections": [
       { "from": "inputs.municipalityIbge", "to": "crops.municipalityIbge" },
@@ -21,7 +23,12 @@
       { "from": "inputs.crop", "to": "progress.crop" },
       { "from": "inputs.municipalityIbge", "to": "zarc.municipalityIbge" },
       { "from": "inputs.crop", "to": "zarc.crop" },
-      { "from": "inputs.season", "to": "zarc.season" }
+      { "from": "inputs.season", "to": "zarc.season" },
+      { "from": "inputs.municipalityIbge", "to": "history.municipalityIbge" },
+      { "from": "inputs.crop", "to": "history.product" },
+      { "from": "inputs.crop", "to": "cultivars.crop" },
+      { "from": "inputs.municipalityIbge", "to": "cultivars.municipalityIbge" },
+      { "from": "inputs.season", "to": "cultivars.season" }
     ]
   },
   "templateHtmlFile": "municipality-agri-bulletin.html",
