@@ -25,7 +25,9 @@
   <table class="flags">
     <tr><td class="flag-label">Vegetação na imagem mais recente</td><td>{{#image.found}}{{#image.indices}}<span class="flag-neutral">{{name}} {{mean}}</span> {{/image.indices}}em {{image.acquiredDate}}{{/image.found}}{{^image.found}}<span class="flag-neutral">sem imagem utilizável</span>{{/image.found}}</td></tr>
     <tr><td class="flag-label">Série do índice (Satellite Hub)</td><td>{{#series.series}}{{#-first}}<span class="flag-neutral">{{series.index.name}} {{series.latestMean}}</span> em {{series.latestDate}}; máxima do período {{series.periodMax}}{{/-first}}{{/series.series}}{{^series.series}}<span class="flag-neutral">a área não tem talhões no Satellite Hub</span>{{/series.series}}</td></tr>
-    <tr><td class="flag-label">Chuva acumulada</td><td>{{#rain.found}}<span class="flag-neutral">{{rain.totalMm}} mm</span> em {{rain.rainyDays}} dia(s); maior sequência sem chuva de {{rain.longestDrySpell}} dias{{/rain.found}}{{^rain.found}}<span class="flag-neutral">sem dados</span>{{/rain.found}}</td></tr>
+    <tr><td class="flag-label">Quedas bruscas do índice</td><td>{{#drops.points}}{{#-first}}{{#drops.hasDrops}}<span class="flag-bad">{{drops.eventCount}} queda(s)</span>, a última em {{drops.lastDropDate}}{{/drops.hasDrops}}{{^drops.hasDrops}}<span class="flag-good">nenhuma queda</span>{{/drops.hasDrops}}{{/-first}}{{#-last}}; última imagem ({{date}}): {{#isDrop}}<span class="flag-bad">em queda</span>{{/isDrop}}{{^isDrop}}normal{{/isDrop}}{{/-last}}{{/drops.points}}{{^drops.points}}<span class="flag-neutral">sem série no Satellite Hub</span>{{/drops.points}}</td></tr>
+    <tr><td class="flag-label">Chuva acumulada</td><td>{{#rain.found}}<span class="flag-neutral">{{rain.totalMm}} mm</span> em {{rain.rainyDays}} dia(s); maior sequência sem chuva de {{rain.longestDrySpell}} dias{{#weather.totalEt0Mm}}; ET0 de {{weather.totalEt0Mm}} mm{{/weather.totalEt0Mm}}{{/rain.found}}{{^rain.found}}<span class="flag-neutral">sem dados</span>{{/rain.found}}</td></tr>
+    <tr><td class="flag-label">Água no solo hoje (balanço hídrico)</td><td>{{#balance.found}}<span class="flag-neutral">{{balance.finalStoragePercent}}% da CAD</span> em {{balance.to}}; {{balance.deficitDays}} dia(s) com déficit desde {{balance.from}}{{/balance.found}}{{^balance.found}}<span class="flag-neutral">sem dados</span>{{/balance.found}}</td></tr>
     <tr><td class="flag-label">Temperatura</td><td>{{#weather.found}}<span class="flag-neutral">{{weather.degreeDays}} graus-dia</span>; {{weather.hotDays}} dia(s) com 35 °C ou mais; {{weather.coldNights}} noite(s) com 3 °C ou menos{{/weather.found}}{{^weather.found}}<span class="flag-neutral">sem dados</span>{{/weather.found}}</td></tr>
     <tr><td class="flag-label">Andamento no estado (CONAB)</td><td>{{#progress.items}}{{crop}} {{season}}: {{operationLabel}} {{pctDone}}% em {{weekEnd}}<br>{{/progress.items}}{{^progress.items}}<span class="flag-neutral">sem levantamento recente</span>{{/progress.items}}</td></tr>
   </table>
@@ -98,17 +100,88 @@
 </div>
 
 <div class="section">
-  <h2><span class="num">4</span> Chuva no período</h2>
+  <h2><span class="num">4</span> Quedas bruscas do índice desde o plantio</h2>
+  {{#drops.points}}{{#-first}}
+  <table class="highlights">
+    <tr>
+      <td class="highlight"><div class="hl-label">Quedas no período</div><div class="hl-value">{{drops.eventCount}}</div><div class="hl-sub">{{#drops.hasDrops}}a última em {{drops.lastDropDate}}{{/drops.hasDrops}}{{^drops.hasDrops}}nenhuma imagem caiu além do limiar{{/drops.hasDrops}}</div></td>
+      <td class="highlight"><div class="hl-label">Última imagem</div><div class="hl-value">{{drops.latestValue}}</div><div class="hl-sub">{{drops.index.name}} em {{drops.latestDate}}{{#drops.latestDelta}}; {{drops.latestDelta}} frente à linha de base{{/drops.latestDelta}}</div></td>
+  {{/-first}}{{#-last}}
+      <td class="highlight"><div class="hl-label">Situação atual</div><div class="hl-value">{{#isDrop}}em queda{{/isDrop}}{{^isDrop}}normal{{/isDrop}}</div><div class="hl-sub">{{#isDrop}}a última imagem é uma queda{{/isDrop}}{{^isDrop}}a última imagem não é queda{{/isDrop}}</div></td>
+    </tr>
+  </table>
+  {{/-last}}{{/drops.points}}
+  {{#drops.points}}{{#-first}}
+  <img class="chart" src="{{drops.chart}}" alt="Quedas do índice">
+  {{/-first}}{{/drops.points}}
+  {{#drops.events}}{{#-first}}
+  <table class="grid">
+    <thead><tr><th>Data da queda</th><th class="r">Valor</th><th class="r">Linha de base</th><th class="r">Queda</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr><td>{{date}}</td><td class="r">{{value}}</td><td class="r">{{baseline}}</td><td class="r">{{delta}}</td></tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/drops.events}}
+  {{#drops.hasSeasonalBaseline}}<p>Frente aos anos anteriores: no mesmo mês, o {{drops.index.name}} médio foi {{drops.seasonalBaseline.mean}} ({{drops.seasonalBaseline.observations}} imagens); diferença da última imagem para essa média: {{drops.seasonalBaseline.anomaly}} (negativo = abaixo do normal para o mês).</p>{{/drops.hasSeasonalBaseline}}
+  {{#drops.points}}{{#-first}}
+  <p class="note">{{drops.index.name}} ({{drops.index.collectionName}}) dos talhões do Satellite Hub na área. Cada imagem é comparada com a mediana das imagens anteriores (linha tracejada); queda é cair 0,15 ou mais abaixo dela (círculos vermelhos). Queda não diz o porquê: colheita, roçada, fogo, estresse hídrico ou uma nuvem não mascarada parecem iguais. Confira a imagem da seção 2 e a chuva.</p>
+  {{/-first}}{{/drops.points}}
+  {{^drops.points}}
+  <p class="empty">Sem imagens do Satellite Hub para a área no período: as quedas só são procuradas nos talhões cadastrados nele.</p>
+  {{/drops.points}}
+</div>
+
+<div class="section">
+  <h2><span class="num">5</span> Comparação entre satélites</h2>
+  {{#compare.hasSeries}}
+  <img class="chart" src="{{compare.chart}}" alt="Índices por satélite">
+  <table class="grid">
+    <thead><tr><th>Índice</th><th>Satélite (coleção)</th><th class="r">Imagens</th><th>Última imagem</th><th class="r">Média do período</th></tr></thead>
+    <tbody>
+    {{#compare.series}}
+      <tr><td>{{index.name}}</td><td>{{index.collectionName}}</td><td class="r">{{count}}</td><td>{{latest.date}}: {{latest.mean}}</td><td class="r">{{periodMean}}</td></tr>
+    {{/compare.series}}
+    </tbody>
+  </table>
+  {{#compare.series}}{{#-first}}{{#-last}}<p class="alert">Só há uma coleção com imagens para a área no período ({{index.collectionName}}): não há com o que comparar. Os índices de Landsat e Sentinel-1 entram desabilitados no Satellite Hub; o administrador dele precisa habilitá-los.</p>{{/-last}}{{/-first}}{{/compare.series}}
+  {{#compare.pairs}}{{#-first}}
+  <table class="grid">
+    <thead><tr><th>Par na mesma escala</th><th class="r">Datas casadas</th><th class="r">Diferença média (viés)</th><th class="r">Correlação</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr><td>{{aName}} x {{bName}}</td><td class="r">{{matchedDates}}</td><td class="r">{{meanDiff}}</td><td class="r">{{correlation}}</td></tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/compare.pairs}}
+  {{#compare.withoutData}}{{#-first}}<p class="note">Índices sem imagem no período: {{/-first}}{{.}}{{^-last}}, {{/-last}}{{#-last}}.</p>{{/-last}}{{/compare.withoutData}}
+  <p class="note">Imagens de satélites diferentes até 3 dias distantes contam como a mesma data. Sentinel-2 tem pixel de 10 m e Landsat de 30 m: em talhão pequeno a borda do Landsat mistura vizinhos e aparece como viés. O radar do Sentinel-1 (RVI, escala 0 a 4) vê através de nuvens, mas mede outra coisa e não forma par com os índices ópticos.</p>
+  {{/compare.hasSeries}}
+  {{^compare.hasSeries}}
+  <p class="empty">Nenhum índice com imagens para a área no período. A comparação usa as séries que o Satellite Hub calcula para as áreas cadastradas nele.</p>
+  {{/compare.hasSeries}}
+</div>
+
+<div class="section">
+  <h2><span class="num">6</span> Chuva e evapotranspiração no período</h2>
   {{#rain.found}}
   <table class="highlights">
     <tr>
       <td class="highlight"><div class="hl-label">Chuva acumulada</div><div class="hl-value">{{rain.totalMm}} mm</div><div class="hl-sub">{{rain.from}} a {{rain.to}}</div></td>
-      <td class="highlight"><div class="hl-label">Dias com chuva (1 mm ou mais)</div><div class="hl-value">{{rain.rainyDays}}</div><div class="hl-sub">de {{rain.daysWithData}} dias com dado</div></td>
-      <td class="highlight"><div class="hl-label">Maior sequência sem chuva</div><div class="hl-value">{{rain.longestDrySpell}} dias</div><div class="hl-sub">maior chuva: {{rain.maxDayMm}} mm em {{rain.maxDayDate}}</div></td>
+      <td class="highlight"><div class="hl-label">Evapotranspiração de referência (ET0)</div><div class="hl-value">{{#weather.totalEt0Mm}}{{weather.totalEt0Mm}} mm{{/weather.totalEt0Mm}}{{^weather.totalEt0Mm}}-{{/weather.totalEt0Mm}}</div><div class="hl-sub">{{#weather.totalEt0Mm}}média de {{weather.meanEt0Mm}} mm/dia em {{weather.et0Days}} dias{{/weather.totalEt0Mm}}{{^weather.totalEt0Mm}}sem dado do NASA POWER{{/weather.totalEt0Mm}}</div></td>
+      <td class="highlight"><div class="hl-label">Maior sequência sem chuva</div><div class="hl-value">{{rain.longestDrySpell}} dias</div><div class="hl-sub">{{rain.rainyDays}} dia(s) com chuva de {{rain.daysWithData}} com dado</div></td>
     </tr>
   </table>
   <img class="chart" src="{{rain.chart}}" alt="Chuva diária">
-  <p class="note">Chuva diária (mm) do CHIRPS v3, média dos {{rain.pixels}} pixel(s) de 0,05° (cerca de 5,5 km) sobre a área; média de {{rain.meanDailyMm}} mm por dia com dado. Dias sem recorte carregado: {{rain.missingDays}}; dias ainda da série preliminar (revisada depois): {{rain.preliminaryDays}}.{{^rain.wholePixels}} A área é menor que um pixel: valem os pixels ao redor dela.{{/rain.wholePixels}}</p>
+  <table class="kv">
+    <tr><th>Maior chuva em 1 dia</th><td>{{rain.rx1dayMm}} mm{{#rain.maxDayDate}} ({{rain.maxDayDate}}){{/rain.maxDayDate}}</td></tr>
+    <tr><th>Maior chuva em 5 dias seguidos</th><td>{{#rain.rx5dayMm}}{{rain.rx5dayMm}} mm{{/rain.rx5dayMm}}{{^rain.rx5dayMm}}sem 5 dias seguidos com dado{{/rain.rx5dayMm}}</td></tr>
+    <tr><th>Dias com 50 mm ou mais</th><td>{{rain.heavyRainDays}}</td></tr>
+    <tr><th>Veranicos de 10 dias ou mais / de 15 dias ou mais</th><td>{{rain.drySpells10}} / {{rain.drySpells15}}</td></tr>
+  </table>
+  <p class="note">Chuva diária (mm) do CHIRPS v3, média dos {{rain.pixels}} pixel(s) de 0,05° (cerca de 5,5 km) sobre a área; média de {{rain.meanDailyMm}} mm por dia com dado. Dias sem recorte carregado: {{rain.missingDays}}; dias ainda da série preliminar (revisada depois): {{rain.preliminaryDays}}.{{^rain.wholePixels}} A área é menor que um pixel: valem os pixels ao redor dela.{{/rain.wholePixels}} Veranico = dias seguidos com menos de 1 mm. A ET0 (Penman-Monteith FAO-56) é a demanda de água de uma grama de referência, calculada com o NASA POWER.</p>
   {{/rain.found}}
   {{^rain.found}}
   <p class="alert">Sem dados de chuva para a área no período.{{#rain.message}} Detalhe: {{rain.message}}.{{/rain.message}}{{^rain.message}} A consulta não respondeu nesta execução; o detalhe está nos blocos da execução.{{/rain.message}}</p>
@@ -116,7 +189,25 @@
 </div>
 
 <div class="section">
-  <h2><span class="num">5</span> Temperatura no período</h2>
+  <h2><span class="num">7</span> Balanço hídrico do solo desde o plantio</h2>
+  {{#balance.found}}
+  <table class="highlights">
+    <tr>
+      <td class="highlight"><div class="hl-label">Água no solo hoje</div><div class="hl-value">{{balance.finalStoragePercent}}%</div><div class="hl-sub">{{balance.finalStorageMm}} mm de {{balance.cadMm}} mm (CAD) em {{balance.to}}</div></td>
+      <td class="highlight"><div class="hl-label">Dias com déficit hídrico</div><div class="hl-value">{{balance.deficitDays}}</div><div class="hl-sub">maior sequência: {{balance.maxConsecutiveDeficitDays}} dias</div></td>
+      <td class="highlight"><div class="hl-label">Déficit acumulado</div><div class="hl-value">{{balance.totalDeficitMm}} mm</div><div class="hl-sub">chuva {{balance.totalRainMm}} mm · demanda {{balance.totalEtcMm}} mm</div></td>
+    </tr>
+  </table>
+  <img class="chart" src="{{balance.chart}}" alt="Balanço hídrico diário">
+  <p class="note">Balanço hídrico sequencial diário (Thornthwaite-Mather) de {{balance.from}} a {{balance.to}}: chuva do CHIRPS, ET0 do NASA POWER, kc = {{balance.kc}} e capacidade de água disponível (CAD) padrão de {{balance.cadMm}} mm. O solo começa cheio no plantio, o que subestima o déficit das primeiras semanas se o plantio foi no seco. No gráfico, barras = chuva diária, linha verde = água no solo, linha vermelha = déficit do dia. Dias sem chuva carregada (contados como sem chuva): {{balance.missingRainDays}}; dias com ET0 estimada: {{balance.estimatedEt0Days}}. A CAD real depende do solo e da raiz: é um indicador, não uma medida.</p>
+  {{/balance.found}}
+  {{^balance.found}}
+  <p class="alert">Sem balanço hídrico para a área.{{#balance.message}} Detalhe: {{balance.message}}.{{/balance.message}}{{^balance.message}} A consulta não respondeu nesta execução; o detalhe está nos blocos da execução.{{/balance.message}}</p>
+  {{/balance.found}}
+</div>
+
+<div class="section">
+  <h2><span class="num">8</span> Temperatura no período</h2>
   {{#weather.found}}
   <table class="highlights">
     <tr>
@@ -142,7 +233,7 @@
 </div>
 
 <div class="section">
-  <h2><span class="num">6</span> Andamento da safra no estado (CONAB)</h2>
+  <h2><span class="num">9</span> Andamento da safra no estado (CONAB)</h2>
   {{#progress.found}}
   <p>Levantamento semanal da CONAB em {{progress.state}}, semana terminada em {{progress.latestWeekEnd}}. Percentual da área do estado já semeada ou colhida.</p>
   {{#progress.items}}{{#-first}}
@@ -164,13 +255,14 @@
 </div>
 
 <div class="section">
-  <h2><span class="num">7</span> Fontes e limitações</h2>
+  <h2><span class="num">10</span> Fontes e limitações</h2>
   <ul class="sources">
     <li>Área: {{#area.isCar}}geometria vigente do imóvel no CAR (SICAR, coletado pelo car-agent-app; informação autodeclaratória){{/area.isCar}}{{^area.isCar}}{{#area.isGis}}polígonos do dado GIS "{{area.gisDatasetName}}" do Data Library (armazenados em WGS 84), unidos e corrigidos para geometria válida{{/area.isGis}}{{^area.isGis}}polígono informado por quem rodou o relatório, corrigido para geometria válida{{/area.isGis}}{{/area.isCar}}. Áreas em SIRGAS 2000, com cálculo geodésico.</li>
     <li>Imagem: Sentinel-2 L2A (Copernicus/ESA) do catálogo Earth Search (Element 84), lida na hora; índices com as fórmulas e a máscara de nuvem do Satellite Hub.</li>
-    <li>Série do índice: Satellite Hub, calculada para as áreas cadastradas nele.</li>
+    <li>Série, quedas e comparação de índices: Satellite Hub, calculadas para as áreas cadastradas nele (Sentinel-2, Landsat 8/9 e Sentinel-1, conforme o que o administrador habilitou).</li>
+    <li>Balanço hídrico: modelo simplificado (Thornthwaite-Mather) com CAD padrão de 50 mm; não mede a umidade do solo.</li>
     <li>Chuva: CHIRPS v3 (Climate Hazards Center, UC Santa Barbara), diária, 0,05°; os últimos dias vêm da série preliminar. Mantido pelo br-weather-agent-app.</li>
-    <li>Temperatura, umidade, vento e radiação: NASA POWER (MERRA-2), diário, células de 0,5° x 0,625°. É reanálise, não estação: suaviza extremos locais. Mantido pelo br-weather-agent-app.</li>
+    <li>Temperatura, umidade, vento, radiação e ET0 (Penman-Monteith FAO-56): NASA POWER (MERRA-2), diário, células de 0,5° x 0,625°. É reanálise, não estação: suaviza extremos locais. Mantido pelo br-weather-agent-app.</li>
     <li>Andamento da safra: CONAB, Progresso de Safra semanal, por estado.</li>
     <li>Chuva e temperatura vão até 366 dias depois do início.</li>
     <li>Este relatório reúne bases públicas e não substitui vistoria em campo, laudo técnico assinado nem a análise do órgão ou do agente financeiro competente.</li>

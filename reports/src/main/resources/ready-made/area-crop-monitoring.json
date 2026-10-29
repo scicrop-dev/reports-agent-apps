@@ -1,8 +1,8 @@
 {
   "id": "area-crop-monitoring",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "name": "Acompanhamento de safra (imóvel CAR ou polígono)",
-  "description": "Desde o plantio: imagem Sentinel-2 mais recente com NDVI, NDMI e NDRE, evolução do índice nos talhões do Satellite Hub, chuva e temperatura do período (veranicos, graus-dia, calor e frio) e o andamento da safra no estado (CONAB).",
+  "description": "Desde o plantio: imagem Sentinel-2 mais recente com NDVI, NDMI e NDRE, evolução do índice nos talhões do Satellite Hub, quedas bruscas do índice, comparação entre satélites, chuva, ET0 e extremos, balanço hídrico do solo, temperatura do período (graus-dia, calor e frio) e o andamento da safra no estado (CONAB).",
   "category": "Monitoramento",
   "inputs": [
     { "name": "codImovel", "type": "string", "required": false, "label": "Código do imóvel no CAR (ou deixe em branco e informe o polígono ou um dado GIS)" },
@@ -24,6 +24,9 @@
       { "id": "rain", "block": "brweather-rainfall", "optional": true },
       { "id": "weather", "block": "brweather-daily-weather", "optional": true },
       { "id": "progress", "block": "brgeo-crop-progress", "optional": true },
+      { "id": "drops", "block": "sathub-index-anomaly", "optional": true },
+      { "id": "compare", "block": "sathub-index-compare", "optional": true },
+      { "id": "balance", "block": "brweather-water-balance", "optional": true },
       { "id": "image", "block": "sathub-latest-image", "values": {"indices": "ndvi,ndmi,ndre"}, "optional": true }
     ],
     "connections": [
@@ -46,6 +49,16 @@
       { "from": "inputs.to", "to": "weather.to" },
       { "from": "municipalities.mainUf", "to": "progress.uf" },
       { "from": "inputs.crop", "to": "progress.crop" },
+      { "from": "area.geometry", "to": "drops.geometry" },
+      { "from": "inputs.index", "to": "drops.index" },
+      { "from": "inputs.from", "to": "drops.from" },
+      { "from": "inputs.to", "to": "drops.to" },
+      { "from": "area.geometry", "to": "compare.geometry" },
+      { "from": "inputs.from", "to": "compare.from" },
+      { "from": "inputs.to", "to": "compare.to" },
+      { "from": "area.geometry", "to": "balance.geometry" },
+      { "from": "inputs.from", "to": "balance.from" },
+      { "from": "inputs.to", "to": "balance.to" },
       { "from": "area.geometry", "to": "image.geometry" }
     ]
   },

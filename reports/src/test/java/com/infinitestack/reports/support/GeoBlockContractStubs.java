@@ -405,7 +405,7 @@ public final class GeoBlockContractStubs {
         for (int y = 2016; y <= 2025; y++) {
             double ha = 220000.0 + (y - 2016) * 10000.0;
             series.add(map("year", y, "plantedHa", ha, "harvestedHa", ha, "quantity", ha * 3.4, "unit", "Toneladas",
-                    "yieldKgHa", 3400.0 + (y - 2016) * 20, "valueThousandBrl", ha * 4.1));
+                    "yieldKgHa", 3400.0 + (y - 2016) * 20, "valueThousandBrl", (double) Math.round(ha * 4.1)));
             bars.add(new YearBarChart.Bar(y, ha));
         }
         String chart = "data:image/png;base64," + Base64.getEncoder().encodeToString(new YearBarChart().render(bars, 900, 260));

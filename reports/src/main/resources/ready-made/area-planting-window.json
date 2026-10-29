@@ -1,8 +1,8 @@
 {
   "id": "area-planting-window",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "name": "Janela de plantio (imóvel CAR ou polígono)",
-  "description": "Para uma cultura num imóvel do CAR ou polígono: janelas de semeadura e risco do ZARC no município, chuva e temperatura dos últimos 30 dias, andamento da semeadura no estado (CONAB) e o que o município produz (IBGE).",
+  "description": "Para uma cultura num imóvel do CAR, polígono ou dado GIS: janelas de semeadura e risco do ZARC no município e as cultivares indicadas, solo da área e perfis próximos, umidade do solo pelo balanço hídrico, chuva, ET0 e temperatura dos últimos 30 dias, andamento da semeadura no estado (CONAB) e a série histórica da cultura no município (IBGE).",
   "category": "Agricultura",
   "inputs": [
     { "name": "codImovel", "type": "string", "required": false, "label": "Código do imóvel no CAR (ou deixe em branco e informe o polígono ou um dado GIS)" },
@@ -21,8 +21,13 @@
       { "id": "zarc", "block": "brgeo-zarc-risk", "optional": true },
       { "id": "rain", "block": "brweather-rainfall", "values": {"days": 30}, "optional": true },
       { "id": "weather", "block": "brweather-daily-weather", "values": {"days": 30}, "optional": true },
+      { "id": "balance", "block": "brweather-water-balance", "values": {"days": 60}, "optional": true },
+      { "id": "soil", "block": "brgeo-soil-units", "optional": true },
+      { "id": "profiles", "block": "brgeo-soil-profiles", "optional": true },
+      { "id": "cultivars", "block": "brgeo-zarc-cultivars", "values": {"limit": 15}, "optional": true },
       { "id": "progress", "block": "brgeo-crop-progress", "optional": true },
-      { "id": "crops", "block": "brgeo-crop-production", "optional": true }
+      { "id": "crops", "block": "brgeo-crop-production", "optional": true },
+      { "id": "history", "block": "brgeo-crop-production-history", "optional": true }
     ],
     "connections": [
       { "from": "inputs.codImovel", "to": "area.codImovel" },
@@ -39,7 +44,15 @@
       { "from": "area.geometry", "to": "weather.geometry" },
       { "from": "municipalities.mainUf", "to": "progress.uf" },
       { "from": "inputs.crop", "to": "progress.crop" },
-      { "from": "municipalities.mainIbgeCode", "to": "crops.municipalityIbge" }
+      { "from": "municipalities.mainIbgeCode", "to": "crops.municipalityIbge" },
+      { "from": "area.geometry", "to": "balance.geometry" },
+      { "from": "area.geometry", "to": "soil.geometry" },
+      { "from": "area.geometry", "to": "profiles.geometry" },
+      { "from": "inputs.crop", "to": "cultivars.crop" },
+      { "from": "municipalities.mainUf", "to": "cultivars.uf" },
+      { "from": "inputs.season", "to": "cultivars.season" },
+      { "from": "municipalities.mainIbgeCode", "to": "history.municipalityIbge" },
+      { "from": "inputs.crop", "to": "history.product" }
     ]
   },
   "templateHtmlFile": "area-planting-window.html",

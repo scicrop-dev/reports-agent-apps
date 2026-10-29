@@ -176,7 +176,7 @@
   {{/zarc.found}}
   {{^zarc.found}}
   <p class="alert">O ZARC não traz {{inputs.crop}} para o município da área{{#zarc.message}} ({{zarc.message}}){{/zarc.message}}. Sem zoneamento, a lavoura não tem acesso ao Proagro nem à subvenção do seguro rural para essa cultura.</p>
-  <p class="note">Culturas que o ZARC zoneia na safra: {{#zarc.availableCrops}}{{.}}; {{/zarc.availableCrops}}</p>
+  {{#zarc.availableCrops}}{{#-first}}<p class="note">Culturas que o ZARC zoneia na safra: {{/-first}}{{.}}{{^-last}}; {{/-last}}{{#-last}}.</p>{{/-last}}{{/zarc.availableCrops}}
   {{/zarc.found}}
   {{/inputs.crop}}
   {{^inputs.crop}}<p class="empty">Nenhuma cultura foi informada; informe-a para ver se ela é zoneada no município e em que janelas.</p>{{/inputs.crop}}
