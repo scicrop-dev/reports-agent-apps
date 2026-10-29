@@ -8,7 +8,7 @@
   <h1>{{#area.isCar}}Imóvel rural {{area.codImovel}}{{/area.isCar}}{{^area.isCar}}{{area.label}}{{/area.isCar}}</h1>
   <p class="cover-sub">{{#area.isCar}}{{property.municipality}} / {{property.uf}}{{/area.isCar}}{{^area.isCar}}{{#municipalities.main}}{{name}} / {{uf}}{{/municipalities.main}}{{^municipalities.main}}fora da malha municipal do IBGE{{/municipalities.main}}{{/area.isCar}}</p>
   <table class="meta">
-    <tr><th>Área analisada</th><td>{{#area.isCar}}imóvel do CAR <span class="code">{{area.codImovel}}</span>{{/area.isCar}}{{^area.isCar}}polígono informado ({{area.vertices}} vértices){{/area.isCar}}</td></tr>
+    <tr><th>Área analisada</th><td>{{#area.isCar}}imóvel do CAR <span class="code">{{area.codImovel}}</span>{{/area.isCar}}{{^area.isCar}}{{#area.isGis}}dado GIS do Data Library <strong>{{area.gisDatasetName}}</strong>{{#area.gisFeatureId}}, feição {{area.gisFeatureId}}{{/area.gisFeatureId}} ({{area.gisPolygons}} polígono(s), {{area.vertices}} vértices){{/area.isGis}}{{^area.isGis}}polígono informado ({{area.vertices}} vértices){{/area.isGis}}{{/area.isCar}}</td></tr>
     <tr><th>Área calculada</th><td>{{area.areaHa}} ha</td></tr>
     <tr><th>Emitido em</th><td>{{report.generatedAt}}</td></tr>
     <tr><th>Execução</th><td>{{#report.executionId}}nº {{report.executionId}} (versão {{report.version}} do relatório){{/report.executionId}}{{^report.executionId}}Prévia, não registrada no histórico{{/report.executionId}}</td></tr>
@@ -21,7 +21,7 @@
 <div class="section">
   <h2><span class="num">0</span> Síntese</h2>
   <table class="flags">
-    <tr><td class="flag-label">Área analisada</td><td>{{#area.isCar}}<span class="flag-neutral">imóvel do CAR</span>{{/area.isCar}}{{^area.isCar}}<span class="flag-neutral">polígono informado</span>, sem cruzamento com o cadastro do CAR{{/area.isCar}}, {{area.areaHa}} ha</td></tr>
+    <tr><td class="flag-label">Área analisada</td><td>{{#area.isCar}}<span class="flag-neutral">imóvel do CAR</span>{{/area.isCar}}{{^area.isCar}}<span class="flag-neutral">{{#area.isGis}}dado GIS do Data Library{{/area.isGis}}{{^area.isGis}}polígono informado{{/area.isGis}}</span>, sem cruzamento com o cadastro do CAR{{/area.isCar}}, {{area.areaHa}} ha</td></tr>
     {{#area.isCar}}
     <tr><td class="flag-label">Situação no CAR</td><td><span class="flag-neutral">{{property.statusLabel}}</span> ({{property.condition}})</td></tr>
     {{/area.isCar}}
@@ -55,7 +55,7 @@
     {{/area.isCar}}
     {{^area.isCar}}
     <tr><th>Nome</th><td>{{area.label}}</td></tr>
-    <tr><th>Origem da geometria</th><td>polígono informado por quem rodou o relatório (não é um imóvel do CAR)</td></tr>
+    <tr><th>Origem da geometria</th><td>{{#area.isGis}}dado GIS "{{area.gisDatasetName}}" do Data Library{{#area.gisFeatureId}} (feição {{area.gisFeatureId}}){{/area.gisFeatureId}}, não é um imóvel do CAR{{/area.isGis}}{{^area.isGis}}polígono informado por quem rodou o relatório (não é um imóvel do CAR){{/area.isGis}}</td></tr>
     {{/area.isCar}}
     <tr><th>Área calculada da geometria</th><td>{{area.areaHa}} ha</td></tr>
     <tr><th>Ponto de referência (dentro da área)</th><td>latitude {{area.centroidLat}}, longitude {{area.centroidLon}}</td></tr>
@@ -359,7 +359,7 @@
 <div class="section">
   <h2><span class="num">12</span> Fontes e limitações</h2>
   <ul class="sources">
-    <li>Área: {{#area.isCar}}geometria vigente do imóvel no CAR (SICAR, coletado pelo car-agent-app; informação autodeclaratória){{/area.isCar}}{{^area.isCar}}polígono informado por quem rodou o relatório, corrigido para geometria válida{{/area.isCar}}. Áreas em SIRGAS 2000, com cálculo geodésico.</li>
+    <li>Área: {{#area.isCar}}geometria vigente do imóvel no CAR (SICAR, coletado pelo car-agent-app; informação autodeclaratória){{/area.isCar}}{{^area.isCar}}{{#area.isGis}}polígonos do dado GIS "{{area.gisDatasetName}}" do Data Library (armazenados em WGS 84), unidos e corrigidos para geometria válida{{/area.isGis}}{{^area.isGis}}polígono informado por quem rodou o relatório, corrigido para geometria válida{{/area.isGis}}{{/area.isCar}}. Áreas em SIRGAS 2000, com cálculo geodésico.</li>
     <li>Biomas e malha municipal: IBGE. Embargos: IBAMA, dados abertos de termos de embargo. DETER e PRODES: INPE, TerraBrasilis. Mantidos em versões pelo br-geo-agent-app.</li>
     <li>Imagem: Sentinel-2 L2A (Copernicus/ESA) do catálogo Earth Search (Element 84), lida na hora; índices com as fórmulas e a máscara de nuvem do Satellite Hub.</li>
     <li>Chuva: CHIRPS v3 (Climate Hazards Center, UC Santa Barbara), diária, 0,05°; os últimos dias vêm da série preliminar. Mantido pelo br-weather-agent-app.</li>

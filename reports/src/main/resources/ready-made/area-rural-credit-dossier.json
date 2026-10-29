@@ -5,9 +5,11 @@
   "description": "Verificações socioambientais (CAR, Reserva Legal, embargos, PRODES, DETER) e de aptidão (ZARC da cultura, imagem recente, chuva de 12 meses, produção do município e andamento da safra) de um imóvel do CAR ou polígono, para crédito e seguro rural.",
   "category": "Crédito rural",
   "inputs": [
-    { "name": "codImovel", "type": "string", "required": false, "label": "Código do imóvel no CAR (ou deixe em branco e informe o polígono)" },
+    { "name": "codImovel", "type": "string", "required": false, "label": "Código do imóvel no CAR (ou deixe em branco e informe o polígono ou um dado GIS)" },
     { "name": "area", "type": "geometry", "required": false, "label": "Polígono da área em GeoJSON, no lugar do código CAR" },
     { "name": "areaName", "type": "string", "required": false, "label": "Nome da área (só para polígono)" },
+    { "name": "gisDataset", "type": "string", "required": false, "picker": "gis-dataset", "label": "Ou um dado GIS do Data Library (conjunto)" },
+    { "name": "gisFeature", "type": "number", "required": false, "picker": "gis-feature", "label": "Feição do dado GIS (opcional; padrão todos os polígonos)" },
     { "name": "crop", "type": "string", "required": true, "label": "Cultura, como o ZARC escreve: Soja, Milho 2ª safra, Trigo..." },
     { "name": "season", "type": "string", "required": false, "label": "Safra do ZARC (opcional, ex.: 2026/2027; padrão a mais recente)" }
   ],
@@ -34,6 +36,8 @@
       { "from": "inputs.codImovel", "to": "area.codImovel" },
       { "from": "inputs.area", "to": "area.geometry" },
       { "from": "inputs.areaName", "to": "area.name" },
+      { "from": "inputs.gisDataset", "to": "area.gisDataset" },
+      { "from": "inputs.gisFeature", "to": "area.gisFeature" },
       { "from": "area.codImovel", "to": "property.codImovel" },
       { "from": "area.geometry", "to": "municipalities.geometry" },
       { "from": "area.codImovel", "to": "layers.codImovel" },

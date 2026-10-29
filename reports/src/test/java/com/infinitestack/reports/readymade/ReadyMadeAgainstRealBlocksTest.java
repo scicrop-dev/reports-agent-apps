@@ -54,7 +54,7 @@ class ReadyMadeAgainstRealBlocksTest {
 
     private static List<ReportBlock> realBlocks() {
         return List.of(new CarPropertyBlock(null), new CarPropertyGeometryBlock(null), new CarEnvironmentalLayersBlock(null),
-                new CarOverlapsBlock(null), new CarHistoryBlock(null), new CarPropertyMapBlock(null), new ReportAreaBlock(null),
+                new CarOverlapsBlock(null), new CarHistoryBlock(null), new CarPropertyMapBlock(null), new ReportAreaBlock(null, null),
                 new BrGeoMunicipalitiesBlock(null), new BrGeoBiomesBlock(null), new BrGeoEmbargoesBlock(null),
                 new BrGeoDeterAlertsBlock(null), new BrGeoProdesBlock(null), new BrGeoCropProductionBlock(null),
                 new SatelliteHubIndexSeriesBlock(null), new SatelliteHubLatestImageBlock(null, null, null),

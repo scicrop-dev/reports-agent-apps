@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.infinitestack.reports.blocks.gis.GisAreas;
 import com.infinitestack.reports.engine.DataType;
 import com.infinitestack.reports.engine.block.BlockDefinition;
 import com.infinitestack.reports.engine.block.BlockDocs;
@@ -20,8 +21,9 @@ import com.infinitestack.reports.engine.block.ExecutionMetadata;
 import com.infinitestack.reports.engine.block.ReportBlock;
 
 /**
- * {@code report-area}: the area a report is about, from a CAR property code or from a polygon the
- * user sends, so one ready-made report serves both. Gives the same outputs as
+ * {@code report-area}: the area a report is about, from a CAR property code, from a polygon the
+ * user sends or from a GIS dataset of the Data Library (or one of its features), so one ready-made
+ * report serves all three. Gives the same outputs as
  * {@code car-property-geometry} plus which of the two it was, for the template to show the CAR
  * sections only for a property. A polygon is cleaned (made valid, polygons only, parts merged).
  *
@@ -42,27 +44,39 @@ public class ReportAreaBlock implements ReportBlock {
             + " ST_NPoints(geom) AS vertices FROM g";
 
     private final BlockQueries queries;
+    private final GisAreas gis;
 
-    public ReportAreaBlock(BlockQueries queries) {
+    public ReportAreaBlock(BlockQueries queries, GisAreas gis) {
         this.queries = queries;
+        this.gis = gis;
     }
 
     @Override
     public BlockDefinition definition() {
-        return new BlockDefinition("report-area", "Report area (CAR or polygon)",
-                "The area of the report, from a CAR property code or a GeoJSON polygon: geometry, area, inner point and bounding box",
-                "1.0.0",
+        return new BlockDefinition("report-area", "Report area (CAR, polygon or GIS)",
+                "The area of the report, from a CAR property code, a GeoJSON polygon or a GIS dataset of the Data Library:"
+                        + " geometry, area, inner point and bounding box",
+                "1.1.0",
                 List.of(
                         BlockPort.optional("codImovel", DataType.STRING, "SICAR property code; give this or 'geometry'"),
                         BlockPort.optional("geometry", DataType.GEOMETRY,
                                 "GeoJSON Polygon or MultiPolygon in lon/lat (SIRGAS 2000 or WGS 84); a Feature or FeatureCollection also works"),
-                        BlockPort.optional("name", DataType.STRING, "name to show for a polygon (e.g. Fazenda Boa Vista)")),
+                        BlockPort.optional("name", DataType.STRING, "name to show for a polygon or GIS area (e.g. Fazenda Boa Vista)"),
+                        BlockPort.optional("gisDataset", DataType.STRING,
+                                "GIS dataset of the Data Library (id or name); its polygons are the area. Give this, codImovel or geometry"),
+                        BlockPort.optional("gisFeature", DataType.NUMBER, "only this feature (geo_data_id) of the GIS dataset")),
                 List.of(
-                        BlockPort.required("source", DataType.STRING, "car or polygon"),
+                        BlockPort.required("source", DataType.STRING, "car, polygon or gis"),
                         BlockPort.required("isCar", DataType.BOOLEAN, "the area is a CAR property"),
+                        BlockPort.required("isGis", DataType.BOOLEAN, "the area comes from a GIS dataset of the Data Library"),
                         BlockPort.optional("codImovel", DataType.STRING,
                                 "the CAR code, null for a polygon; connect it to the CAR Blocks marked optional in the Flow"),
-                        BlockPort.required("label", DataType.STRING, "how to call the area: the CAR code, the name given or 'Área informada'"),
+                        BlockPort.required("label", DataType.STRING,
+                                "how to call the area: the CAR code, the name given, the GIS feature or dataset name, or 'Área informada'"),
+                        BlockPort.optional("gisDatasetId", DataType.NUMBER, "GIS dataset id (geo_id), null unless source is gis"),
+                        BlockPort.optional("gisDatasetName", DataType.STRING, "GIS dataset name, null unless source is gis"),
+                        BlockPort.optional("gisFeatureId", DataType.NUMBER, "GIS feature id when one was picked"),
+                        BlockPort.optional("gisPolygons", DataType.NUMBER, "how many GIS polygons were merged into the area"),
                         BlockPort.required("geometry", DataType.GEOMETRY, "GeoJSON geometry, SRID 4674"),
                         BlockPort.required("areaHa", DataType.NUMBER, "computed area, hectares"),
                         BlockPort.required("centroidLat", DataType.NUMBER, "latitude of a point inside the area"),
@@ -76,24 +90,31 @@ public class ReportAreaBlock implements ReportBlock {
     @Override
     public BlockDocs docs() {
         return new BlockDocs("Área",
-                "Starts a report that works both for a CAR property and for any polygon. It turns either one into "
-                        + "the geometry every spatial Block takes, and says which one it was.",
+                "Starts a report that works for a CAR property, for any polygon and for a GIS dataset of the Data Library. "
+                        + "It turns any of them into the geometry every spatial Block takes, and says which one it was.",
                 List.of(
                         "With codImovel: reads the current geometry of the property, as car-property-geometry does.",
                         "With geometry: makes it valid, keeps only its polygons and merges overlapping parts; a Feature "
                                 + "or a FeatureCollection is reduced to its geometries.",
+                        "With gisDataset: reads the polygons of that dataset (bronze.is_geo_ref_data), or of the one feature "
+                                + "given in gisFeature, and treats them as the polygon; points and lines are ignored.",
                         "Computes area (geodesic), an inner point (ST_PointOnSurface), bounding box and vertex count.",
-                        "Fails when both or neither are given, when the polygon has no area or when its coordinates are not degrees."),
+                        "Fails when more than one or none of codImovel, geometry and gisDataset are given, when the polygon has "
+                                + "no area or when its coordinates are not degrees."),
                 List.of(
-                        "codImovel and geometry: two optional report inputs; the person running the report fills one.",
+                        "codImovel, geometry and gisDataset (+ gisFeature): optional report inputs; the person running the report fills one. "
+                                + "Give the gisDataset input the picker gis-dataset and gisFeature the picker gis-feature, so the run form "
+                                + "lists the datasets and features of the Data Library.",
                         "geometry: connect it to every Block that analyses an area (BR Geo, BR Weather, Satellite Hub).",
                         "codImovel: connect it to the CAR Blocks (car-property, car-property-map...) and mark those nodes "
                                 + "optional, so they are skipped for a polygon.",
                         "isCar: wrap the CAR sections of the template in {{#<node>.isCar}}...{{/<node>.isCar}}."),
                 List.of(
                         "Coordinates must be longitude/latitude in degrees; SIRGAS 2000 and WGS 84 differ by less than a metre.",
-                        "A CAR code on an instance without the car-agent-app data fails."),
-                "SICAR (car-agent-app) for a CAR code; the polygon given by the user",
+                        "A CAR code on an instance without the car-agent-app data fails.",
+                        "A GIS dataset with more than " + GisAreas.MAX_FEATURES + " polygons needs one feature picked.",
+                        "GIS data is stored in WGS 84 (EPSG:4326) and read as SIRGAS 2000, like a polygon given by the user."),
+                "SICAR (car-agent-app) for a CAR code; the polygon given by the user; the GIS tab of the Data Library (bronze.is_geo_ref*)",
                 "{{<node>.label}}: {{<node>.areaHa}} ha");
     }
 
@@ -101,30 +122,68 @@ public class ReportAreaBlock implements ReportBlock {
     public Map<String, Object> execute(Map<String, Object> inputs, ExecutionMetadata metadata) {
         String codImovel = inputs.get("codImovel") instanceof String s && !s.isBlank() ? s.trim() : null;
         Object geometry = inputs.get("geometry");
-        if (codImovel != null && geometry != null) {
-            throw new IllegalArgumentException("give the CAR code or the polygon, not both");
+        String gisDataset = inputs.get("gisDataset") == null || inputs.get("gisDataset").toString().isBlank()
+                ? null : inputs.get("gisDataset").toString().trim();
+        Integer gisFeature = inputs.get("gisFeature") instanceof Number n ? n.intValue() : null;
+        int given = (codImovel != null ? 1 : 0) + (geometry != null ? 1 : 0) + (gisDataset != null ? 1 : 0);
+        if (given > 1) {
+            throw new IllegalArgumentException("give only one of: the CAR code, the polygon or the GIS dataset");
         }
-        if (codImovel == null && geometry == null) {
-            throw new IllegalArgumentException("give a CAR code (codImovel) or a polygon (geometry)");
+        if (given == 0) {
+            throw new IllegalArgumentException(gisFeature != null
+                    ? "gisFeature needs the GIS dataset (gisDataset)"
+                    : "give a CAR code (codImovel), a polygon (geometry) or a GIS dataset (gisDataset)");
         }
+        if (gisFeature != null && gisDataset == null) throw new IllegalArgumentException("gisFeature needs the GIS dataset (gisDataset)");
         Map<String, Object> out = new LinkedHashMap<>();
         Map<String, Object> area;
         if (codImovel != null) {
             area = car(codImovel);
             out.put("source", "car");
             out.put("isCar", true);
+            out.put("isGis", false);
             out.put("codImovel", codImovel);
             out.put("label", codImovel);
+            putGis(out, null);
+        } else if (gisDataset != null) {
+            Map<String, Object> gisArea = gis.area(gisDataset, gisFeature);
+            area = polygon(readJson((String) gisArea.get("geoJson")));
+            String name = inputs.get("name") instanceof String s && !s.isBlank() ? s.trim() : null;
+            String featureLabel = (String) gisArea.get("featureLabel");
+            out.put("source", "gis");
+            out.put("isCar", false);
+            out.put("isGis", true);
+            out.put("codImovel", null);
+            out.put("label", name != null ? name
+                    : featureLabel != null ? featureLabel + " (" + gisArea.get("datasetName") + ")" : (String) gisArea.get("datasetName"));
+            putGis(out, gisArea);
         } else {
             area = polygon(geometry);
             String name = inputs.get("name") instanceof String s && !s.isBlank() ? s.trim() : null;
             out.put("source", "polygon");
             out.put("isCar", false);
+            out.put("isGis", false);
             out.put("codImovel", null);
             out.put("label", name == null ? "Área informada" : name);
+            putGis(out, null);
         }
         out.putAll(area);
         return out;
+    }
+
+    private static void putGis(Map<String, Object> out, Map<String, Object> gisArea) {
+        out.put("gisDatasetId", gisArea == null ? null : gisArea.get("datasetId"));
+        out.put("gisDatasetName", gisArea == null ? null : gisArea.get("datasetName"));
+        out.put("gisFeatureId", gisArea == null ? null : gisArea.get("featureId"));
+        out.put("gisPolygons", gisArea == null ? null : gisArea.get("polygons"));
+    }
+
+    private static Object readJson(String json) {
+        try {
+            return JSON.readValue(json, Map.class);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("the GIS geometry is not valid GeoJSON", e);
+        }
     }
 
     private Map<String, Object> car(String codImovel) {

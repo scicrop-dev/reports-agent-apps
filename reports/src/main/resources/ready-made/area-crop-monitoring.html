@@ -8,7 +8,7 @@
   <h1>{{#area.isCar}}Imóvel rural {{area.codImovel}}{{/area.isCar}}{{^area.isCar}}{{area.label}}{{/area.isCar}}</h1>
   <p class="cover-sub">{{#area.isCar}}{{property.municipality}} / {{property.uf}}{{/area.isCar}}{{^area.isCar}}{{#municipalities.main}}{{name}} / {{uf}}{{/municipalities.main}}{{^municipalities.main}}fora da malha municipal do IBGE{{/municipalities.main}}{{/area.isCar}}</p>
   <table class="meta">
-    <tr><th>Área analisada</th><td>{{#area.isCar}}imóvel do CAR <span class="code">{{area.codImovel}}</span>{{/area.isCar}}{{^area.isCar}}polígono informado ({{area.vertices}} vértices){{/area.isCar}}</td></tr>
+    <tr><th>Área analisada</th><td>{{#area.isCar}}imóvel do CAR <span class="code">{{area.codImovel}}</span>{{/area.isCar}}{{^area.isCar}}{{#area.isGis}}dado GIS do Data Library <strong>{{area.gisDatasetName}}</strong>{{#area.gisFeatureId}}, feição {{area.gisFeatureId}}{{/area.gisFeatureId}} ({{area.gisPolygons}} polígono(s), {{area.vertices}} vértices){{/area.isGis}}{{^area.isGis}}polígono informado ({{area.vertices}} vértices){{/area.isGis}}{{/area.isCar}}</td></tr>
     <tr><th>Área calculada</th><td>{{area.areaHa}} ha</td></tr>
     <tr><th>Período</th><td>de {{inputs.from}} até {{#inputs.to}}{{inputs.to}}{{/inputs.to}}{{^inputs.to}}hoje{{/inputs.to}}</td></tr>
     {{#inputs.crop}}<tr><th>Cultura</th><td>{{inputs.crop}}</td></tr>{{/inputs.crop}}
@@ -44,7 +44,7 @@
     {{/area.isCar}}
     {{^area.isCar}}
     <tr><th>Nome</th><td>{{area.label}}</td></tr>
-    <tr><th>Origem da geometria</th><td>polígono informado por quem rodou o relatório (não é um imóvel do CAR)</td></tr>
+    <tr><th>Origem da geometria</th><td>{{#area.isGis}}dado GIS "{{area.gisDatasetName}}" do Data Library{{#area.gisFeatureId}} (feição {{area.gisFeatureId}}){{/area.gisFeatureId}}, não é um imóvel do CAR{{/area.isGis}}{{^area.isGis}}polígono informado por quem rodou o relatório (não é um imóvel do CAR){{/area.isGis}}</td></tr>
     {{/area.isCar}}
     <tr><th>Área calculada da geometria</th><td>{{area.areaHa}} ha</td></tr>
     <tr><th>Ponto de referência (dentro da área)</th><td>latitude {{area.centroidLat}}, longitude {{area.centroidLon}}</td></tr>
@@ -166,7 +166,7 @@
 <div class="section">
   <h2><span class="num">7</span> Fontes e limitações</h2>
   <ul class="sources">
-    <li>Área: {{#area.isCar}}geometria vigente do imóvel no CAR (SICAR, coletado pelo car-agent-app; informação autodeclaratória){{/area.isCar}}{{^area.isCar}}polígono informado por quem rodou o relatório, corrigido para geometria válida{{/area.isCar}}. Áreas em SIRGAS 2000, com cálculo geodésico.</li>
+    <li>Área: {{#area.isCar}}geometria vigente do imóvel no CAR (SICAR, coletado pelo car-agent-app; informação autodeclaratória){{/area.isCar}}{{^area.isCar}}{{#area.isGis}}polígonos do dado GIS "{{area.gisDatasetName}}" do Data Library (armazenados em WGS 84), unidos e corrigidos para geometria válida{{/area.isGis}}{{^area.isGis}}polígono informado por quem rodou o relatório, corrigido para geometria válida{{/area.isGis}}{{/area.isCar}}. Áreas em SIRGAS 2000, com cálculo geodésico.</li>
     <li>Imagem: Sentinel-2 L2A (Copernicus/ESA) do catálogo Earth Search (Element 84), lida na hora; índices com as fórmulas e a máscara de nuvem do Satellite Hub.</li>
     <li>Série do índice: Satellite Hub, calculada para as áreas cadastradas nele.</li>
     <li>Chuva: CHIRPS v3 (Climate Hazards Center, UC Santa Barbara), diária, 0,05°; os últimos dias vêm da série preliminar. Mantido pelo br-weather-agent-app.</li>

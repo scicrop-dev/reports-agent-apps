@@ -55,7 +55,7 @@ public final class CarBlockContractStubs {
     /** The real definitions, so a stub can never drift from the Block it stands for. */
     private static final Map<String, BlockDefinition> REAL = java.util.stream.Stream.of(
                     new CarPropertyBlock(null), new CarPropertyGeometryBlock(null), new CarEnvironmentalLayersBlock(null),
-                    new CarOverlapsBlock(null), new CarHistoryBlock(null), new CarPropertyMapBlock(null), new ReportAreaBlock(null))
+                    new CarOverlapsBlock(null), new CarHistoryBlock(null), new CarPropertyMapBlock(null), new ReportAreaBlock(null, null))
             .map(ReportBlock::definition)
             .collect(java.util.stream.Collectors.toMap(BlockDefinition::id, d -> d));
 
@@ -102,7 +102,7 @@ public final class CarBlockContractStubs {
         }
     }
 
-    /** report-area: the CAR geometry for a code, the polygon itself otherwise; fails like the Block on both or neither. */
+    /** report-area: the CAR geometry for a code, the polygon itself, or a GIS dataset; fails like the Block on more than one or none. */
     public static final class ReportArea extends Stub {
         ReportArea() {
             super("report-area");
@@ -111,13 +111,20 @@ public final class CarBlockContractStubs {
         @Override public Map<String, Object> execute(Map<String, Object> inputs, ExecutionMetadata metadata) {
             Object code = inputs.get("codImovel");
             Object polygon = inputs.get("geometry");
-            if ((code == null) == (polygon == null)) throw new IllegalArgumentException("give a CAR code or a polygon");
+            Object gis = inputs.get("gisDataset");
+            int given = (code != null ? 1 : 0) + (polygon != null ? 1 : 0) + (gis != null ? 1 : 0);
+            if (given != 1) throw new IllegalArgumentException("give a CAR code, a polygon or a GIS dataset");
             Map<String, Object> out = new Geometry().execute(inputs, metadata);
             if (polygon != null) out.put("geometry", polygon);
-            out.put("source", code != null ? "car" : "polygon");
+            out.put("source", code != null ? "car" : gis != null ? "gis" : "polygon");
             out.put("isCar", code != null);
+            out.put("isGis", gis != null);
             out.put("codImovel", code);
-            out.put("label", code != null ? code : inputs.getOrDefault("name", "Área informada"));
+            out.put("label", code != null ? code : gis != null ? "Talhões " + gis : inputs.getOrDefault("name", "Área informada"));
+            out.put("gisDatasetId", gis != null ? 1 : null);
+            out.put("gisDatasetName", gis != null ? "Talhões " + gis : null);
+            out.put("gisFeatureId", inputs.get("gisFeature"));
+            out.put("gisPolygons", gis != null ? 3 : null);
             return out;
         }
     }
