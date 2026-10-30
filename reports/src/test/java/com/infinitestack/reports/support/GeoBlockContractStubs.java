@@ -18,6 +18,16 @@ import java.util.stream.Stream;
 import javax.imageio.ImageIO;
 
 import com.infinitestack.reports.blocks.brgeo.BrGeoBiomesBlock;
+import com.infinitestack.reports.blocks.brgeo.BrGeoCensusEvidenceBlock;
+import com.infinitestack.reports.blocks.brgeo.BrGeoCropProductionHistoryBlock;
+import com.infinitestack.reports.blocks.brgeo.BrGeoSoilProfilesBlock;
+import com.infinitestack.reports.blocks.brgeo.BrGeoSoilUnitsBlock;
+import com.infinitestack.reports.blocks.brgeo.BrGeoZarcCultivarsBlock;
+import com.infinitestack.reports.blocks.brgeo.YearBarChart;
+import com.infinitestack.reports.blocks.brweather.BrWeatherTemperatureAnomalyBlock;
+import com.infinitestack.reports.blocks.brweather.BrWeatherWaterBalanceBlock;
+import com.infinitestack.reports.blocks.sathub.SatelliteHubIndexAnomalyBlock;
+import com.infinitestack.reports.blocks.sathub.SatelliteHubIndexCompareBlock;
 import com.infinitestack.reports.blocks.brgeo.BrGeoCropProgressBlock;
 import com.infinitestack.reports.blocks.brgeo.BrGeoZarcRiskBlock;
 import com.infinitestack.reports.blocks.brweather.BrWeatherDailyBlock;
@@ -28,6 +38,8 @@ import com.infinitestack.reports.blocks.brgeo.BrGeoDeterAlertsBlock;
 import com.infinitestack.reports.blocks.brgeo.BrGeoEmbargoesBlock;
 import com.infinitestack.reports.blocks.brgeo.BrGeoMunicipalitiesBlock;
 import com.infinitestack.reports.blocks.brgeo.BrGeoProdesBlock;
+import com.infinitestack.reports.blocks.cropcal.CropCalendarBlock;
+import com.infinitestack.reports.blocks.cropcal.CropCalendarSettings;
 import com.infinitestack.reports.blocks.isgeosam.IsGeoSamFieldCandidatesBlock;
 import com.infinitestack.reports.blocks.sathub.IndexSeriesChart;
 import com.infinitestack.reports.blocks.sathub.SatelliteHubIndexSeriesBlock;
@@ -98,10 +110,20 @@ public final class GeoBlockContractStubs {
                 stub("sathub-index-series", in -> indexSeries(bare)),
                 stub("sathub-latest-image", in -> latestImage(bare)),
                 stub("isgeosam-field-candidates", in -> fieldCandidates(bare)),
+                stub("cropcal-field-calendar", in -> cropCalendar(bare)),
                 stub("brgeo-zarc-risk", in -> zarc(bare)),
                 stub("brgeo-crop-progress", in -> cropProgress(bare)),
                 stub("brweather-daily-weather", in -> dailyWeather(bare)),
-                stub("brweather-rainfall", in -> rainfall(bare)));
+                stub("brweather-rainfall", in -> rainfall(bare)),
+                stub("brweather-water-balance", in -> waterBalance(bare)),
+                stub("brweather-temperature-anomaly", in -> temperatureAnomaly(bare)),
+                stub("brgeo-soil-units", in -> soilUnits(bare)),
+                stub("brgeo-soil-profiles", in -> soilProfiles(bare)),
+                stub("brgeo-census-evidence", in -> censusEvidence(bare)),
+                stub("brgeo-crop-production-history", in -> cropProductionHistory(bare, in)),
+                stub("brgeo-zarc-cultivars", in -> zarcCultivars(bare)),
+                stub("sathub-index-compare", in -> indexCompare(bare)),
+                stub("sathub-index-anomaly", in -> indexAnomaly(bare)));
     }
 
     /** Full: soy in Querência with two rows. Bare: the crop is not zoned there. */
@@ -115,7 +137,7 @@ public final class GeoBlockContractStubs {
         if (bare) {
             Map<String, Object> out = map("found", false, "message", "the ZARC has no 'Trigo' for municipality 5107065",
                     "crop", null, "season", null, "uf", "MT", "municipality", null, "ordinance", null, "ordinanceDate", null);
-            out.putAll(map("rows", List.of(), "count", 0, "truncated", false, "periods", periods, "availableCrops", crops));
+            out.putAll(map("rows", List.of(), "count", 0, "truncated", false, "periods", periods, "availableCrops", crops, "matchedBy", null));
             return out;
         }
         List<Map<String, Object>> rows = new ArrayList<>();
@@ -135,7 +157,7 @@ public final class GeoBlockContractStubs {
         }
         Map<String, Object> out = map("found", true, "message", null, "crop", "Soja", "season", "2026/2027", "uf", "MT",
                 "municipality", "Querência", "ordinance", "Portaria SPA/MAPA nº 312", "ordinanceDate", "2026-06-20");
-        out.putAll(map("rows", rows, "count", 2, "truncated", false, "periods", periods, "availableCrops", crops));
+        out.putAll(map("rows", rows, "count", 2, "truncated", false, "periods", periods, "availableCrops", crops, "matchedBy", "code"));
         return out;
     }
 
@@ -161,7 +183,7 @@ public final class GeoBlockContractStubs {
         if (!bare) {
             for (int i = 0; i < 30; i++, day = day.plusDays(1)) {
                 days.add(map("date", day.toString(), "t2m", 27.4, "t2mMax", 35.1, "t2mMin", 19.8, "rh2m", 58.2, "ws2m", 1.9,
-                        "radiation", 21.3, "precipitation", i % 4 == 0 ? 12.0 : 0.0));
+                        "radiation", 21.3, "precipitation", i % 4 == 0 ? 12.0 : 0.0, "et0Mm", i >= 28 ? null : 5.12));
             }
         }
         Map<String, Object> out = map("found", !bare, "message", bare ? "BR Weather has no NASA POWER data for this area" : null,
@@ -171,7 +193,8 @@ public final class GeoBlockContractStubs {
         out.putAll(map("meanT2m", bare ? null : 27.4, "maxT2m", bare ? null : 38.2, "maxT2mDate", bare ? null : "2026-10-08",
                 "minT2m", bare ? null : 16.1, "minT2mDate", bare ? null : "2026-09-30", "meanRh2m", bare ? null : 58.2,
                 "meanWs2m", bare ? null : 1.9, "meanRadiation", bare ? null : 21.3, "powerPrecipitationMm", bare ? null : 96.0,
-                "degreeDays", bare ? null : 522.0, "hotDays", bare ? 0 : 9, "coldNights", 0, "chart", tinyPng(0xc62828)));
+                "degreeDays", bare ? null : 522.0, "hotDays", bare ? 0 : 9, "coldNights", 0, "totalEt0Mm", bare ? null : 143.4,
+                "meanEt0Mm", bare ? null : 5.12, "et0Days", bare ? 0 : 28, "chart", tinyPng(0xc62828)));
         return out;
     }
 
@@ -193,7 +216,8 @@ public final class GeoBlockContractStubs {
                 "wholePixels", true, "days", days, "daysWithData", days.size(), "missingDays", bare ? 30 : 0);
         out.putAll(map("totalMm", bare ? null : 148.2, "meanDailyMm", bare ? null : 4.94, "maxDayMm", bare ? null : 18.4,
                 "maxDayDate", bare ? null : "2026-10-09", "rainyDays", bare ? 0 : 18, "longestDrySpell", bare ? 0 : 12,
-                "preliminaryDays", bare ? 0 : 4, "chart", chart));
+                "preliminaryDays", bare ? 0 : 4, "heavyRainDays", 0, "rx1dayMm", bare ? null : 18.4, "rx5dayMm", bare ? null : 43.0,
+                "drySpells10", bare ? 0 : 1, "drySpells15", 0, "chart", chart));
         return out;
     }
 
@@ -261,6 +285,282 @@ public final class GeoBlockContractStubs {
         return out;
     }
 
+    /** Full: soybean and second crop of 02_CALENDARIO_SAFRA_S1_S2.md. Bare: the run is still going (PROCESSING). */
+    private static Map<String, Object> cropCalendar(boolean bare) {
+        List<Map<String, Object>> stateLegend = List.of(
+                map("state", "PRE_PLANTING", "label", "Antes do plantio", "color", "#d7ccc8"),
+                map("state", "ACTIVE", "label", "Cultura ativa", "color", "#2e7d32"),
+                map("state", "SENESCENT", "label", "Em senescência", "color", "#f9a825"),
+                map("state", "HARVESTED", "label", "Colhido", "color", "#8d6e63"),
+                map("state", "UNKNOWN", "label", "Sem data", "color", "#e0e0e0"));
+        Map<String, Object> out = map("status", bare ? "PROCESSING" : "COMPLETED", "ready", !bare, "processing", bare,
+                "message", bare ? "the crop calendar did not finish within the wait (run t-9 goes on; a run without cache takes 4 to 7 minutes); "
+                        + "generate the report again in a few minutes" : null,
+                "runId", bare ? null : "7c1f0c1e-0000-4000-8000-000000000002", "triggerId", "t-9",
+                "requestSha", "3b3767c611ef06410ec7d827eec30fb0ffadad3bcb8eed532139f17f0bc64d6f", "reused", !bare,
+                "computedAt", bare ? null : "2026-10-29T12:00:00Z", "computedAtLabel", bare ? null : "29/10/2026");
+        out.putAll(map("from", "2025-08-01", "to", "2026-06-30", "fromLabel", "01/08/2025", "toLabel", "30/06/2026",
+                "areaHa", bare ? null : 737.12, "s2Dates", bare ? null : 89, "s2ClearDates", bare ? null : 32,
+                "s1Passes", bare ? null : 27, "orbit", bare ? null : 141, "blocks", bare ? null : 710, "hasSeasons", !bare));
+        out.put("seasons", bare ? List.of() : List.of(
+                season(1, new String[] {"2025-10-10", "2025-10-22"}, new String[] {"2025-10-18", "2025-10-23"},
+                        new String[] {"2026-01-05", "2026-01-27"}, new String[] {"2026-01-27", "2026-02-08"},
+                        new String[] {"10/10/2025", "18/10/2025", "22/10/2025"}, new String[] {"26/12/2025", "24/01/2026", "30/01/2026"},
+                        new String[] {"27/01/2026", "08/02/2026", "08/02/2026"}, 90.0, 113.0, 17.5, 23.5),
+                season(2, new String[] {"2026-02-26", "2026-02-26"}, new String[] {"2026-03-13", "2026-03-13"},
+                        new String[] {"2026-04-27", "2026-05-15"}, new String[] {"2026-05-27", "2026-06-10"},
+                        new String[] {"26/02/2026", "26/02/2026", "26/02/2026"}, new String[] {"27/04/2026", "13/05/2026", "15/05/2026"},
+                        new String[] {"27/05/2026", "29/05/2026", "10/06/2026"}, 66.7, 91.5, 24.5, null)));
+        out.putAll(map("seriesChart", bare ? null : tinyPng(0x2e7d32), "stateChart", bare ? null : tinyPng(0x8d6e63),
+                "stateLegend", stateLegend, "plantingMap", bare ? null : tinyPng(0x21918c),
+                "plantingLegend", bare ? List.of() : List.of(map("color", "#440154", "label", "10/10 a 13/10"),
+                        map("color", "#fde725", "label", "20/10 a 22/10"), map("color", "#e0e0e0", "label", "sem data")),
+                "harvestMap", bare ? null : tinyPng(0x3b528b),
+                "harvestLegend", bare ? List.of() : List.of(map("color", "#440154", "label", "30/01 a 02/02"),
+                        map("color", "#fde725", "label", "06/02 a 08/02"))));
+        return out;
+    }
+
+    private static Map<String, Object> season(int no, String[] planting, String[] emergence, String[] senescence, String[] harvest,
+                                              String[] plantingP, String[] senescenceP, String[] harvestP, Double s1Share,
+                                              Double cycle, Double drying, Double fallow) {
+        Map<String, Object> s = map("seasonNo", no, "label", "Safra " + no);
+        String[][] intervals = {emergence, planting, senescence, harvest};
+        String[] names = {"emergence", "planting", "senescence", "harvest"};
+        for (int i = 0; i < 4; i++) {
+            s.put(names[i] + "From", intervals[i][0]);
+            s.put(names[i] + "To", intervals[i][1]);
+            s.put(names[i] + "Text", intervals[i][0].equals(intervals[i][1]) ? br(intervals[i][0]) : br(intervals[i][0]) + " a " + br(intervals[i][1]));
+        }
+        String[][] percentiles = {plantingP, senescenceP, harvestP};
+        for (int i = 0; i < 3; i++) {
+            String event = names[i + 1];
+            String[] labels = {"P10", "P50", "P90"};
+            for (int k = 0; k < 3; k++) {
+                String[] d = percentiles[i][k].split("/");
+                s.put(event + labels[k], d[2] + "-" + d[1] + "-" + d[0]);
+                s.put(event + labels[k] + "Label", percentiles[i][k]);
+            }
+            s.put(event + "UncertaintyDays", 12.0);
+            s.put(event + "Blocks", 710);
+        }
+        s.putAll(map("harvestS1SharePct", s1Share, "peakEvi", 0.87, "peakEviOn", "2025-12-14", "peakEviOnLabel", "14/12/2025"));
+        for (String[] m : new String[][] {{"cycle", String.valueOf(cycle)}, {"drying", String.valueOf(drying)}, {"fallow", String.valueOf(fallow)}}) {
+            Double mid = "null".equals(m[1]) ? null : Double.valueOf(m[1]);
+            s.putAll(map(m[0] + "MinDays", mid == null ? null : mid - 17, m[0] + "MaxDays", mid == null ? null : mid + 20,
+                    m[0] + "MidDays", mid, m[0] + "MidP10Days", mid == null ? null : mid - 10, m[0] + "MidP90Days", mid == null ? null : mid + 12));
+        }
+        s.put("hasFallow", fallow != null);
+        return s;
+    }
+
+    private static String br(String iso) {
+        String[] d = iso.split("-");
+        return d[2] + "/" + d[1] + "/" + d[0];
+    }
+
+    /** Full: 60 days of balance ending dry. Bare: no rain or weather loaded for the area. */
+    private static Map<String, Object> waterBalance(boolean bare) {
+        List<Map<String, Object>> days = new ArrayList<>();
+        LocalDate day = LocalDate.parse("2026-08-28");
+        if (!bare) {
+            double storage = 50.0;
+            for (int i = 0; i < 60; i++, day = day.plusDays(1)) {
+                double rain = i % 9 == 0 ? 14.0 : 0.0;
+                double eta = Math.min(5.0, storage + rain);
+                storage = Math.max(0.0, Math.min(50.0, storage + rain - eta * 0.8));
+                days.add(map("date", day.toString(), "rainMm", rain, "et0Mm", 5.0, "etcMm", 5.0, "etaMm", eta,
+                        "storageMm", Math.round(storage * 10) / 10.0, "deficitMm", 5.0 - eta, "excessMm", 0.0, "rainMissing", false,
+                        "et0Estimated", i >= 58));
+            }
+        }
+        Map<String, Object> out = map("found", !bare, "message", bare ? "BR Weather has no rain and weather for this area" : null,
+                "from", bare ? null : "2026-08-28", "to", bare ? null : "2026-10-26", "latestRainDay", bare ? null : "2026-10-26",
+                "latestWeatherDay", bare ? null : "2026-10-26", "cadMm", 50.0, "kc", 1.0, "days", days);
+        out.putAll(map("totalRainMm", bare ? null : 98.0, "totalEt0Mm", bare ? null : 301.4, "totalEtcMm", bare ? null : 301.4,
+                "totalEtaMm", bare ? null : 146.0, "totalDeficitMm", bare ? null : 155.4, "totalExcessMm", bare ? null : 0.0,
+                "finalStorageMm", bare ? null : 9.1, "finalStoragePercent", bare ? null : 18.2, "deficitDays", bare ? 0 : 38,
+                "maxConsecutiveDeficitDays", bare ? 0 : 14, "missingRainDays", 0, "estimatedEt0Days", bare ? 0 : 2,
+                "cells", bare ? List.of() : List.of(map("lat", -12.75, "lon", -52.25, "elevationM", 352.0, "weightPercent", 100.0)),
+                "pixels", bare ? 0 : 4, "chart", tinyPng(0x1565c0)));
+        return out;
+    }
+
+    /** Full: a warm period against 2000-2025. Bare: no climatology for the area. */
+    private static Map<String, Object> temperatureAnomaly(boolean bare) {
+        List<Map<String, Object>> perYear = new ArrayList<>();
+        if (!bare) {
+            for (int y = 2021; y <= 2025; y++) {
+                perYear.add(map("year", y, "meanT2m", Math.round((26.1 + (y - 2021) * 0.2) * 10) / 10.0,
+                        "meanT2mMax", Math.round((33.0 + (y - 2021) * 0.3) * 10) / 10.0, "meanT2mMin", 19.4, "current", false));
+            }
+        }
+        Map<String, Object> out = map("found", !bare, "message", bare ? "no NASA POWER climatology for this area" : null,
+                "from", bare ? null : "2026-09-27", "to", bare ? null : "2026-10-26", "latestDay", bare ? null : "2026-10-26",
+                "cells", bare ? List.of() : List.of(map("lat", -12.75, "lon", -52.25, "elevationM", 352.0, "weightPercent", 100.0)),
+                "nearestCell", false, "daysWithData", bare ? 0 : 30);
+        out.putAll(map("meanT2m", bare ? null : 27.4, "climatologyT2m", bare ? null : 26.3, "anomalyT2m", bare ? null : 1.1,
+                "meanT2mMax", bare ? null : 35.1, "climatologyT2mMax", bare ? null : 33.4, "anomalyT2mMax", bare ? null : 1.7,
+                "meanT2mMin", bare ? null : 19.8, "climatologyT2mMin", bare ? null : 19.5, "anomalyT2mMin", bare ? null : 0.3));
+        out.putAll(map("hotDays", bare ? 0 : 8, "hotDayThresholdC", bare ? null : 36.2, "coldNights", bare ? 0 : 1,
+                "coldNightThresholdC", bare ? null : 16.9, "yearsUsed", bare ? 0 : 26, "firstYear", bare ? null : 2000,
+                "lastYear", bare ? null : 2025, "perYear", perYear));
+        return out;
+    }
+
+    /** Full: a Latossolo with a steep, stony Neossolo strip. Bare: outside the pedology map. */
+    private static Map<String, Object> soilUnits(boolean bare) {
+        if (bare) {
+            return map("hasUnits", false, "units", List.of(), "count", 0, "truncated", false, "byOrder", List.of(), "mainOrder", null,
+                    "flags", map("steepRelief", false, "stony", false, "rocky", false, "organosol", false, "vertisol", false),
+                    "restrictions", List.of(), "hasRestrictions", false, "areaHa", 1248.97, "edition", 2023);
+        }
+        Map<String, Object> lv = map("symbol", "LVAd", "legend", "LATOSSOLO VERMELHO-AMARELO Distrófico típico, A moderado, textura argilosa",
+                "order", "LATOSSOLOS", "suborder", "LATOSSOLOS VERMELHO-AMARELOS", "greatGroup", "Distróficos", "texture", "argilosa",
+                "relief", "plano e suave ondulado", "stoniness", null, "rockiness", null, "erosion", null,
+                "components", List.of("LVAd - LATOSSOLO VERMELHO-AMARELO Distrófico típico"), "componentsCut", false,
+                "restrictions", List.of(), "overlapHa", 1064.2, "percent", 85.21);
+        Map<String, Object> rl = map("symbol", "RLd", "legend", "NEOSSOLO LITÓLICO Distrófico típico, fase pedregosa, relevo forte ondulado",
+                "order", "NEOSSOLOS", "suborder", "NEOSSOLOS LITÓLICOS", "greatGroup", "Distróficos", "texture", "média",
+                "relief", "forte ondulado", "stoniness", "pedregosa", "rockiness", null, "erosion", null,
+                "components", List.of("RLd - NEOSSOLO LITÓLICO Distrófico típico"), "componentsCut", false,
+                "restrictions", List.of("STEEP_RELIEF", "STONY"), "overlapHa", 184.77, "percent", 14.79);
+        return map("hasUnits", true, "units", List.of(lv, rl), "count", 2, "truncated", false,
+                "byOrder", List.of(map("order", "LATOSSOLOS", "overlapHa", 1064.2, "percent", 85.21),
+                        map("order", "NEOSSOLOS", "overlapHa", 184.77, "percent", 14.79)),
+                "mainOrder", "LATOSSOLOS",
+                "flags", map("steepRelief", true, "stony", true, "rocky", false, "organosol", false, "vertisol", false),
+                "restrictions", List.of(
+                        map("code", "STEEP_RELIEF", "label", "steep relief (strongly undulating, mountainous or escarpment)", "overlapHa", 184.77, "percent", 14.79),
+                        map("code", "STONY", "label", "stony phase", "overlapHa", 184.77, "percent", 14.79)),
+                "hasRestrictions", true, "areaHa", 1248.97, "edition", 2023);
+    }
+
+    /** Full: two profiles, one with lab data. Bare: none within the radius. */
+    private static Map<String, Object> soilProfiles(boolean bare) {
+        if (bare) return map("found", false, "profiles", List.of(), "count", 0, "radiusKm", 20.0, "edition", 2023);
+        Map<String, Object> p1 = map("code", "RADAM-SC22-041", "pointCode", "P-041", "type", "Perfil completo", "distanceKm", 3.4,
+                "inside", false, "lat", -12.66, "lon", -52.15, "order", "LATOSSOLOS", "suborder", "LATOSSOLOS VERMELHO-AMARELOS",
+                "greatGroup", "Distróficos", "texture", "argilosa", "drainage", "acentuadamente drenado", "relief", "plano",
+                "sand0_40Pct", 38.2, "silt0_40Pct", 11.6, "clay0_40Pct", 50.2, "covered0_40Cm", 40.0, "hasLabData", true);
+        p1.put("horizons", List.of(
+                map("name", "A", "top", "0", "bottom", "18", "topCm", 0, "bottomCm", 18, "textureClass", "argilosa", "sandPct", 40.1, "siltPct", 12.0, "clayPct", 47.9),
+                map("name", "Bw1", "top", "18", "bottom", "70", "topCm", 18, "bottomCm", 70, "textureClass", "muito argilosa", "sandPct", 36.6, "siltPct", 11.3, "clayPct", 52.1)));
+        Map<String, Object> p2 = map("code", "RADAM-SC22-057", "pointCode", "P-057", "type", "Amostra extra", "distanceKm", 11.8,
+                "inside", false, "lat", -12.72, "lon", -52.08, "order", "NEOSSOLOS", "suborder", "NEOSSOLOS LITÓLICOS",
+                "greatGroup", "Distróficos", "texture", "média", "drainage", "bem drenado", "relief", "forte ondulado",
+                "sand0_40Pct", null, "silt0_40Pct", null, "clay0_40Pct", null, "covered0_40Cm", 0.0, "hasLabData", false);
+        p2.put("horizons", List.of());
+        return map("found", true, "profiles", List.of(p1, p2), "count", 2, "radiusKm", 20.0, "edition", 2023);
+    }
+
+    /** Full: a route inside the area and two CNEFE addresses. Bare: no census data for the municipality. */
+    private static Map<String, Object> censusEvidence(boolean bare) {
+        Map<String, Object> out = map("status", bare ? "dados_indisponiveis" : "trajeto_interno", "routeInside", !bare,
+                "routeEdge", false, "routeNear", !bare, "dataAvailable", !bare, "insideKm", bare ? 0.0 : 6.214, "insideMPerHa", bare ? 0.0 : 4.98,
+                "minDistanceM", bare ? null : 0.0, "routesCrossing", bare ? 0 : 3, "routesNear", bare ? 0 : 5,
+                "cnefeInside", bare ? 0 : 1, "cnefeNearCount", bare ? 0 : 2);
+        out.putAll(map("cnefeNear", bare ? List.of() : List.of(
+                        map("distanceM", 0.0, "inside", true, "locality", "Gleba Santa Rita", "address", "Estrada Vicinal MT-322", "number", "SN",
+                                "situation", "Rural", "municipalityIbge", 5107065, "lat", -12.62, "lon", -52.19),
+                        map("distanceM", 342.5, "inside", false, "locality", "Gleba Santa Rita", "address", "Estrada Vicinal MT-322", "number", "KM 14",
+                                "situation", "Rural", "municipalityIbge", 5107065, "lat", -12.645, "lon", -52.2)),
+                "truncated", false, "bufferM", 500, "edgeToleranceM", 30, "year", 2017));
+        return out;
+    }
+
+    /** Full: ten years of the crop in the municipality. Bare: the PAM does not have it. */
+    private static Map<String, Object> cropProductionHistory(boolean bare, Map<String, Object> in) {
+        List<String> products = List.of("Algodão herbáceo (em caroço)", "Milho (em grão)", "Soja (em grão)");
+        if (bare) {
+            return map("found", false, "message", "the PAM has no '" + in.get("product") + "' for municipality " + in.get("municipalityIbge"),
+                    "product", null, "series", List.of(), "count", 0, "fromYear", null, "toYear", null, "unit", null, "chart", null,
+                    "chartVariable", "harvestedHa", "availableProducts", products, "uf", "MT");
+        }
+        List<Map<String, Object>> series = new ArrayList<>();
+        List<YearBarChart.Bar> bars = new ArrayList<>();
+        for (int y = 2016; y <= 2025; y++) {
+            double ha = 220000.0 + (y - 2016) * 10000.0;
+            series.add(map("year", y, "plantedHa", ha, "harvestedHa", ha, "quantity", ha * 3.4, "unit", "Toneladas",
+                    "yieldKgHa", 3400.0 + (y - 2016) * 20, "valueThousandBrl", (double) Math.round(ha * 4.1)));
+            bars.add(new YearBarChart.Bar(y, ha));
+        }
+        String chart = "data:image/png;base64," + Base64.getEncoder().encodeToString(new YearBarChart().render(bars, 900, 260));
+        return map("found", true, "message", null, "product", "Soja (em grão)", "series", series, "count", series.size(),
+                "fromYear", 2016, "toYear", 2025, "unit", "Toneladas", "chart", chart, "chartVariable", "harvestedHa",
+                "availableProducts", products, "uf", "MT");
+    }
+
+    /** Full: three soy cultivars in MT. Bare: no cultivar of the crop in the state. */
+    private static Map<String, Object> zarcCultivars(boolean bare) {
+        List<String> crops = List.of("Algodão", "Milho", "Soja");
+        if (bare) {
+            return map("found", false, "message", "the ZARC has no cultivars of 'Trigo' in MT", "crop", null, "season", null, "uf", "MT",
+                    "cultivars", List.of(), "count", 0, "distinctCultivars", 0, "adaptationRegions", List.of(), "truncated", false,
+                    "availableCrops", crops);
+        }
+        List<Map<String, Object>> cultivars = List.of(
+                map("rnc", "41290", "cultivar", "BRS 7380 RR", "adaptationRegion", "401", "group", "7.3", "cycle", "médio",
+                        "attributes", map("Grupo de maturação", "7,3", "Ciclo", "médio")),
+                map("rnc", "38710", "cultivar", "M 8372 IPRO", "adaptationRegion", "401", "group", "8.3", "cycle", "tardio",
+                        "attributes", map("Grupo de maturação", "8,3", "Ciclo", "tardio")),
+                map("rnc", "40121", "cultivar", "TMG 2381 IPRO", "adaptationRegion", "402", "group", "8.1", "cycle", "médio",
+                        "attributes", map("Grupo de maturação", "8,1", "Ciclo", "médio")));
+        return map("found", true, "message", null, "crop", "Soja", "season", "2026/2027", "uf", "MT", "cultivars", cultivars,
+                "count", 3, "distinctCultivars", 3, "adaptationRegions", List.of("401", "402"), "truncated", false, "availableCrops", crops);
+    }
+
+    /** Full: Sentinel-2 and Landsat NDVI with a pair. Bare: only Sentinel-2 (no pair) and Sentinel-1 without data. */
+    private static Map<String, Object> indexCompare(boolean bare) {
+        List<Map<String, Object>> series = new ArrayList<>();
+        series.add(map("index", map("slug", "ndvi", "name", "NDVI", "description", "Normalized Difference Vegetation Index",
+                        "collection", "sentinel-2-l2a", "collectionName", "Sentinel-2 L2A", "enabled", true),
+                "points", List.of(map("date", "2026-10-11", "mean", 0.62, "p10", 0.48, "p90", 0.74)), "count", 14,
+                "latest", map("date", "2026-10-11", "mean", 0.62), "periodMean", 0.55, "rightAxis", false));
+        if (!bare) {
+            series.add(map("index", map("slug", "ndvi_landsat", "name", "NDVI (Landsat)", "description", "NDVI from Landsat 8/9",
+                            "collection", "landsat-c2-l2", "collectionName", "Landsat 8/9 C2 L2", "enabled", true),
+                    "points", List.of(map("date", "2026-10-09", "mean", 0.58, "p10", 0.44, "p90", 0.7)), "count", 7,
+                    "latest", map("date", "2026-10-09", "mean", 0.58), "periodMean", 0.52, "rightAxis", false));
+        }
+        return map("series", series, "seriesCount", series.size(), "hasSeries", true,
+                "withoutData", bare ? List.of("rvi_s1") : List.of(),
+                "pairs", bare ? List.of() : List.of(map("a", "ndvi", "b", "ndvi_landsat", "aName", "NDVI", "bName", "NDVI (Landsat)",
+                        "matchedDates", 6, "meanDiff", 0.031, "correlation", 0.94)),
+                "areas", List.of(map("id", 16991L, "farmName", "Fazenda Exemplo", "blockName", "Bloco 2", "parcelName", "Talhão 7",
+                        "areaHa", 26.79, "insideHa", 26.79)),
+                "areaCount", 1, "chart", tinyPng(0x2e7d32), "truncated", false);
+    }
+
+    /** Full: one drop, the latest image back to normal, with a seasonal baseline. Bare: no image in the period. */
+    private static Map<String, Object> indexAnomaly(boolean bare) {
+        Map<String, Object> index = map("slug", "ndvi", "name", "NDVI", "description", "Normalized Difference Vegetation Index",
+                "collection", "sentinel-2-l2a", "collectionName", "Sentinel-2 L2A", "enabled", true);
+        if (bare) {
+            Map<String, Object> out = map("index", index, "points", List.of(), "count", 0, "events", List.of(), "eventCount", 0,
+                    "hasDrops", false, "lastDropDate", null, "latestStatus", "no-data", "latestIsDrop", false, "latestDate", null, "latestValue", null,
+                    "latestDelta", null);
+            out.putAll(map("seasonalBaseline", null, "hasSeasonalBaseline", false, "areas", List.of(), "areaCount", 0,
+                    "chart", tinyPng(0x9e9e9e), "truncated", false));
+            return out;
+        }
+        List<Map<String, Object>> points = List.of(
+                map("date", "2026-09-21", "value", 0.64, "baseline", 0.62, "delta", 0.02, "isDrop", false),
+                map("date", "2026-10-01", "value", 0.41, "baseline", 0.63, "delta", -0.22, "isDrop", true),
+                map("date", "2026-10-11", "value", 0.6, "baseline", 0.63, "delta", -0.03, "isDrop", false));
+        Map<String, Object> out = map("index", index, "points", points, "count", 3,
+                "events", List.of(map("date", "2026-10-01", "value", 0.41, "baseline", 0.63, "delta", -0.22)), "eventCount", 1,
+                "hasDrops", true, "lastDropDate", "2026-10-01", "latestStatus", "normal", "latestIsDrop", false, "latestDate", "2026-10-11",
+                "latestValue", 0.6, "latestDelta", -0.03);
+        out.putAll(map("seasonalBaseline", map("month", 10, "years", List.of(map("year", 2024, "mean", 0.57), map("year", 2025, "mean", 0.61)),
+                        "mean", 0.59, "observations", 6, "latestValue", 0.6, "anomaly", 0.01),
+                "hasSeasonalBaseline", true,
+                "areas", List.of(map("id", 16991L, "farmName", "Fazenda Exemplo", "blockName", "Bloco 2", "parcelName", "Talhão 7",
+                        "areaHa", 26.79, "insideHa", 26.79)),
+                "areaCount", 1, "chart", tinyPng(0x2e7d32), "truncated", false));
+        return out;
+    }
+
     private static String tinyPng(int rgb) {
         BufferedImage image = new BufferedImage(8, 6, BufferedImage.TYPE_INT_RGB);
         for (int y = 0; y < 6; y++) for (int x = 0; x < 8; x++) image.setRGB(x, y, x < 4 ? rgb : 0x8a7354);
@@ -288,7 +588,8 @@ public final class GeoBlockContractStubs {
         String chart = "data:image/png;base64," + Base64.getEncoder().encodeToString(new IndexSeriesChart().render(points, 900, 300));
         Map<String, Object> last = series.isEmpty() ? null : series.get(series.size() - 1);
         return map("index", map("slug", "ndvi", "name", "NDVI", "description", "Normalized Difference Vegetation Index",
-                        "collection", "sentinel-2-l2a", "collectionName", "Sentinel-2 L2A"),
+                        "collection", "sentinel-2-l2a", "collectionName", "Sentinel-2 L2A", "enabled", true),
+                "indexEnabled", true,
                 "areas", bare ? List.of() : List.of(map("id", 16991L, "farmName", "Fazenda Exemplo", "blockName", "Bloco 2",
                         "parcelName", "Talhão 7", "areaHa", 26.79, "insideHa", 26.79)),
                 "areaCount", bare ? 0 : 1, "series", series, "count", series.size(),
@@ -325,7 +626,12 @@ public final class GeoBlockContractStubs {
                     new SatelliteHubIndexSeriesBlock(null), new SatelliteHubLatestImageBlock(null, null, null),
                     new BrGeoZarcRiskBlock(null), new BrGeoCropProgressBlock(null), new BrWeatherDailyBlock(null),
                     BrWeatherRainfallBlockAccess.create(null, Path.of("/nonexistent")),
-                    new IsGeoSamFieldCandidatesBlock(null, null, "/nonexistent", "", "is-geo-sam"))
+                    new IsGeoSamFieldCandidatesBlock(null, null, "/nonexistent", "", "is-geo-sam"),
+                    new CropCalendarBlock(null, null, CropCalendarSettings.defaults()),
+                    new BrWeatherWaterBalanceBlock(null, "/nonexistent"), new BrWeatherTemperatureAnomalyBlock(null),
+                    new BrGeoSoilUnitsBlock(null), new BrGeoSoilProfilesBlock(null), new BrGeoCensusEvidenceBlock(null),
+                    new BrGeoCropProductionHistoryBlock(null), new BrGeoZarcCultivarsBlock(null),
+                    new SatelliteHubIndexCompareBlock(null), new SatelliteHubIndexAnomalyBlock(null))
             .map(ReportBlock::definition)
             .collect(Collectors.toMap(BlockDefinition::id, d -> d));
 

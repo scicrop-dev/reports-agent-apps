@@ -30,6 +30,26 @@
   {{/-last}}{{/crops.crops}}
   {{^crops.crops}}<p class="empty">O IBGE não publicou lavouras para o município.</p>{{/crops.crops}}
   <p class="note">As 15 lavouras de maior área colhida no ano mais recente publicado pelo IBGE.</p>
+  {{#inputs.crop}}
+  <h3>{{inputs.crop}} no município, ano a ano</h3>
+  {{#history.found}}
+  <p>{{history.product}}, {{history.fromYear}} a {{history.toYear}}. O gráfico mostra a área colhida por ano.</p>
+  <img class="chart" src="{{history.chart}}" alt="Área colhida por ano">
+  <table class="grid">
+    <thead><tr><th>Ano</th><th class="r">Plantada (ha)</th><th class="r">Colhida (ha)</th><th class="r">Produção ({{history.unit}})</th><th class="r">Rendimento (kg/ha)</th><th class="r">Valor (R$ mil)</th></tr></thead>
+    <tbody>
+    {{#history.series}}
+      <tr><td>{{year}}</td><td class="r">{{plantedHa}}</td><td class="r">{{harvestedHa}}</td><td class="r">{{quantity}}</td><td class="r">{{yieldKgHa}}</td><td class="r">{{valueThousandBrl}}</td></tr>
+    {{/history.series}}
+    </tbody>
+  </table>
+  <p class="note">Valores em mil reais correntes de cada ano. Valores sigilosos ou não publicados pelo IBGE ficam em branco.</p>
+  {{/history.found}}
+  {{^history.found}}
+  <p class="empty">A PAM não tem série de {{inputs.crop}} para o município{{#history.message}} ({{history.message}}){{/history.message}}. A PAM nomeia as lavouras de outro jeito que o ZARC (ex.: "Soja (em grão)", "Milho (em grão)"): para o milho de segunda safra, a série é a do milho.</p>
+  {{#history.availableProducts}}{{#-first}}<p class="note">Lavouras da PAM: {{/-first}}{{.}}{{^-last}}; {{/-last}}{{#-last}}.</p>{{/-last}}{{/history.availableProducts}}
+  {{/history.found}}
+  {{/inputs.crop}}
 </div>
 
 <div class="section">
@@ -61,10 +81,26 @@
   {{/zarc.found}}
   {{^zarc.found}}
   <p class="alert">O ZARC não traz {{inputs.crop}} para o município da área{{#zarc.message}} ({{zarc.message}}){{/zarc.message}}. Sem zoneamento, a lavoura não tem acesso ao Proagro nem à subvenção do seguro rural para essa cultura.</p>
-  <p class="note">Culturas que o ZARC zoneia na safra: {{#zarc.availableCrops}}{{.}}; {{/zarc.availableCrops}}</p>
+  {{#zarc.availableCrops}}{{#-first}}<p class="note">Culturas que o ZARC zoneia na safra: {{/-first}}{{.}}{{^-last}}; {{/-last}}{{#-last}}.</p>{{/-last}}{{/zarc.availableCrops}}
   {{/zarc.found}}
+  <h3>Cultivares indicadas no estado</h3>
+  {{#cultivars.found}}
+  <p>{{cultivars.distinctCultivars}} cultivar(es) de {{cultivars.crop}} indicadas pelo ZARC em {{cultivars.uf}} na safra {{cultivars.season}}{{#cultivars.truncated}}; lista curta, as primeiras por nome de {{cultivars.count}} linhas (cultivar x região){{/cultivars.truncated}}.</p>
+  {{#cultivars.cultivars}}{{#-first}}
+  <table class="grid">
+    <thead><tr><th>Cultivar</th><th>RNC</th><th>Grupo</th><th>Ciclo</th><th>Região de adaptação</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr><td>{{cultivar}}</td><td class="code">{{rnc}}</td><td>{{group}}</td><td>{{cycle}}</td><td>{{adaptationRegion}}</td></tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/cultivars.cultivars}}
+  <p class="note">A lista é da UF inteira: a região de adaptação não é resolvida por município, confira a do município na portaria.</p>
+  {{/cultivars.found}}
+  {{^cultivars.found}}<p class="empty">Sem lista de cultivares do ZARC para {{inputs.crop}} no estado{{#cultivars.message}} ({{cultivars.message}}){{/cultivars.message}}.</p>{{/cultivars.found}}
   {{/inputs.crop}}
-  {{^inputs.crop}}<p class="empty">Nenhuma cultura foi informada; informe-a para ver as janelas de semeadura do ZARC no município.</p>{{/inputs.crop}}
+  {{^inputs.crop}}<p class="empty">Nenhuma cultura foi informada; informe-a para ver a série histórica, as janelas de semeadura do ZARC e as cultivares indicadas.</p>{{/inputs.crop}}
 </div>
 
 <div class="section">
@@ -92,8 +128,8 @@
 <div class="section">
   <h2><span class="num">4</span> Fontes e limitações</h2>
   <ul class="sources">
-    <li>Produção agrícola: IBGE, Produção Agrícola Municipal (SIDRA 5457).</li>
-    <li>ZARC: portarias do MAPA por cultura, município e safra, carregadas pelo br-geo-agent-app. O enquadramento depende da cultivar e do solo efetivos.</li>
+    <li>Produção agrícola e série histórica: IBGE, Produção Agrícola Municipal (SIDRA 5457).</li>
+    <li>ZARC e cultivares indicadas: portarias do MAPA (SISZARC) por cultura, município e safra, carregadas pelo br-geo-agent-app. O enquadramento depende da cultivar e do solo efetivos.</li>
     <li>Andamento da safra: CONAB, Progresso de Safra semanal, por estado.</li>
     <li>Este relatório reúne bases públicas e não substitui vistoria em campo, laudo técnico assinado nem a análise do órgão ou do agente financeiro competente.</li>
   </ul>

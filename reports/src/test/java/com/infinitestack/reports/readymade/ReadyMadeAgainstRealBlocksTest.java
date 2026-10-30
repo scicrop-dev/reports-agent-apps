@@ -11,6 +11,18 @@ import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
 
+import com.infinitestack.reports.blocks.brgeo.BrGeoCensusEvidenceBlock;
+import com.infinitestack.reports.blocks.brgeo.BrGeoCropProductionHistoryBlock;
+import com.infinitestack.reports.blocks.brgeo.BrGeoSoilProfilesBlock;
+import com.infinitestack.reports.blocks.brgeo.BrGeoSoilUnitsBlock;
+import com.infinitestack.reports.blocks.brgeo.BrGeoZarcCultivarsBlock;
+import com.infinitestack.reports.blocks.brweather.BrWeatherTemperatureAnomalyBlock;
+import com.infinitestack.reports.blocks.brweather.BrWeatherWaterBalanceBlock;
+import com.infinitestack.reports.blocks.car.CarDataReferenceBlock;
+import com.infinitestack.reports.blocks.car.CarInAreaBlock;
+import com.infinitestack.reports.blocks.car.CarQuarantineBlock;
+import com.infinitestack.reports.blocks.sathub.SatelliteHubIndexAnomalyBlock;
+import com.infinitestack.reports.blocks.sathub.SatelliteHubIndexCompareBlock;
 import com.infinitestack.reports.blocks.car.CarEnvironmentalLayersBlock;
 import com.infinitestack.reports.blocks.car.CarHistoryBlock;
 import com.infinitestack.reports.blocks.car.CarOverlapsBlock;
@@ -37,6 +49,8 @@ import com.infinitestack.reports.blocks.brgeo.BrGeoEmbargoesBlock;
 import com.infinitestack.reports.blocks.brgeo.BrGeoMunicipalitiesBlock;
 import com.infinitestack.reports.blocks.brgeo.BrGeoProdesBlock;
 import com.infinitestack.reports.blocks.sathub.SatelliteHubIndexSeriesBlock;
+import com.infinitestack.reports.blocks.cropcal.CropCalendarBlock;
+import com.infinitestack.reports.blocks.cropcal.CropCalendarSettings;
 import com.infinitestack.reports.blocks.isgeosam.IsGeoSamFieldCandidatesBlock;
 import com.infinitestack.reports.blocks.sathub.SatelliteHubLatestImageBlock;
 import com.infinitestack.reports.template.HtmlSanitizer;
@@ -54,13 +68,19 @@ class ReadyMadeAgainstRealBlocksTest {
 
     private static List<ReportBlock> realBlocks() {
         return List.of(new CarPropertyBlock(null), new CarPropertyGeometryBlock(null), new CarEnvironmentalLayersBlock(null),
-                new CarOverlapsBlock(null), new CarHistoryBlock(null), new CarPropertyMapBlock(null), new ReportAreaBlock(null),
+                new CarOverlapsBlock(null), new CarHistoryBlock(null), new CarPropertyMapBlock(null), new ReportAreaBlock(null, null),
                 new BrGeoMunicipalitiesBlock(null), new BrGeoBiomesBlock(null), new BrGeoEmbargoesBlock(null),
                 new BrGeoDeterAlertsBlock(null), new BrGeoProdesBlock(null), new BrGeoCropProductionBlock(null),
                 new SatelliteHubIndexSeriesBlock(null), new SatelliteHubLatestImageBlock(null, null, null),
                 new BrGeoZarcRiskBlock(null), new BrGeoCropProgressBlock(null), new BrWeatherDailyBlock(null),
                 BrWeatherRainfallBlockAccess.create(null, Path.of("/nonexistent")),
-                new IsGeoSamFieldCandidatesBlock(null, null, "/nonexistent", "", "is-geo-sam"));
+                new IsGeoSamFieldCandidatesBlock(null, null, "/nonexistent", "", "is-geo-sam"),
+                new CropCalendarBlock(null, null, CropCalendarSettings.defaults()),
+                new CarDataReferenceBlock(null), new CarQuarantineBlock(null), new CarInAreaBlock(null),
+                new BrWeatherWaterBalanceBlock(null, "/nonexistent"), new BrWeatherTemperatureAnomalyBlock(null),
+                new BrGeoSoilUnitsBlock(null), new BrGeoSoilProfilesBlock(null), new BrGeoCensusEvidenceBlock(null),
+                new BrGeoCropProductionHistoryBlock(null), new BrGeoZarcCultivarsBlock(null),
+                new SatelliteHubIndexCompareBlock(null), new SatelliteHubIndexAnomalyBlock(null));
     }
 
     @Test
@@ -76,6 +96,9 @@ class ReadyMadeAgainstRealBlocksTest {
             assertEquals(shape(r.inputs()), shape(s.inputs()), s.id() + " inputs");
             assertEquals(shape(r.outputs()), shape(s.outputs()), s.id() + " outputs");
         }
+        assertEquals(new java.util.TreeSet<>(real.keySet()),
+                stubs.stream().map(b -> b.definition().id()).collect(Collectors.toCollection(java.util.TreeSet::new)),
+                "every real Block listed here has a stub");
     }
 
     /** What a Flow and a template depend on: name, type and whether it is required (not the description). */

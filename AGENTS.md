@@ -50,7 +50,7 @@ mvn -q test                  # testes (nem todo app tem; ver src/test)
   só em `src/test`). Passe o banco por `IS_DATASOURCE_URL`/`IS_DATASOURCE_USERNAME`/`IS_DATASOURCE_PASSWORD`
   e `REPORTS_LOCAL_ROLE=ADMIN` para ver a tela de liberação. Sem o token do host, o catálogo vem do
   `information_schema` (schemas bronze/silver/gold do banco).
-- **Blocks de produto** ficam em `blocks/<fonte>/` (hoje `blocks/car`, `blocks/brgeo`, `blocks/brweather`, `blocks/sathub`, `blocks/skillslab`, `blocks/isgeosam`), um por
+- **Blocks de produto** ficam em `blocks/<fonte>/` (hoje `blocks/car`, `blocks/brgeo`, `blocks/brweather`, `blocks/sathub`, `blocks/skillslab`, `blocks/isgeosam`, `blocks/cropcal`), um por
   arquivo, com o contrato em [docs/BLOCKS.md](docs/BLOCKS.md) (regras na seção 1: dados só via `BlockQueries`,
   pool somente leitura, e `docs()` com a documentação que o editor mostra).
   Os Blocks de `src/test/.../support/TestBlocks` são só de teste e não entram no `.ispz`.
@@ -68,6 +68,15 @@ mvn -q test                  # testes (nem todo app tem; ver src/test)
   Não cabe nos 120 s: espera até `waitSeconds`, deixa o run seguir e responde `PROCESSING`; a próxima
   execução acha o resultado pela identidade da cena (sha256 do nome + conteúdo do JSON, a mesma do
   script). Desenho e requisitos da instância em INTEGRATIONS.md §3.
+- **is-crop-calendar:** o Block `cropcal-field-calendar` pede ao pacote is-crop-calendar (repo is-geo-sam,
+  `skillslab/is-crop-calendar`) o calendário de safra de **um talhão** (Sentinel-2 + Sentinel-1) e lê
+  `gold.is_crop_calendar_*`. Grava o pedido `reports-cropcal-<sha12>.json` no mesmo staging do is-geo-sam
+  (`REPORTS_CROPCAL_STAGING_DIR`, padrão `reports.isgeosam.staging-dir`). Projeto: o da liberação do workflow
+  em `reports-workflows.json` (ou `REPORTS_CROPCAL_PROJECT_ID`); workflow `REPORTS_CROPCAL_WORKFLOW` (padrão
+  `is-crop-calendar`). Identidade: `request_sha` = sha256 do JSON canônico RFC 8785 (lib
+  `java-json-canonicalization`, testada contra o vetor do pacote Python). Mesmo esquema de `PROCESSING` do
+  is-geo-sam. Desenho e requisitos em INTEGRATIONS.md §5; banco sintético em `CropCalendarSyntheticDbTest`
+  (`REPORTS_TEST_DB_*`).
 - **Rede de saída:** o Block `sathub-latest-image` lê Sentinel-2 na hora e precisa de HTTPS do host
   para `earth-search.aws.element84.com` (STAC; `reports.sentinel.stac-url` / `REPORTS_SENTINEL_STAC_URL`)
   e `sentinel-cogs.s3.us-west-2.amazonaws.com` (COGs). O resto do app não sai da rede.
@@ -91,8 +100,8 @@ mvn -q test                  # testes (nem todo app tem; ver src/test)
   formato e regras em [docs/READY-MADE-REPORTS.md](docs/READY-MADE-REPORTS.md). `mvn -q test` valida
   todos contra os contratos dos Blocks e gera HTML/PDF em `reports/target/ready-made/` para conferir.
   O conteúdo do relatório (template, nome, descrição) fica no idioma do relatório, não em inglês.
-- **Relatório "CAR ou polígono":** comece o Flow pelo Block `report-area` (inputs `codImovel`, `area`,
-  `areaName`), ligue os Blocks do CAR em `area.codImovel` e marque-os `"optional": true`; seções do CAR
+- **Relatório "CAR, polígono ou GIS":** comece o Flow pelo Block `report-area` (inputs `codImovel`, `area`,
+  `areaName`, `gisDataset` com `"picker": "gis-dataset"` e `gisFeature` com `"picker": "gis-feature"`), ligue os Blocks do CAR em `area.codImovel` e marque-os `"optional": true`; seções do CAR
   no template ficam em `{{#area.isCar}}`. Nó opcional é pulado sem input e não derruba a execução se
   falhar (outputs nulos); use isso para fontes de rede ou dado recente (ARCHITECTURE §47.5.1).
 - Template novo além de `isp-index`/`isp-status` não existe: a UI é uma página só, com JS em

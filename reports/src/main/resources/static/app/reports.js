@@ -13,6 +13,8 @@
     const FlowEditor = window.ReportsFlowEditor;
     const TYPES = ['string', 'number', 'boolean', 'date', 'datetime', 'object', 'array', 'geometry'];
     const STRUCTURED = ['object', 'array', 'geometry'];
+    // Run-form pickers an input can ask for (InputDefinition.picker): lists from the Data Library GIS.
+    const PICKERS = [['', 'typed'], ['gis-dataset', 'GIS dataset'], ['gis-feature', 'GIS feature']];
     const $ = (id) => document.getElementById(id);
 
     const state = {
@@ -400,6 +402,7 @@
             box.appendChild(el('div.input-row', null,
                 el('input', { value: input.name || '', placeholder: 'name', disabled, oninput: (e) => { input.name = e.target.value.trim(); markDirty(); } }),
                 typeSelect(input, disabled),
+                pickerSelect(input, disabled),
                 el('input', { value: input.label || '', placeholder: 'label shown in the form', disabled, oninput: (e) => { input.label = e.target.value; markDirty(); } }),
                 el('label.check', null, el('input', { type: 'checkbox', checked: input.required, disabled, onchange: (e) => { input.required = e.target.checked; markDirty(); } }), ' required'),
                 disabled ? null : el('button.icon.danger', { onclick: () => { state.inputs.splice(index, 1); markDirty(); renderInputs(); renderFlow(); } }, 'Remove')));
@@ -415,6 +418,16 @@
         const select = el('select', { disabled, onchange: (e) => { input.type = e.target.value; markDirty(); renderFlow(); } },
             TYPES.map((t) => el('option', { value: t }, t)));
         select.value = input.type || 'string';
+        return select;
+    }
+
+    function pickerSelect(input, disabled) {
+        const select = el('select', {
+            disabled,
+            title: 'How the run form asks for this input: typed, or picked from the GIS datasets of the Data Library',
+            onchange: (e) => { input.picker = e.target.value || null; markDirty(); }
+        }, PICKERS.map(([value, label]) => el('option', { value }, label)));
+        select.value = input.picker || '';
         return select;
     }
 
@@ -519,6 +532,12 @@
         if (!inputs.length) box.appendChild(el('div.muted', null, 'This report has no inputs.'));
         inputs.forEach((input) => {
             const id = 'run-input-' + input.name;
+            if (input.picker === 'gis-dataset' || input.picker === 'gis-feature') {
+                const field = el('select', { id }, el('option', { value: '' }, '-'));
+                if (input.picker === 'gis-dataset') field.onchange = () => loadGisFeatures(field.value);
+                box.appendChild(el('div.field', null, el('label', { for: id }, (input.label || input.name) + (input.required ? ' *' : '')), field));
+                return;
+            }
             const field = input.type === 'boolean'
                 ? el('select', { id }, el('option', { value: '' }, '-'), el('option', { value: 'true' }, 'true'), el('option', { value: 'false' }, 'false'))
                 : STRUCTURED.includes(input.type)
@@ -526,9 +545,52 @@
                     : el('input', { id, type: input.type === 'date' ? 'date' : 'text', placeholder: input.type });
             box.appendChild(el('div.field', null, el('label', { for: id }, (input.label || input.name) + (input.required ? ' *' : '')), field));
         });
+        loadGisDatasets(inputs);
         $('run-version-note').textContent = state.dirty
             ? 'Unsaved changes are saved before the preview runs.'
             : 'Runs version ' + state.view.version.version + '.';
+    }
+
+    /** Fills the gis-dataset pickers of the run form; an instance without GIS data says so in the list. */
+    async function loadGisDatasets(inputs) {
+        const pickers = inputs.filter((i) => i.picker === 'gis-dataset').map((i) => $('run-input-' + i.name)).filter(Boolean);
+        if (!pickers.length) return;
+        let result;
+        try {
+            result = await api.get('/gis/datasets');
+        } catch (e) {
+            result = { available: false, datasets: [] };
+        }
+        pickers.forEach((select) => {
+            clear(select);
+            select.appendChild(el('option', { value: '' }, result.available ? '-' : '- (no GIS data in the Data Library)'));
+            result.datasets.forEach((d) => select.appendChild(el('option', { value: String(d.id), disabled: !d.polygonCount },
+                d.name + (d.category ? ' · ' + d.category : '') + ' (' + d.polygonCount + ' polygon' + (d.polygonCount === 1 ? '' : 's') + ')')));
+        });
+    }
+
+    /** Fills the gis-feature pickers with the features of the dataset picked; only polygons can be chosen. */
+    async function loadGisFeatures(dataset) {
+        const pickers = state.inputs.filter((i) => i.name && i.picker === 'gis-feature').map((i) => $('run-input-' + i.name)).filter(Boolean);
+        if (!pickers.length) return;
+        let features = [];
+        let truncated = false;
+        if (dataset) {
+            try {
+                const result = await api.get('/gis/datasets/' + encodeURIComponent(dataset) + '/features');
+                features = result.features;
+                truncated = result.truncated;
+            } catch (e) {
+                features = [];
+            }
+        }
+        pickers.forEach((select) => {
+            clear(select);
+            select.appendChild(el('option', { value: '' }, dataset ? '- (all polygons of the dataset)' : '-'));
+            features.forEach((f) => select.appendChild(el('option', { value: String(f.id), disabled: !f.polygon },
+                f.label + (f.areaHa != null ? ' (' + f.areaHa + ' ha)' : ' (' + f.geometryType.toLowerCase() + ')'))));
+            if (truncated) select.appendChild(el('option', { value: '', disabled: true }, 'only the first features are listed'));
+        });
     }
 
     function runInputs() {

@@ -1269,13 +1269,14 @@ propósito, do desenho conceitual acima. A ordem das fases está em [ROADMAP.md]
 | `catalog` | Leitura do catálogo (`HostCatalogClient` / `InformationSchemaCatalogClient`), `CatalogService` (cache curto), `BlockAvailabilityService` (AVAILABLE / STALE / MISSING_DATA), `BlockRelease` |
 | `template` | `TemplateRenderer` (Mustache estrito via JMustache), `TemplateScope` (variáveis conhecidas antes de rodar), `HtmlSanitizer` (jsoup, allowlist) |
 | `output` | `PdfRenderer` + `OpenHtmlToPdfRenderer` |
-| `blocks.car` | Blocks do CAR (contratos em [BLOCKS.md](BLOCKS.md)): `CarPropertyBlock`, `CarPropertyGeometryBlock`, `CarEnvironmentalLayersBlock`, `CarOverlapsBlock`, `CarHistoryBlock`, `CarPropertyMapBlock` + `PropertyMapRenderer` (Java2D); `ReportAreaBlock` (`report-area`: CAR ou polígono, §47.5.1); `CarTables`, `CarValues` |
+| `blocks.car` | Blocks do CAR (contratos em [BLOCKS.md](BLOCKS.md)): `CarPropertyBlock`, `CarPropertyGeometryBlock`, `CarEnvironmentalLayersBlock`, `CarOverlapsBlock`, `CarHistoryBlock`, `CarPropertyMapBlock` + `PropertyMapRenderer` (Java2D); `ReportAreaBlock` (`report-area`: CAR, polígono ou dado GIS, §47.5.1); `CarTables`, `CarValues` |
 | `blocks.brgeo` | Blocks do BR Geo ([BLOCKS.md](BLOCKS.md) §3): `BrGeoMunicipalitiesBlock`, `BrGeoBiomesBlock`, `BrGeoEmbargoesBlock`, `BrGeoDeterAlertsBlock`, `BrGeoProdesBlock`, `BrGeoCropProductionBlock`, `BrGeoZarcRiskBlock` (ZARC), `BrGeoCropProgressBlock` (CONAB); `MonitoringCoverage` (cobertura DETER/PRODES por bioma), `BrazilianStates` (UF: código IBGE, sigla, nome), `BrGeoTables`, `BrGeoValues` |
 | `blocks.brweather` | Blocks do BR Weather ([BLOCKS.md](BLOCKS.md) §3.1): `BrWeatherDailyBlock` (NASA POWER, gráfico com `IndexSeriesChart`), `BrWeatherRainfallBlock` (CHIRPS, lê os recortes do lake sob `reports.brweather.chirps-dir` com `HttpCogReader` + `LocalFileRangeFetcher`), `DailyBarChart`, `BrWeatherTables` |
 | `blocks.sathub` | `SatelliteHubIndexSeriesBlock` ([BLOCKS.md](BLOCKS.md) §4) + `IndexSeriesChart` (Java2D); `SatelliteHubLatestImageBlock` (`sathub-latest-image`: última imagem Sentinel-2 lida na hora, índices com as fórmulas do Satellite Hub) |
 | `blocks.sathub.imagery` | Leitura de Sentinel-2 sem dependência nova: `SceneSearch`/`EarthSearchClient` (STAC), `SceneSelector`, `CogReader`/`HttpCogReader` + `RangeFetcher`/`HttpRangeFetcher` (COG por HTTP Range), `Utm`, `RasterGrid`/`Raster`, `PolygonMask`, `IndexFormula`, `IndexStats`, `Palette`, `ImageryRenderer` (PNGs) |
 | `blocks.skillslab` | `SkillsLabPythonBlock` (`skillslab-python`, [BLOCKS.md](BLOCKS.md) §5): roda um script do Skills Lab por um workflow do projeto; `WorkflowRuns` + `HostWorkflowClient` (porta interna `/api/extensions/internal/workflows` do back, infinitestack-back#1280) |
 | `blocks.isgeosam` | `IsGeoSamFieldCandidatesBlock` (`isgeosam-field-candidates`, [BLOCKS.md](BLOCKS.md) §5): candidatos a talhão do is-geo-sam (SAM no Skills Lab); `SceneRequest` (JSON de workflow determinístico e identidade da cena), `SceneResults` + `GoldSceneResults` (leitura de `gold.is_geo_sam_*`), `CandidateMapRenderer` (candidatos sobre a imagem); grava o pedido no staging do lake ([INTEGRATIONS.md](INTEGRATIONS.md) §3) |
+| `blocks.cropcal` | `CropCalendarBlock` (`cropcal-field-calendar`, [BLOCKS.md](BLOCKS.md) §5): calendário de safra de um talhão do is-crop-calendar (Skills Lab, S2 + S1); `CropCalendarRequest` (pedido e `request_sha` RFC 8785), `CropCalendarSettings` (projeto pela liberação do workflow, staging), `CalendarResults` + `GoldCalendarResults` (leitura de `gold.is_crop_calendar_*`), `CalendarCharts` (série com faixas via `IndexSeriesChart`, área por estado empilhada, mapa de blocos por data via `PropertyMapRenderer`); grava o pedido no staging do lake ([INTEGRATIONS.md](INTEGRATIONS.md) §5). `blocks.skillslab.WorkflowGrants` lê o projeto de uma liberação em `<pluginId>-workflows.json` |
 | `config` | `PluginDataSourceConfig` (pools), `PluginWebConfig`, `ReportsLimits`, `SentinelConfig` (beans `SceneSearch`/`CogReader`; `reports.sentinel.stac-url`, env `REPORTS_SENTINEL_STAC_URL`, default `https://earth-search.aws.element84.com/v1`), `SkillsLabConfig` (bean `WorkflowRuns` com `infinitestack.host.base-url` + token interno) |
 | `diff` | `LineDiff` (diff de versões) |
 | `report`, `execution` | Registros de domínio: `Report`, `ReportVersion`, `InputDefinition`, `PageSettings`, `Execution`, `ExecutionError` |
@@ -1368,8 +1369,11 @@ POST /ready-made/{id}/instantiate          body {name?, description?} → 201 Re
 - A ordem de execução respeita as dependências e, entre os nós prontos, segue a ordem declarada. Os
   prontos declaram por último os nós lentos e não essenciais (a imagem Sentinel-2, até 110 s), para
   não consumirem o tempo da execução (120 s) antes dos outros.
-- **CAR ou polígono.** O Block `report-area` recebe `codImovel` **ou** `geometry` e devolve a
-  geometria, `isCar` e `codImovel` (nulo para polígono). Os Blocks do CAR recebem `area.codImovel` e
+- **CAR, polígono ou dado GIS.** O Block `report-area` recebe `codImovel`, `geometry` **ou**
+  `gisDataset` (+ `gisFeature`, um dado GIS do Data Library, lido de `bronze.is_geo_ref*` por
+  `blocks.gis.GisAreas`) e devolve a geometria, `isCar`, `isGis` e `codImovel` (nulo fora do CAR).
+  Inputs com `picker` (`gis-dataset`, `gis-feature`) viram listas no formulário de execução, servidas
+  por `GisController` (`/api/gis/datasets`). Os Blocks do CAR recebem `area.codImovel` e
   são opcionais, então são pulados para um polígono. Os Blocks espaciais recebem `area.geometry`, e
   os por município usam `brgeo-municipalities.mainIbgeCode`/`mainUf` (o município com a maior parte da
   área). As seções do CAR no template ficam em `{{#area.isCar}}`. Um pronto assim continua exigindo
@@ -1409,7 +1413,17 @@ Detalhes, formato e catálogo em [READY-MADE-REPORTS.md](READY-MADE-REPORTS.md).
   `ReadyMadeReportsValidityTest` valida Flow e template contra os contratos dos Blocks, executa com
   saídas de exemplo e gera HTML/PDF em `reports/target/ready-made/`) e atualize o catálogo do
   READY-MADE-REPORTS.md. Os Blocks do teste são duplos dos contratos do [BLOCKS.md](BLOCKS.md)
-  (`support/CarBlockContractStubs`, `support/GeoBlockContractStubs`).
+  (`support/CarBlockContractStubs`, `support/GeoBlockContractStubs`), com uma saída "full" e uma
+  "bare" cada. O `ReadyMadeAgainstRealBlocksTest` instancia os Blocks reais (`realBlocks()`, sem
+  banco), exige que cada dublê tenha as mesmas portas do real e que todo Block da lista tenha dublê, e
+  valida cada pronto contra as definições reais. Block novo usado por um pronto entra nos três lugares.
+- **Catálogo (2026-10-29):** 14 prontos. Os que recebem a área (CAR, polígono ou GIS) usam
+  `report-area` + nós opcionais; as fontes novas (solo e perfis, Censo 2017, cultivares e série da PAM,
+  balanço hídrico, anomalia de temperatura, quedas e comparação de índices, data e quarentena do SICAR,
+  imóveis do CAR na área) entraram como nós opcionais. `area-soil-aptitude` e `area-car-properties`
+  são os prontos novos; o `report-base.css` ganhou as classes `ad-AD1`..`ad-AD6` (classe de solo do
+  ZARC). Os laudos só do CAR (`car-socioenvironmental`) e só do BR Geo (`brgeo-area-diagnosis`) só
+  recebem Blocks da própria fonte, para continuar rodando onde a outra não existe.
 - Um input opcional deixado em branco entra no modelo do template como `null`
   (`ExecutionService.coerceInputs`), para o template poder testá-lo sem erro de modo estrito.
 

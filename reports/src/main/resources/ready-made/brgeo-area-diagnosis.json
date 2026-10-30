@@ -1,8 +1,8 @@
 {
   "id": "brgeo-area-diagnosis",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "name": "Diagnóstico socioambiental de uma área",
-  "description": "Para qualquer polígono (GeoJSON), sem precisar de CAR: municípios, bioma, embargos do IBAMA, alertas DETER e desmatamento PRODES.",
+  "description": "Para qualquer polígono (GeoJSON), sem precisar de CAR: municípios, bioma, embargos do IBAMA, alertas DETER, desmatamento PRODES, solo e restrições (IBGE) e evidências do Censo Agro 2017.",
   "category": "Socioambiental",
   "inputs": [
     { "name": "area", "type": "geometry", "required": true, "label": "Área (geometria GeoJSON em SIRGAS 2000)" },
@@ -14,14 +14,18 @@
       { "id": "biomes", "block": "brgeo-biomes" },
       { "id": "embargoes", "block": "brgeo-embargoes" },
       { "id": "deter", "block": "brgeo-deter-alerts" },
-      { "id": "prodes", "block": "brgeo-prodes" }
+      { "id": "prodes", "block": "brgeo-prodes" },
+      { "id": "soil", "block": "brgeo-soil-units", "optional": true },
+      { "id": "census", "block": "brgeo-census-evidence", "optional": true }
     ],
     "connections": [
       { "from": "inputs.area", "to": "municipalities.geometry" },
       { "from": "inputs.area", "to": "biomes.geometry" },
       { "from": "inputs.area", "to": "embargoes.geometry" },
       { "from": "inputs.area", "to": "deter.geometry" },
-      { "from": "inputs.area", "to": "prodes.geometry" }
+      { "from": "inputs.area", "to": "prodes.geometry" },
+      { "from": "inputs.area", "to": "soil.geometry" },
+      { "from": "inputs.area", "to": "census.geometry" }
     ]
   },
   "templateHtmlFile": "brgeo-area-diagnosis.html",

@@ -234,7 +234,13 @@ public class ReportService {
                 problems.add("duplicate input '" + input.name() + "'");
             }
             if (input.type() == null) problems.add("input '" + input.name() + "' has no type");
+            if (input.picker() != null && !input.picker().isBlank() && !InputDefinition.PICKERS.contains(input.picker())) {
+                problems.add("input '" + input.name() + "' has an unknown picker '" + input.picker() + "' (use " + InputDefinition.PICKERS + ")");
+            }
         }
+        boolean hasFeature = inputs.stream().anyMatch(i -> InputDefinition.PICKER_GIS_FEATURE.equals(i.picker()));
+        boolean hasDataset = inputs.stream().anyMatch(i -> InputDefinition.PICKER_GIS_DATASET.equals(i.picker()));
+        if (hasFeature && !hasDataset) problems.add("a gis-feature input needs a gis-dataset input in the same report");
         return problems;
     }
 

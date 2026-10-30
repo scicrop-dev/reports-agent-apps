@@ -11,6 +11,7 @@ back oferece em 2026-10-27.
 | **Última imagem Sentinel-2** de qualquer área (ex.: um imóvel CAR), na hora, com as fórmulas de índice do Satellite Hub | **feito** (§1.2) | `sathub-latest-image` ([BLOCKS.md](BLOCKS.md) §4) e o pronto `car-latest-satellite-image` |
 | Satellite Hub, **pedir processamento** (cadastrar a área e calcular a série) para uma área nova | desenhado (§1.3) | precisa de uma rota no Satellite Hub; a porta plugin-a-plugin do back já existe |
 | Script Python do Skills Lab como Block | **feito** (§2) | `skillslab-python` ([BLOCKS.md](BLOCKS.md) §5), sobre a porta de workflows do back (infinitestack-back#1280) |
+| Calendário de safra de um talhão (is-crop-calendar, Sentinel-2 + Sentinel-1) | **feito** (§5), falta validar numa instância | `cropcal-field-calendar` ([BLOCKS.md](BLOCKS.md) §5) e o pronto `area-crop-calendar` |
 
 ---
 
@@ -204,3 +205,103 @@ Block que **escreve** no disco do host; o resto do app só lê.
   até uma imagem nova aparecer.
 - Um `RUNNING` ou um arquivo no staging com mais de 30 min é dado como morto (backend reiniciado) e o
   Block pede de novo.
+
+## 4. Dados GIS do Data Library (área do relatório)
+
+### 4.1 Como funciona (feito em 2026-10-29)
+
+A aba GIS do Data Library (infinitestack-back#1248) grava cada shapefile, GeoJSON ou desenho em
+`bronze.is_geo_ref` (um conjunto: `geo_id`, `geo_name`, `geo_attributes` com categoria, descrição,
+contagem e área) e `bronze.is_geo_ref_data` (as feições: `geo_data` em EPSG:4326, qualquer tipo de
+geometria, `geo_data_attributes`). O catálogo as mostra na source `gis:infinitestack`.
+
+O REPORTS lê essas tabelas pelo pool somente leitura dos Blocks (`blocks.gis.GisAreas`):
+
+- `GET {base}/api/gis/datasets` e `GET {base}/api/gis/datasets/{id}/features` alimentam os inputs com
+  `picker` `gis-dataset` / `gis-feature` do formulário de execução;
+- o Block `report-area` (1.1.0) recebe `gisDataset` (+ `gisFeature`) e usa os polígonos do conjunto,
+  ou da feição, como a área do relatório (BLOCKS.md, `report-area`).
+
+### 4.2 Limites
+
+- Não há ACL por conjunto: quem roda relatórios vê todos os conjuntos GIS da instância, como no
+  Data Library.
+- Pontos e linhas não viram área; um conjunto com mais de 5.000 polígonos exige escolher a feição.
+- Sem `bronze.is_geo_ref*` (ninguém usou a aba GIS), a lista vem vazia e o `report-area` com
+  `gisDataset` falha dizendo isso. O `report-area` não declara `DataRequirement` dessas tabelas, para
+  continuar liberado em instâncias sem GIS.
+
+## 5. is-crop-calendar (calendário de safra do talhão)
+
+### 5.1 O que é (feito em 2026-10-30)
+
+O is-crop-calendar (`skillslab/is-crop-calendar` do repo `scicrop-dev/is-geo-sam`, no workspace em
+`scripts/is-geo-sam`) é um pacote Python do Skills Lab que, para **um talhão** e um período, calcula
+os intervalos de plantio, senescência e colheita de cada safra, do talhão e de cada bloco de 100 m,
+com Sentinel-2 L2A (EVI e CIre) e Sentinel-1 RTC (VH) do Microsoft Planetary Computer. Grava cinco
+tabelas: `gold.is_crop_calendar_run`, `_season`, `_block`, `_series` e `_state` (o README do pacote
+tem as colunas). O Block `cropcal-field-calendar` segue o desenho do is-geo-sam (§3): pede o run pela
+porta de workflows e lê o resultado do gold.
+
+**O pedido** é um JSON que o Block grava no staging do lake como `reports-cropcal-<sha12>.json`
+(`.part` + rename) e passa só o nome: `params = {"file": "<nome>", "appId": "reports"}`. Conteúdo:
+`aoi` (o GeoJSON do talhão, de `report-area.geometry`, com o membro `crs` `EPSG:4674`), `from`, `to`
+(`YYYY-MM-DD`), `params` quando o nó recebe `relativeOrbit`/`sowingToVisibleDays` (`relative_orbit`,
+`sowing_to_visible_days`), `requestId` e `requestSha`. Qualquer outra chave o script recusa.
+
+**A identidade** do pedido é o `request_sha` = sha256 (hex minúsculo) do JSON canônico RFC 8785 (JCS)
+do pedido sem `requestId` e `requestSha`. O Block calcula com a lib
+`io.github.erdtman:java-json-canonicalization` 1.1 (Apache-2.0, sem dependências; vai no `.ispz` em
+`BOOT-INF/lib`), testada contra o vetor do `test_a_known_request_sha` do pacote. O script recalcula e
+recusa o arquivo se não bater (`BAD_REQUEST`).
+
+**Reaproveitamento.** O script só reaproveita um run com o mesmo `request_sha` **e** o mesmo
+`params_hash` (md5 dos parâmetros efetivos: o `.env` com os `params` do pedido por cima), e só se ele
+terminou mais de `CROPCAL_SETTLE_DAYS` (7) dias depois do `to`. O Block não conhece o `.env`, então
+aceita **qualquer `params_hash`**: mostra o run `COMPLETED`/`NO_SEASON` mais recente do `request_sha`
+se ele for definitivo (terminou mais de 7 dias depois do `to`) **ou** recente (terminou nas últimas
+24 h). Sem a segunda regra, um período que termina hoje (o padrão) nunca seria mostrado: cada
+relatório pediria um run novo e responderia `PROCESSING` para sempre. Consequência: se o admin mudar
+um `CROPCAL_*` do `.env`, o relatório continua mostrando o run antigo de um período já fechado.
+
+**Situações** (`status` do Block): `COMPLETED` e `NO_SEASON` (resultado), `PROCESSING` (run `RUNNING`
+com menos de 30 min, arquivo no staging com menos de 30 min, ou o run passou do `waitSeconds`) e
+`FAILED` (run `FAILED` dos últimos 10 min, ou o run do workflow terminou sem run no gold: a mensagem
+traz o `status` e o `error` da linha `IS_CROP_CALENDAR_RESULT` do log, ex. `BAD_REQUEST, aoi has 0.40
+ha`). `INTERRUPTED`, `FAILED` antigo e `RUNNING` com mais de 30 min são pedidos de novo. O Block não
+para o run em nenhum caso. Um run sem cache leva de 4 a 7 minutos, então a primeira execução de um
+talhão novo sai `PROCESSING` ("gere de novo em alguns minutos").
+
+### 5.2 O que a instância precisa (admin do IS)
+
+1. O pacote instalado num projeto do Skills Lab (README do pacote: `build-skillslab-zip.sh
+   is-crop-calendar`, dependências pelo botão verde do `requirements.txt`, sem torch).
+2. Um workflow nesse projeto com um único bloco `Script` (`is-crop-calendar/main.py`), de id
+   `is-crop-calendar` (ou outro, em `REPORTS_CROPCAL_WORKFLOW`).
+3. A liberação desse workflow para o REPORTS em `/opt/infinitestack/etc/reports-workflows.json`
+   (`{"workflows":[{"projectId":"<projeto>","workflow":"is-crop-calendar"}, ...]}`). **O Block pega o
+   projeto dessa liberação**; `REPORTS_CROPCAL_PROJECT_ID` (`reports.cropcal.project-id`) só é preciso
+   quando o workflow está liberado em mais de um projeto. `REPORTS_CROPCAL_GRANTS_DIR` muda a pasta do
+   arquivo (padrão `/opt/infinitestack/etc`).
+4. Saída HTTPS do Skills Lab para `planetarycomputer.microsoft.com` (STAC e assinatura das URLs) e
+   `*.blob.core.windows.net` (as imagens). O REPORTS em si não sai para a rede por causa deste Block.
+5. O staging: o mesmo do is-geo-sam (`REPORTS_CROPCAL_STAGING_DIR`, padrão `reports.isgeosam.staging-dir`,
+   `/opt/infinitestack/var/lake/staging`), igual ao `CROPCAL_STAGING_DIR` do `.env` do script. O
+   processo do app precisa poder escrever nele.
+6. As tabelas registradas na fonte do REPORTS, para o gate de catálogo deixar liberar o Block na tela
+   de Blocks: rode o workflow uma vez com `params = {"schemaOnly": true, "appId": "reports"}` (cria
+   as cinco tabelas vazias e as registra). Com o `IS_APP_ID` do back (infinitestack-back#1287) o dono
+   é o app que pediu; sem app nenhum, as tabelas existem mas não entram no catálogo.
+
+### 5.3 Limites
+
+- Um run por vez na instância (lock do script, espera até `CROPCAL_LOCK_WAIT`): pedidos de talhões
+  diferentes fazem fila.
+- O Block espera até `waitSeconds` (padrão 60, até 110) dentro dos 120 s da execução; o timeout dele é
+  118 s, cortado pelo que sobrar da execução. Não ponha nós lentos antes dele no Flow.
+- Um talhão por pedido: o script recusa área acima de `CROPCAL_MAX_AREA_HA` (5.000 ha) ou abaixo de
+  1 ha (chega ao relatório como `FAILED` com o motivo); o período tem no máximo 730 dias (o Block
+  confere antes).
+- Mapas: até 20.000 blocos da primeira safra.
+- Sem `schemaOnly` automático no boot (o PR #17 faz isso para o is-geo-sam): quando ele entrar, dá
+  para estender ao is-crop-calendar e dispensar o passo 6 do §5.2.

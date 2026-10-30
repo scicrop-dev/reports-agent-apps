@@ -13,7 +13,7 @@
 
     <groupId>com.infinitestack</groupId>
     <artifactId>reports</artifactId>
-    <version>0.5.0</version>
+    <version>0.7.0</version>
     <packaging>jar</packaging>
     <name>Reports</name>
 
@@ -57,6 +57,13 @@
             <groupId>io.github.openhtmltopdf</groupId>
             <artifactId>openhtmltopdf-pdfbox</artifactId>
             <version>1.1.22</version>
+        </dependency>
+
+        <!-- RFC 8785 (JSON Canonicalization Scheme): request_sha of is-crop-calendar, the same bytes the script hashes -->
+        <dependency>
+            <groupId>io.github.erdtman</groupId>
+            <artifactId>java-json-canonicalization</artifactId>
+            <version>1.1</version>
         </dependency>
 
         <dependency>

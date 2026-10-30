@@ -21,9 +21,15 @@
       <td>{{#report.executionId}}nº {{report.executionId}} (versão {{report.version}} do relatório){{/report.executionId}}{{^report.executionId}}Prévia, não registrada no histórico{{/report.executionId}}</td>
     </tr>
   </table>
-  {{#property.removedAt}}
-  <p class="alert">Atenção: este imóvel foi removido da base do SICAR em {{property.removedAt}}. Os dados abaixo são os da última versão conhecida.</p>
-  {{/property.removedAt}}
+  {{#property.removed}}
+  <p class="alert">Atenção: este imóvel foi removido da base do SICAR{{#property.removedAt}} em {{property.removedAt}}{{/property.removedAt}}. Os dados abaixo são os da última versão conhecida.</p>
+  {{/property.removed}}
+  {{#property.areaMismatch}}
+  <p class="alert">Atenção: a área declarada no CAR ({{property.declaredAreaHa}} ha) difere {{property.areaDifferencePct}}% da área calculada da geometria ({{property.calculatedAreaHa}} ha).</p>
+  {{/property.areaMismatch}}
+  {{#quarantine.hasItems}}
+  <p class="alert">Há {{quarantine.count}} registro(s) com este código descartados nas cargas do SICAR (seção 3).</p>
+  {{/quarantine.hasItems}}
 </div>
 
 <div class="section">
@@ -52,7 +58,7 @@
     <tr><th>Município / UF</th><td>{{property.municipality}} / {{property.uf}}</td></tr>
     <tr><th>Ponto de referência (dentro do imóvel)</th><td>latitude {{geometry.centroidLat}}, longitude {{geometry.centroidLon}}</td></tr>
     <tr><th>Área calculada da geometria</th><td>{{geometry.areaHa}} ha</td></tr>
-    <tr><th>Área declarada no CAR</th><td>{{property.declaredAreaHa}} ha</td></tr>
+    <tr><th>Área declarada no CAR</th><td>{{property.declaredAreaHa}} ha{{#property.areaDifferencePct}} ({{property.areaDifferencePct}}% frente à calculada{{#property.areaMismatch}}: <strong>divergência acima de 5%</strong>{{/property.areaMismatch}}){{/property.areaDifferencePct}}</td></tr>
     <tr><th>Vértices do polígono</th><td>{{geometry.vertices}}</td></tr>
   </table>
   <p class="note">A área calculada vem da geometria vigente, em SIRGAS 2000, com cálculo geodésico; a área declarada é a informada no cadastro. Diferenças pequenas entre as duas são esperadas.</p>
@@ -73,16 +79,18 @@
   {{#history.versions}}{{#-first}}
   <table class="grid">
     <thead>
-      <tr><th>Válida de</th><th>Válida até</th><th>Situação</th><th>Condição</th><th class="r">Área declarada (ha)</th><th>Geometria alterada</th></tr>
+      <tr><th>Válida de</th><th>Válida até</th><th>Situação</th><th>Condição</th><th class="r">Área declarada (ha)</th><th class="r">Área calculada (ha)</th><th class="r">Variação (ha / %)</th><th>Geometria alterada</th></tr>
     </thead>
     <tbody>
   {{/-first}}
       <tr>
         <td>{{validFrom}}</td>
-        <td>{{validTo}}{{^validTo}}vigente{{/validTo}}</td>
+        <td>{{validTo}}{{^validTo}}{{#history.removedAt}}removido{{/history.removedAt}}{{^history.removedAt}}vigente{{/history.removedAt}}{{/validTo}}</td>
         <td>{{statusLabel}}</td>
         <td>{{condition}}</td>
         <td class="r">{{declaredAreaHa}}</td>
+        <td class="r">{{calculatedAreaHa}}</td>
+        <td class="r">{{#areaChangeHa}}{{areaChangeHa}}{{#areaChangePct}} / {{areaChangePct}}%{{/areaChangePct}}{{/areaChangeHa}}{{^areaChangeHa}}-{{/areaChangeHa}}</td>
         <td>{{#geometryChanged}}sim{{/geometryChanged}}{{^geometryChanged}}não{{/geometryChanged}}</td>
       </tr>
   {{#-last}}
@@ -90,6 +98,37 @@
   </table>
   {{/-last}}{{/history.versions}}
   {{^history.versions}}<p class="empty">Nenhuma versão encontrada no histórico.</p>{{/history.versions}}
+  {{#history.versions}}{{#-first}}<p class="note">A variação compara a área calculada de cada versão com a da versão anterior.{{#history.removedAt}} O imóvel foi removido do SICAR em {{history.removedAt}}: a última versão termina nessa data.{{/history.removedAt}}</p>{{/-first}}{{/history.versions}}
+
+  <h3>Data de referência da base SICAR</h3>
+  {{#carRef.hasData}}
+  <p>Os dados deste laudo vêm da base do SICAR de {{carRef.uf}} publicada até <strong>{{carRef.latestPublishedAt}}</strong>{{#carRef.oldestPublishedAt}} (a camada mais antiga é de {{carRef.oldestPublishedAt}}){{/carRef.oldestPublishedAt}}. Alterações feitas no SICAR depois disso não aparecem aqui.{{^carRef.complete}} Nem todas as camadas foram carregadas para a UF.{{/carRef.complete}}</p>
+  {{#carRef.layers}}{{#-first}}
+  <table class="grid">
+    <thead><tr><th>Camada</th><th>Publicação no SICAR</th><th>Carregada em</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr><td>{{layerLabel}}</td><td>{{#loaded}}{{publishedAt}}{{/loaded}}{{^loaded}}não carregada{{/loaded}}</td><td>{{loadedAt}}</td></tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/carRef.layers}}
+  {{/carRef.hasData}}
+  {{^carRef.hasData}}<p class="empty">Sem data de referência da base SICAR para a UF do imóvel (carga não registrada ou consulta sem resposta nesta execução).</p>{{/carRef.hasData}}
+
+  {{#quarantine.hasItems}}
+  <h3>Pendências na carga do SICAR</h3>
+  <p class="alert">{{quarantine.count}} registro(s) com este código foram descartados nas cargas do SICAR. Os outros dados do laudo são os do registro mantido; confira o cadastro no próprio SICAR.</p>
+  <table class="grid">
+    <thead><tr><th>Publicação</th><th>Camada</th><th>Motivo</th><th>Detalhe</th></tr></thead>
+    <tbody>
+    {{#quarantine.items}}
+      <tr><td class="nowrap">{{publishedAt}}</td><td>{{layerLabel}}</td><td>{{reason}}</td><td>{{detail}}</td></tr>
+    {{/quarantine.items}}
+    </tbody>
+  </table>
+  <p class="note">Motivos: duplicado = mais de um registro com o código (vale o mantido, em geral o ativo); geometria_invalida = geometria que não pôde ser corrigida; orfao = feição de um imóvel que não foi carregado. O descarte se repete a cada publicação, então a contagem cresce com as cargas.{{#quarantine.truncated}} A lista mostra os 100 mais recentes.{{/quarantine.truncated}}</p>
+  {{/quarantine.hasItems}}
 </div>
 
 <div class="section">
@@ -135,7 +174,7 @@
   </table>
   {{/-last}}{{/layers.layers}}
   {{^layers.layers}}<p class="empty">Nenhuma feição de uso ou cobertura declarada na versão vigente.</p>{{/layers.layers}}
-  <p class="note">Percentuais sobre a área declarada do imóvel ({{layers.summary.propertyAreaHa}} ha). As camadas podem se sobrepor (por exemplo, APP dentro da Reserva Legal), então a soma pode passar de 100%.</p>
+  <p class="note">Percentuais sobre a área declarada do imóvel ({{layers.summary.propertyAreaHa}} ha). As camadas podem se sobrepor (por exemplo, APP dentro da Reserva Legal), então a soma pode passar de 100%.{{#layers.summary.hydrographyCalculated}} Hidrografia: {{layers.summary.hydrographyHa}} ha (calculada): o SICAR não declara área para a hidrografia, que entra com a área da geometria.{{/layers.summary.hydrographyCalculated}}</p>
 </div>
 
 <div class="section">
@@ -168,6 +207,7 @@
     <li>Dados declarados no Sistema Nacional de Cadastro Ambiental Rural (SICAR), coletados pelo car-agent-app do InfiniteStack. O laudo reflete a versão vigente do cadastro no momento da emissão.</li>
     <li>As informações são autodeclaratórias. Este laudo não substitui a análise do cadastro pelo órgão ambiental competente nem vistoria em campo.</li>
     <li>Áreas calculadas em SIRGAS 2000 (EPSG:4674), com cálculo geodésico; áreas declaradas são usadas como constam no SICAR.</li>
-    <li>Seções futuras: bioma, embargos do IBAMA e alertas de desmatamento DETER/PRODES, assim que as bases do BR Geo estiverem disponíveis no ambiente.</li>
+    <li>A data de referência é a da publicação no SICAR da última carga concluída de cada camada da UF. Registros descartados na carga (duplicados, geometria inválida, órfãos) ficam em quarentena e aparecem como pendências.</li>
+    <li>Bioma, embargos do IBAMA, DETER, PRODES, solo e Censo Agro 2017 estão no laudo socioambiental completo, que precisa das bases do BR Geo no ambiente.</li>
   </ul>
 </div>

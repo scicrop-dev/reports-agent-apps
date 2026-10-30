@@ -26,6 +26,8 @@ import com.infinitestack.reports.engine.block.ReportBlock;
  * only when the geometry is the current version of another property. The overlap is measured on
  * the geography (hectares) so that edge touches below {@code minOverlapHa} are ignored. Geometries
  * go through {@code ST_MakeValid} because one invalid neighbor would otherwise fail the whole Block.
+ * A property removed from the SICAR is compared by the geometry of its last version
+ * ({@link CarTables#VERSION_IN_EFFECT}); the neighbours are always current.
  */
 @Component
 public class CarOverlapsBlock implements ReportBlock {
@@ -40,7 +42,7 @@ public class CarOverlapsBlock implements ReportBlock {
             + " SELECT i.id AS imovel_id, g.geom,"
             + " COALESCE(g.area_calc_ha, (ST_Area(g.geom::geography) / 1e4)::numeric) AS area_ha"
             + " FROM " + Q_IMOVEL + " i"
-            + " JOIN " + Q_IMOVEL_VERSAO + " v ON v.imovel_id = i.id AND v.valido_ate IS NULL"
+            + VERSION_IN_EFFECT
             + " JOIN " + Q_IMOVEL_GEOMETRIA + " g ON g.id = v.geometria_id"
             + " WHERE i.cod_imovel = ?),"
             + " hits AS ("
@@ -65,7 +67,7 @@ public class CarOverlapsBlock implements ReportBlock {
     @Override
     public BlockDefinition definition() {
         return new BlockDefinition("car-overlaps", "CAR overlaps",
-                "Other current CAR properties whose geometry overlaps this property", "1.0.0",
+                "Other current CAR properties whose geometry overlaps this property", "1.0.1",
                 List.of(CarValues.COD_IMOVEL_INPUT,
                         BlockPort.optional("minOverlapHa", DataType.NUMBER,
                                 "minimum overlap in hectares, default 0.01 (ignores edge touches)")),
@@ -77,8 +79,9 @@ public class CarOverlapsBlock implements ReportBlock {
                                 "sum of pairwise overlaps (the same area may count more than once)"),
                         BlockPort.required("truncated", DataType.BOOLEAN, "more than 100 overlaps")),
                 List.of(
-                        requirement(IMOVEL, "id", "cod_imovel"),
-                        requirement(IMOVEL_VERSAO, "imovel_id", "cod_imovel", "valido_ate", "geometria_id", "ind_status"),
+                        requirement(IMOVEL, "id", "cod_imovel", "removido_em"),
+                        requirement(IMOVEL_VERSAO, "imovel_id", "cod_imovel", "valido_de", "valido_ate", "geometria_id",
+                                "ind_status"),
                         requirement(IMOVEL_GEOMETRIA, "id", "imovel_id", "geom", "area_calc_ha"),
                         requirement(STATUS_CADASTRO, "codigo", "descricao")),
                 TIMEOUT);
@@ -90,7 +93,7 @@ public class CarOverlapsBlock implements ReportBlock {
                 "Finds other current CAR properties whose drawing overlaps this one, and how much. Overlaps "
                         + "usually mean a boundary dispute or a registration error.",
                 List.of(
-                        "Takes the current geometry of the property.",
+                        "Takes the current geometry of the property (the last one if it left the SICAR).",
                         "Searches the spatial index for other current properties that intersect it.",
                         "Measures each overlap in geodesic hectares and ignores touches smaller than minOverlapHa."),
                 List.of(
@@ -98,7 +101,8 @@ public class CarOverlapsBlock implements ReportBlock {
                         "minOverlapHa: a fixed value when tiny edge overlaps should be ignored more (default 0.01 ha)."),
                 List.of(
                         "totalOverlapHa adds pairwise overlaps: the same piece of land can be counted more than once.",
-                        "Only current registrations are compared; removed properties are not."),
+                        "Only current registrations are searched as neighbours; removed properties are not.",
+                        "A removed property is still compared, by its last geometry, against today's registrations."),
                 "SICAR, gold.car_agent_app_imovel_geometria",
                 "{{<node>.count}} sobreposicao(oes), {{<node>.totalOverlapHa}} ha");
     }
