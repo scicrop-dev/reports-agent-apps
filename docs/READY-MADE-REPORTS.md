@@ -112,13 +112,14 @@ alterado a cópia, o diff mostra o que ele perderia; um merge automático fica f
 | 12 | `area-field-candidates` | Candidatos a talhão por segmentação de imagem (imóvel CAR ou polígono) | CAR, polígono **ou** GIS | `report-area`, `car-property` (opcional), `sathub-latest-image`, `isgeosam-field-candidates` (opcional) | **1.0.0**. Lê Sentinel-2 na hora e roda o is-geo-sam no Skills Lab |
 | 13 | `area-soil-aptitude` | Solo e aptidão agrícola | CAR, polígono **ou** GIS, `crop`, `season?` | `report-area`, `car-property` (opcional), `brgeo-municipalities`, `brgeo-soil-units`, `brgeo-soil-profiles`, `brgeo-zarc-risk`, `brgeo-zarc-cultivars`, `brweather-water-balance`, `brgeo-crop-production-history` | **1.0.0** |
 | 14 | `area-car-properties` | Imóveis do CAR na área | polígono, GIS **ou** CAR, `limit?` | `report-area`, `car-in-area`, `brgeo-municipalities`, `brgeo-biomes`, `brgeo-embargoes`, `car-data-reference` (opcional) | **1.0.0** |
+| 15 | `area-crop-calendar` | Calendário da safra do talhão (Sentinel-2 + Sentinel-1) | polígono, GIS **ou** CAR (um talhão), `from?`, `to?` | `report-area`, `car-property` (opcional), `cropcal-field-calendar` | **1.0.0**. Roda o is-crop-calendar no Skills Lab |
 
-Os prontos 2 a 14 usam o CSS comum `report-base.css` (o 1 mantém o seu). Um pronto só roda quando
+Os prontos 2 a 15 usam o CSS comum `report-base.css` (o 1 mantém o seu). Um pronto só roda quando
 **todos** os seus Blocks estão utilizáveis, inclusive os opcionais. Por isso os prontos só do CAR (1)
 e só do BR Geo (3) continuam existindo: rodam onde só há uma das fontes, e as adições da 1.1.0 de cada
 um ficaram dentro da sua fonte (o 1 ganhou só Blocks do CAR; o 3, só do BR Geo).
 
-**CAR, polígono ou dado GIS.** Os prontos 2, 5 a 10 e 12 a 14 têm os inputs opcionais `codImovel`, `area`
+**CAR, polígono ou dado GIS.** Os prontos 2, 5 a 10 e 12 a 15 têm os inputs opcionais `codImovel`, `area`
 (geometry), `areaName`, `gisDataset` (`"picker": "gis-dataset"`) e `gisFeature` (`"picker": "gis-feature"`);
 quem roda preenche o código, o polígono **ou** escolhe um dado GIS do Data Library (e, se quiser, uma
 feição dele). O template diz de onde veio a área com `{{#area.isGis}}`. O Block `report-area` resolve a área, os
@@ -330,7 +331,23 @@ cobertura e sobreposições (a cobertura conta cada hectare uma vez; a soma das 
 há terra declarada por mais de um imóvel), embargos do IBAMA na área, data de referência da base SICAR
 por camada e fontes.
 
-### 5.15 Ideias (não decididas)
+### 5.15 Calendário da safra do talhão (`area-crop-calendar`, 1.0.0)
+
+Entradas: polígono do talhão, feição de um dado GIS ou código CAR (o imóvel inteiro vira um talhão; o
+template avisa), e `from`/`to` opcionais (padrão os últimos 12 meses até hoje). `report-area.geometry`
+vai para `cropcal-field-calendar` (nó **não** opcional: é o relatório); `car-property` é opcional.
+Seções: capa com o aviso de que cada data é um intervalo e de que o método é para um talhão só; área e
+período (com as imagens S2/S1 usadas); situação (`{{#cal.processing}}` pede para gerar de novo em
+alguns minutos; sem safra ou falha, com o motivo); safras detectadas; calendário por safra (plantio,
+senescência e colheita: intervalo do talhão e 10/50/90% dos blocos, incerteza, emergência e parcela
+estreitada pelo radar); duração (ciclo, secagem, entressafra); gráfico da série (EVI, CIre, VH com as
+faixas); área por estado; mapas de plantio e colheita da primeira safra; metodologia e limitações (do
+README do pacote: intervalo e não data, plantio = emergência − 15 dias, nuvem, EVI baixo nem sempre é
+colheita, não identifica a cultura, fonte Planetary Computer). A primeira execução de um talhão novo
+costuma sair "em andamento" (o cálculo leva de 4 a 7 min); a seguinte lê o resultado guardado. Precisa
+do is-crop-calendar instalado e liberado na instância ([INTEGRATIONS.md](INTEGRATIONS.md) §5).
+
+### 5.16 Ideias (não decididas)
 
 Possibilidades levantadas para conversar com o produto. **Nenhuma está decidida nem priorizada.**
 

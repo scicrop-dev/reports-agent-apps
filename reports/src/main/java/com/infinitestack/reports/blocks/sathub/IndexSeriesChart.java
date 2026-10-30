@@ -37,6 +37,9 @@ public class IndexSeriesChart {
     /** A highlighted value drawn over the lines (e.g. a drop), on the left axis. */
     public record Marker(LocalDate date, double value, Color color) {}
 
+    /** A shaded period behind the lines (e.g. a harvest interval), clipped to the time axis of the lines. */
+    public record Span(LocalDate from, LocalDate to, Color color) {}
+
     /** Distinct colors for the lines of a comparison, in order. */
     public static final List<Color> PALETTE = List.of(new Color(0x2E7D32), new Color(0x1565C0), new Color(0xEF6C00),
             new Color(0x6A1B9A), new Color(0x00838F), new Color(0x8D6E63));
@@ -148,6 +151,11 @@ public class IndexSeriesChart {
      * as rings over the lines. {@link #render} stays the single-series chart.
      */
     public byte[] renderLines(List<Line> lines, List<Marker> markers, int width, int height) {
+        return renderLines(lines, markers, List.of(), width, height);
+    }
+
+    /** {@link #renderLines(List, List, int, int)} with shaded periods under the lines. */
+    public byte[] renderLines(List<Line> lines, List<Marker> markers, List<Span> spans, int width, int height) {
         BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
         Graphics2D g = image.createGraphics();
         try {
@@ -189,6 +197,15 @@ public class IndexSeriesChart {
                 }
             }
             drawTimeAxis(g, first, last, days, left, top, plotW, plotH);
+            if (spans != null) {
+                for (Span span : spans) {
+                    if (span.from() == null || span.to() == null || span.to().isBefore(first) || span.from().isAfter(last)) continue;
+                    double x0 = left + plotW * Math.max(0, ChronoUnit.DAYS.between(first, span.from())) / (double) days;
+                    double x1 = left + plotW * Math.min(days, ChronoUnit.DAYS.between(first, span.to())) / (double) days;
+                    g.setColor(span.color());
+                    g.fill(new java.awt.geom.Rectangle2D.Double(x0, top, Math.max(2, x1 - x0), plotH));
+                }
+            }
 
             int legendX = left;
             for (Line line : drawn) {

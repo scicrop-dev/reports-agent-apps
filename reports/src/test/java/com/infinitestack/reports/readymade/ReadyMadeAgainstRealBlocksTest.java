@@ -49,6 +49,8 @@ import com.infinitestack.reports.blocks.brgeo.BrGeoEmbargoesBlock;
 import com.infinitestack.reports.blocks.brgeo.BrGeoMunicipalitiesBlock;
 import com.infinitestack.reports.blocks.brgeo.BrGeoProdesBlock;
 import com.infinitestack.reports.blocks.sathub.SatelliteHubIndexSeriesBlock;
+import com.infinitestack.reports.blocks.cropcal.CropCalendarBlock;
+import com.infinitestack.reports.blocks.cropcal.CropCalendarSettings;
 import com.infinitestack.reports.blocks.isgeosam.IsGeoSamFieldCandidatesBlock;
 import com.infinitestack.reports.blocks.sathub.SatelliteHubLatestImageBlock;
 import com.infinitestack.reports.template.HtmlSanitizer;
@@ -73,6 +75,7 @@ class ReadyMadeAgainstRealBlocksTest {
                 new BrGeoZarcRiskBlock(null), new BrGeoCropProgressBlock(null), new BrWeatherDailyBlock(null),
                 BrWeatherRainfallBlockAccess.create(null, Path.of("/nonexistent")),
                 new IsGeoSamFieldCandidatesBlock(null, null, "/nonexistent", "", "is-geo-sam"),
+                new CropCalendarBlock(null, null, CropCalendarSettings.defaults()),
                 new CarDataReferenceBlock(null), new CarQuarantineBlock(null), new CarInAreaBlock(null),
                 new BrWeatherWaterBalanceBlock(null, "/nonexistent"), new BrWeatherTemperatureAnomalyBlock(null),
                 new BrGeoSoilUnitsBlock(null), new BrGeoSoilProfilesBlock(null), new BrGeoCensusEvidenceBlock(null),

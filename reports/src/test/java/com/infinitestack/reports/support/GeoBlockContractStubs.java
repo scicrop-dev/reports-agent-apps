@@ -38,6 +38,8 @@ import com.infinitestack.reports.blocks.brgeo.BrGeoDeterAlertsBlock;
 import com.infinitestack.reports.blocks.brgeo.BrGeoEmbargoesBlock;
 import com.infinitestack.reports.blocks.brgeo.BrGeoMunicipalitiesBlock;
 import com.infinitestack.reports.blocks.brgeo.BrGeoProdesBlock;
+import com.infinitestack.reports.blocks.cropcal.CropCalendarBlock;
+import com.infinitestack.reports.blocks.cropcal.CropCalendarSettings;
 import com.infinitestack.reports.blocks.isgeosam.IsGeoSamFieldCandidatesBlock;
 import com.infinitestack.reports.blocks.sathub.IndexSeriesChart;
 import com.infinitestack.reports.blocks.sathub.SatelliteHubIndexSeriesBlock;
@@ -108,6 +110,7 @@ public final class GeoBlockContractStubs {
                 stub("sathub-index-series", in -> indexSeries(bare)),
                 stub("sathub-latest-image", in -> latestImage(bare)),
                 stub("isgeosam-field-candidates", in -> fieldCandidates(bare)),
+                stub("cropcal-field-calendar", in -> cropCalendar(bare)),
                 stub("brgeo-zarc-risk", in -> zarc(bare)),
                 stub("brgeo-crop-progress", in -> cropProgress(bare)),
                 stub("brweather-daily-weather", in -> dailyWeather(bare)),
@@ -280,6 +283,80 @@ public final class GeoBlockContractStubs {
         out.putAll(map("reused", !bare, "runId", bare ? null : "5b1f0c1e-0000-4000-8000-000000000001", "triggerId", "t-9",
                 "model", bare ? null : "sam2.1_hiera_small", "segmentedAt", bare ? null : "2026-10-28T15:02:11Z"));
         return out;
+    }
+
+    /** Full: soybean and second crop of 02_CALENDARIO_SAFRA_S1_S2.md. Bare: the run is still going (PROCESSING). */
+    private static Map<String, Object> cropCalendar(boolean bare) {
+        List<Map<String, Object>> stateLegend = List.of(
+                map("state", "PRE_PLANTING", "label", "Antes do plantio", "color", "#d7ccc8"),
+                map("state", "ACTIVE", "label", "Cultura ativa", "color", "#2e7d32"),
+                map("state", "SENESCENT", "label", "Em senescência", "color", "#f9a825"),
+                map("state", "HARVESTED", "label", "Colhido", "color", "#8d6e63"),
+                map("state", "UNKNOWN", "label", "Sem data", "color", "#e0e0e0"));
+        Map<String, Object> out = map("status", bare ? "PROCESSING" : "COMPLETED", "ready", !bare, "processing", bare,
+                "message", bare ? "the crop calendar did not finish within the wait (run t-9 goes on; a run without cache takes 4 to 7 minutes); "
+                        + "generate the report again in a few minutes" : null,
+                "runId", bare ? null : "7c1f0c1e-0000-4000-8000-000000000002", "triggerId", "t-9",
+                "requestSha", "3b3767c611ef06410ec7d827eec30fb0ffadad3bcb8eed532139f17f0bc64d6f", "reused", !bare,
+                "computedAt", bare ? null : "2026-10-29T12:00:00Z", "computedAtLabel", bare ? null : "29/10/2026");
+        out.putAll(map("from", "2025-08-01", "to", "2026-06-30", "fromLabel", "01/08/2025", "toLabel", "30/06/2026",
+                "areaHa", bare ? null : 737.12, "s2Dates", bare ? null : 89, "s2ClearDates", bare ? null : 32,
+                "s1Passes", bare ? null : 27, "orbit", bare ? null : 141, "blocks", bare ? null : 710, "hasSeasons", !bare));
+        out.put("seasons", bare ? List.of() : List.of(
+                season(1, new String[] {"2025-10-10", "2025-10-22"}, new String[] {"2025-10-18", "2025-10-23"},
+                        new String[] {"2026-01-05", "2026-01-27"}, new String[] {"2026-01-27", "2026-02-08"},
+                        new String[] {"10/10/2025", "18/10/2025", "22/10/2025"}, new String[] {"26/12/2025", "24/01/2026", "30/01/2026"},
+                        new String[] {"27/01/2026", "08/02/2026", "08/02/2026"}, 90.0, 113.0, 17.5, 23.5),
+                season(2, new String[] {"2026-02-26", "2026-02-26"}, new String[] {"2026-03-13", "2026-03-13"},
+                        new String[] {"2026-04-27", "2026-05-15"}, new String[] {"2026-05-27", "2026-06-10"},
+                        new String[] {"26/02/2026", "26/02/2026", "26/02/2026"}, new String[] {"27/04/2026", "13/05/2026", "15/05/2026"},
+                        new String[] {"27/05/2026", "29/05/2026", "10/06/2026"}, 66.7, 91.5, 24.5, null)));
+        out.putAll(map("seriesChart", bare ? null : tinyPng(0x2e7d32), "stateChart", bare ? null : tinyPng(0x8d6e63),
+                "stateLegend", stateLegend, "plantingMap", bare ? null : tinyPng(0x21918c),
+                "plantingLegend", bare ? List.of() : List.of(map("color", "#440154", "label", "10/10 a 13/10"),
+                        map("color", "#fde725", "label", "20/10 a 22/10"), map("color", "#e0e0e0", "label", "sem data")),
+                "harvestMap", bare ? null : tinyPng(0x3b528b),
+                "harvestLegend", bare ? List.of() : List.of(map("color", "#440154", "label", "30/01 a 02/02"),
+                        map("color", "#fde725", "label", "06/02 a 08/02"))));
+        return out;
+    }
+
+    private static Map<String, Object> season(int no, String[] planting, String[] emergence, String[] senescence, String[] harvest,
+                                              String[] plantingP, String[] senescenceP, String[] harvestP, Double s1Share,
+                                              Double cycle, Double drying, Double fallow) {
+        Map<String, Object> s = map("seasonNo", no, "label", "Safra " + no);
+        String[][] intervals = {emergence, planting, senescence, harvest};
+        String[] names = {"emergence", "planting", "senescence", "harvest"};
+        for (int i = 0; i < 4; i++) {
+            s.put(names[i] + "From", intervals[i][0]);
+            s.put(names[i] + "To", intervals[i][1]);
+            s.put(names[i] + "Text", intervals[i][0].equals(intervals[i][1]) ? br(intervals[i][0]) : br(intervals[i][0]) + " a " + br(intervals[i][1]));
+        }
+        String[][] percentiles = {plantingP, senescenceP, harvestP};
+        for (int i = 0; i < 3; i++) {
+            String event = names[i + 1];
+            String[] labels = {"P10", "P50", "P90"};
+            for (int k = 0; k < 3; k++) {
+                String[] d = percentiles[i][k].split("/");
+                s.put(event + labels[k], d[2] + "-" + d[1] + "-" + d[0]);
+                s.put(event + labels[k] + "Label", percentiles[i][k]);
+            }
+            s.put(event + "UncertaintyDays", 12.0);
+            s.put(event + "Blocks", 710);
+        }
+        s.putAll(map("harvestS1SharePct", s1Share, "peakEvi", 0.87, "peakEviOn", "2025-12-14", "peakEviOnLabel", "14/12/2025"));
+        for (String[] m : new String[][] {{"cycle", String.valueOf(cycle)}, {"drying", String.valueOf(drying)}, {"fallow", String.valueOf(fallow)}}) {
+            Double mid = "null".equals(m[1]) ? null : Double.valueOf(m[1]);
+            s.putAll(map(m[0] + "MinDays", mid == null ? null : mid - 17, m[0] + "MaxDays", mid == null ? null : mid + 20,
+                    m[0] + "MidDays", mid, m[0] + "MidP10Days", mid == null ? null : mid - 10, m[0] + "MidP90Days", mid == null ? null : mid + 12));
+        }
+        s.put("hasFallow", fallow != null);
+        return s;
+    }
+
+    private static String br(String iso) {
+        String[] d = iso.split("-");
+        return d[2] + "/" + d[1] + "/" + d[0];
     }
 
     /** Full: 60 days of balance ending dry. Bare: no rain or weather loaded for the area. */
@@ -550,6 +627,7 @@ public final class GeoBlockContractStubs {
                     new BrGeoZarcRiskBlock(null), new BrGeoCropProgressBlock(null), new BrWeatherDailyBlock(null),
                     BrWeatherRainfallBlockAccess.create(null, Path.of("/nonexistent")),
                     new IsGeoSamFieldCandidatesBlock(null, null, "/nonexistent", "", "is-geo-sam"),
+                    new CropCalendarBlock(null, null, CropCalendarSettings.defaults()),
                     new BrWeatherWaterBalanceBlock(null, "/nonexistent"), new BrWeatherTemperatureAnomalyBlock(null),
                     new BrGeoSoilUnitsBlock(null), new BrGeoSoilProfilesBlock(null), new BrGeoCensusEvidenceBlock(null),
                     new BrGeoCropProductionHistoryBlock(null), new BrGeoZarcCultivarsBlock(null),

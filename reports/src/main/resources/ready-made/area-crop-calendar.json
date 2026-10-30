@@ -1,0 +1,37 @@
+{
+  "id": "area-crop-calendar",
+  "version": "1.0.0",
+  "name": "Calendário da safra do talhão (Sentinel-2 + Sentinel-1)",
+  "description": "Plantio, senescência e colheita de cada safra de um talhão (polígono, dado GIS ou imóvel do CAR com um talhão só), como intervalos em que o evento certamente aconteceu, do talhão e dos blocos de 100 m, com ciclo, secagem, entressafra, a série de EVI, red-edge e radar, a área por estado ao longo do tempo e os mapas de plantio e colheita. Calculado pelo pacote is-crop-calendar do Skills Lab sobre Sentinel-2 e Sentinel-1 do Planetary Computer.",
+  "category": "Monitoramento",
+  "inputs": [
+    { "name": "codImovel", "type": "string", "required": false, "label": "Código do imóvel no CAR (só se o imóvel for um talhão; senão informe o polígono do talhão ou um dado GIS)" },
+    { "name": "area", "type": "geometry", "required": false, "label": "Polígono do talhão em GeoJSON, no lugar do código CAR" },
+    { "name": "areaName", "type": "string", "required": false, "label": "Nome do talhão (só para polígono)" },
+    { "name": "gisDataset", "type": "string", "required": false, "picker": "gis-dataset", "label": "Ou um dado GIS do Data Library (conjunto)" },
+    { "name": "gisFeature", "type": "number", "required": false, "picker": "gis-feature", "label": "Feição do dado GIS: escolha o talhão (um só)" },
+    { "name": "from", "type": "date", "required": false, "label": "Início do período (opcional; padrão um ano antes do fim)" },
+    { "name": "to", "type": "date", "required": false, "label": "Fim do período (opcional; padrão hoje)" }
+  ],
+  "flow": {
+    "nodes": [
+      { "id": "area", "block": "report-area" },
+      { "id": "property", "block": "car-property", "optional": true },
+      { "id": "cal", "block": "cropcal-field-calendar" }
+    ],
+    "connections": [
+      { "from": "inputs.codImovel", "to": "area.codImovel" },
+      { "from": "inputs.area", "to": "area.geometry" },
+      { "from": "inputs.areaName", "to": "area.name" },
+      { "from": "inputs.gisDataset", "to": "area.gisDataset" },
+      { "from": "inputs.gisFeature", "to": "area.gisFeature" },
+      { "from": "area.codImovel", "to": "property.codImovel" },
+      { "from": "area.geometry", "to": "cal.geometry" },
+      { "from": "inputs.from", "to": "cal.from" },
+      { "from": "inputs.to", "to": "cal.to" }
+    ]
+  },
+  "templateHtmlFile": "area-crop-calendar.html",
+  "templateCssFile": "report-base.css",
+  "page": { "size": "A4", "orientation": "portrait", "marginMm": 18 }
+}

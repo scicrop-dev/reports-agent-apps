@@ -721,3 +721,54 @@ para o próximo relatório. Quem apaga o arquivo do staging é o script.
 `gold.is_geo_sam_candidate`: o Block só pode ser liberado depois que o script rodou uma vez
 (`main.py --schema` basta) e registrou as tabelas no catálogo (`ISGEOSAM_APP_ID=reports`).
 Timeout próprio de 100 s. Mantenha o `sizePx` de `sathub-latest-image` em 1024 ou menos (um bloco do SAM).
+
+### `cropcal-field-calendar` — Calendário da safra do talhão (S2 + S1)
+
+O calendário de safra de **um talhão**: para cada safra, os intervalos em que o plantio, a senescência
+e a colheita certamente aconteceram, do talhão e dos blocos de 100 m, e os dias de ciclo, secagem e
+entressafra. Calculado pelo pacote is-crop-calendar do Skills Lab (Sentinel-2 EVI/CIre e Sentinel-1
+VH do Planetary Computer), lido de `gold.is_crop_calendar_*`. Código: `blocks.cropcal.CropCalendarBlock`;
+o desenho e o que a instância precisa estão em [INTEGRATIONS.md](INTEGRATIONS.md) §5.
+
+| Input | Tipo | |
+|---|---|---|
+| `geometry` | geometry, obrigatório | **um** talhão (ou área de manejo homogênea), GeoJSON lon/lat SIRGAS 2000: `report-area.geometry`. Um imóvel com várias culturas dá um calendário sem sentido |
+| `from`, `to` | date, opcionais | o período; padrão os últimos 12 meses até hoje (sem `to`: hoje, ou `from` + 1 ano se for antes; sem `from`: `to` − 1 ano). Até 730 dias |
+| `relativeOrbit` | number, opcional | órbita relativa do Sentinel-1; padrão a mais frequente sobre o talhão |
+| `sowingToVisibleDays` | number, opcional | dias entre semear e a cultura aparecer no EVI (plantio = emergência − isso); padrão 15 |
+| `waitSeconds` | number, opcional | 0 a 110, padrão 60: quanto esperar um cálculo novo; depois disso o run **continua** e o Block responde `PROCESSING` |
+
+| Output | Tipo | Conteúdo |
+|---|---|---|
+| `status` | string | `COMPLETED`, `NO_SEASON`, `PROCESSING` ou `FAILED` |
+| `ready`, `processing` | boolean | calculado (`COMPLETED`/`NO_SEASON`); ainda calculando (gere de novo depois) |
+| `message` | string, opcional | por que não há calendário (sem safra, em andamento, falha com o motivo do script) |
+| `runId`, `triggerId`, `requestSha` | string, opcionais | run do is-crop-calendar, run do workflow, identidade do pedido |
+| `reused` | boolean | o calendário veio de um run anterior do mesmo pedido |
+| `computedAt`, `computedAtLabel` | string, opcionais | fim do run, UTC ISO-8601 e `dd/MM/aaaa` |
+| `from`, `to`, `fromLabel`, `toLabel` | date / string | o período pedido, ISO e `dd/MM/aaaa` |
+| `areaHa`, `s2Dates`, `s2ClearDates`, `s1Passes`, `orbit`, `blocks` | number, opcionais | área medida pelo script, datas S2 (todas e as da série do talhão), passagens S1 usadas, órbita, blocos de 100 m |
+| `hasSeasons` | boolean | ao menos uma safra |
+| `seasons` | array | por safra: `seasonNo`, `label` ("Safra 1"); `emergence`/`planting`/`senescence`/`harvest` + `From`, `To` (ISO) e `Text` ("dd/MM/aaaa a dd/MM/aaaa"; um dia só quando as pontas coincidem; "não observado" sem intervalo); `planting`/`senescence`/`harvest` + `P10`, `P50`, `P90` (ISO), `P10Label`... (`dd/MM/aaaa`), `UncertaintyDays`, `Blocks`; `harvestS1SharePct`; `peakEvi`, `peakEviOn`, `peakEviOnLabel`; `cycle`/`drying`/`fallow` + `MinDays`, `MaxDays`, `MidDays`, `MidP10Days`, `MidP90Days`; `hasFallow` |
+| `seriesChart` | string, opcional | EVI e CIre (S2) e VH dB (S1, eixo da direita) do talhão, com plantio, senescência e colheita sombreados; PNG data URI |
+| `stateChart`, `stateLegend` | string / array | área % do talhão por estado por dia (empilhado) e `{state, label, color}` |
+| `plantingMap`, `plantingLegend`, `harvestMap`, `harvestLegend` | string / array | blocos da primeira safra coloridos pelo meio do intervalo (até 5 classes de datas, só as desenhadas, mais "sem data"), com o contorno do talhão; legenda `{color, label}` |
+
+**Como responde:**
+
+1. Monta o pedido (`aoi` com `crs` EPSG:4674, `from`, `to`, `params`) e o `request_sha` (RFC 8785 +
+   sha256, o mesmo do script; `CropCalendarRequest`, testado contra o vetor do pacote).
+2. Lê em `gold.is_crop_calendar_run` o último run de cada status desse `request_sha` (qualquer
+   `params_hash`). Run `COMPLETED`/`NO_SEASON` definitivo (terminou mais de 7 dias depois do `to`) ou
+   das últimas 24 h: mostra na hora.
+3. Run `RUNNING` com menos de 30 min, ou o arquivo do pedido no staging com menos de 30 min:
+   `PROCESSING`. Run `FAILED` dos últimos 10 min: `FAILED` com o erro.
+4. Senão, acha o projeto (liberação do workflow em `reports-workflows.json` ou
+   `reports.cropcal.project-id`), confere a liberação, grava `reports-cropcal-<sha12>.json` no staging,
+   inicia o workflow com `{"file", "appId": "reports"}` em nome do usuário e espera até `waitSeconds`.
+   Terminou: lê o gold (ou `FAILED` com a linha `IS_CROP_CALENDAR_RESULT`). Não terminou: `PROCESSING`.
+
+Configuração errada (sem projeto, workflow não liberado, staging inexistente) falha o Block dizendo o
+que ajustar. `DataRequirement`s nas cinco tabelas, com as colunas lidas: o Block só pode ser liberado
+depois que o script registrou as tabelas para o app (INTEGRATIONS.md §5.2, passo 6). Timeout próprio
+de 118 s.
