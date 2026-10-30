@@ -60,6 +60,7 @@
       { "from": "municipalities.mainUf", "to": "progress.uf" },
       { "from": "inputs.crop", "to": "progress.crop" },
       { "from": "area.codImovel", "to": "carRef.codImovel" },
+      { "from": "municipalities.mainUf", "to": "carRef.uf" },
       { "from": "area.codImovel", "to": "quarantine.codImovel" },
       { "from": "area.geometry", "to": "inArea.geometry" },
       { "from": "area.geometry", "to": "soil.geometry" },

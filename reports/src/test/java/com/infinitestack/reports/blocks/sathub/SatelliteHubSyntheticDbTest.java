@@ -255,6 +255,7 @@ class SatelliteHubSyntheticDbTest {
         assertEquals(List.of("2026-04-06"), events.stream().map(e -> e.get("date")).toList(), events.toString());
         assertEquals("2026-04-06", out.get("lastDropDate"));
         assertEquals("normal", out.get("latestStatus"));
+        assertEquals(false, out.get("latestIsDrop"));
         assertEquals("2026-06-30", out.get("latestDate"));
         assertEquals(false, out.get("hasSeasonalBaseline"), "half a year of history");
 
@@ -262,6 +263,7 @@ class SatelliteHubSyntheticDbTest {
         Map<String, Object> window = run(block, inputs("areaId", 1L, "from", "2026-04-06", "to", "2026-04-06"));
         assertEquals(1, window.get("count"));
         assertEquals("drop", window.get("latestStatus"));
+        assertEquals(true, window.get("latestIsDrop"));
         assertNotNull(window.get("latestDelta"));
 
         // A higher threshold finds nothing; an index without data is no-data, not an error

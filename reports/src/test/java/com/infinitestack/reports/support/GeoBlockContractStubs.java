@@ -380,7 +380,7 @@ public final class GeoBlockContractStubs {
     /** Full: a route inside the area and two CNEFE addresses. Bare: no census data for the municipality. */
     private static Map<String, Object> censusEvidence(boolean bare) {
         Map<String, Object> out = map("status", bare ? "dados_indisponiveis" : "trajeto_interno", "routeInside", !bare,
-                "routeNear", !bare, "dataAvailable", !bare, "insideKm", bare ? 0.0 : 6.214, "insideMPerHa", bare ? 0.0 : 4.98,
+                "routeEdge", false, "routeNear", !bare, "dataAvailable", !bare, "insideKm", bare ? 0.0 : 6.214, "insideMPerHa", bare ? 0.0 : 4.98,
                 "minDistanceM", bare ? null : 0.0, "routesCrossing", bare ? 0 : 3, "routesNear", bare ? 0 : 5,
                 "cnefeInside", bare ? 0 : 1, "cnefeNearCount", bare ? 0 : 2);
         out.putAll(map("cnefeNear", bare ? List.of() : List.of(
@@ -461,7 +461,7 @@ public final class GeoBlockContractStubs {
                 "collection", "sentinel-2-l2a", "collectionName", "Sentinel-2 L2A", "enabled", true);
         if (bare) {
             Map<String, Object> out = map("index", index, "points", List.of(), "count", 0, "events", List.of(), "eventCount", 0,
-                    "hasDrops", false, "lastDropDate", null, "latestStatus", "no-data", "latestDate", null, "latestValue", null,
+                    "hasDrops", false, "lastDropDate", null, "latestStatus", "no-data", "latestIsDrop", false, "latestDate", null, "latestValue", null,
                     "latestDelta", null);
             out.putAll(map("seasonalBaseline", null, "hasSeasonalBaseline", false, "areas", List.of(), "areaCount", 0,
                     "chart", tinyPng(0x9e9e9e), "truncated", false));
@@ -473,7 +473,7 @@ public final class GeoBlockContractStubs {
                 map("date", "2026-10-11", "value", 0.6, "baseline", 0.63, "delta", -0.03, "isDrop", false));
         Map<String, Object> out = map("index", index, "points", points, "count", 3,
                 "events", List.of(map("date", "2026-10-01", "value", 0.41, "baseline", 0.63, "delta", -0.22)), "eventCount", 1,
-                "hasDrops", true, "lastDropDate", "2026-10-01", "latestStatus", "normal", "latestDate", "2026-10-11",
+                "hasDrops", true, "lastDropDate", "2026-10-01", "latestStatus", "normal", "latestIsDrop", false, "latestDate", "2026-10-11",
                 "latestValue", 0.6, "latestDelta", -0.03);
         out.putAll(map("seasonalBaseline", map("month", 10, "years", List.of(map("year", 2024, "mean", 0.57), map("year", 2025, "mean", 0.61)),
                         "mean", 0.59, "observations", 6, "latestValue", 0.6, "anomaly", 0.01),

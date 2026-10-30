@@ -49,8 +49,9 @@ public class CarDataReferenceBlock implements ReportBlock {
         return new BlockDefinition("car-data-reference", "CAR data reference",
                 "SICAR publication date of the CAR data of a state, per layer", "1.0.0",
                 List.of(
-                        BlockPort.optional("uf", DataType.STRING, "state (UF, e.g. MT); give this or codImovel"),
-                        BlockPort.optional("codImovel", DataType.STRING, "SICAR property code; its first two letters are the UF")),
+                        BlockPort.optional("uf", DataType.STRING, "state (UF, e.g. MT); used when there is no codImovel"),
+                        BlockPort.optional("codImovel", DataType.STRING,
+                                "SICAR property code; its first two letters are the UF and win over 'uf'")),
                 List.of(
                         BlockPort.required("uf", DataType.STRING, "the state read"),
                         BlockPort.required("layers", DataType.ARRAY,
@@ -122,16 +123,17 @@ public class CarDataReferenceBlock implements ReportBlock {
         return out;
     }
 
-    /** The UF from {@code uf} or from the prefix of {@code codImovel}; both given must agree. */
+    /**
+     * The UF of the property's SICAR file (prefix of {@code codImovel}) or, without a code, {@code uf}. The
+     * code wins: a property on a state border can lie mostly in the other state, so a report can wire both
+     * (the code for a CAR property, the main state of the area for a polygon).
+     */
     static String uf(Map<String, Object> inputs) {
         String uf = text(inputs.get("uf"));
         String code = text(inputs.get("codImovel"));
         String fromCode = code == null ? null : code.substring(0, Math.min(2, code.length()));
         if (uf == null && fromCode == null) throw new IllegalArgumentException("give a state (uf) or a CAR code (codImovel)");
-        if (uf != null && fromCode != null && !uf.equals(fromCode)) {
-            throw new IllegalArgumentException("uf " + uf + " and codImovel " + code + " name different states");
-        }
-        String result = uf != null ? uf : fromCode;
+        String result = fromCode != null ? fromCode : uf;
         if (!UF.matcher(result).matches()) throw new IllegalArgumentException("invalid state (UF): " + result);
         return result;
     }

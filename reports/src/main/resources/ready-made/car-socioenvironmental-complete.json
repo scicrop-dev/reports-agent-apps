@@ -56,6 +56,7 @@
       { "from": "municipalities.mainIbgeCode", "to": "zarc.municipalityIbge" },
       { "from": "inputs.crop", "to": "zarc.crop" },
       { "from": "area.codImovel", "to": "carRef.codImovel" },
+      { "from": "municipalities.mainUf", "to": "carRef.uf" },
       { "from": "area.codImovel", "to": "quarantine.codImovel" },
       { "from": "area.geometry", "to": "inArea.geometry" },
       { "from": "area.geometry", "to": "soil.geometry" },

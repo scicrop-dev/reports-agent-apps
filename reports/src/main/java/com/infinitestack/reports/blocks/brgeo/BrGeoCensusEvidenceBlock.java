@@ -105,6 +105,7 @@ public class BrGeoCensusEvidenceBlock implements ReportBlock {
                         BlockPort.required("status", DataType.STRING,
                                 "trajeto_interno | trajeto_de_borda | trajeto_proximo | trajeto_nao_encontrado | dados_indisponiveis"),
                         BlockPort.required("routeInside", DataType.BOOLEAN, "status is trajeto_interno"),
+                        BlockPort.required("routeEdge", DataType.BOOLEAN, "status is trajeto_de_borda"),
                         BlockPort.required("routeNear", DataType.BOOLEAN, "some route crosses the area or passes within the buffer"),
                         BlockPort.required("dataAvailable", DataType.BOOLEAN, "BR Geo has routes for the municipalities of the area"),
                         BlockPort.required("insideKm", DataType.NUMBER, "length of route inside the area, km (3 decimals)"),
@@ -188,6 +189,7 @@ public class BrGeoCensusEvidenceBlock implements ReportBlock {
             Map<String, Object> out = new LinkedHashMap<>();
             out.put("status", status);
             out.put("routeInside", INTERNAL.equals(status));
+            out.put("routeEdge", EDGE.equals(status));
             out.put("routeNear", near > 0);
             out.put("dataAvailable", available);
             out.put("insideKm", BrGeoValues.round(insideM / 1000, 3));

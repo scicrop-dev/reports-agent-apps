@@ -83,6 +83,7 @@ public class SatelliteHubIndexAnomalyBlock implements ReportBlock {
                         BlockPort.optional("lastDropDate", DataType.DATE, "date of the latest drop in the period"),
                         BlockPort.required("latestStatus", DataType.STRING,
                                 "normal, drop (the latest image is a drop) or no-data (no image in the period)"),
+                        BlockPort.required("latestIsDrop", DataType.BOOLEAN, "the latest image of the period is a drop (latestStatus = drop)"),
                         BlockPort.optional("latestDate", DataType.DATE, "date of the latest image in the period"),
                         BlockPort.optional("latestValue", DataType.NUMBER, "index value of the latest image"),
                         BlockPort.optional("latestDelta", DataType.NUMBER, "latest value minus its baseline"),
@@ -220,6 +221,7 @@ public class SatelliteHubIndexAnomalyBlock implements ReportBlock {
         out.put("hasDrops", !events.isEmpty());
         out.put("lastDropDate", events.isEmpty() ? null : events.get(events.size() - 1).get("date"));
         out.put("latestStatus", last == null ? "no-data" : Boolean.TRUE.equals(last.get("isDrop")) ? "drop" : "normal");
+        out.put("latestIsDrop", last != null && Boolean.TRUE.equals(last.get("isDrop")));
         out.put("latestDate", last == null ? null : last.get("date"));
         out.put("latestValue", last == null ? null : last.get("value"));
         out.put("latestDelta", last == null ? null : last.get("delta"));

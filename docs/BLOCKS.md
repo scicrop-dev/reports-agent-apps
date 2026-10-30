@@ -150,8 +150,8 @@ tiles: só os dados do banco, então o PDF fica autocontido.
 
 | Input | Tipo | |
 |---|---|---|
-| `uf` | string, opcional | UF; informe este **ou** `codImovel` |
-| `codImovel` | string, opcional | a UF sai das duas primeiras letras; com os dois, precisam concordar |
+| `uf` | string, opcional | UF; usada quando não há `codImovel` |
+| `codImovel` | string, opcional | a UF sai das duas primeiras letras e vale sobre `uf` (num relatório CAR ou polígono, ligue os dois: `area.codImovel` e `municipalities.mainUf`) |
 
 | Output | Tipo | Conteúdo |
 |---|---|---|
@@ -288,7 +288,7 @@ medem tudo em hectares geodésicos. Timeout de 30 s (consulta 25 s).
 | `brgeo-zarc-cultivars` | `crop`, `uf?` ou `municipalityIbge?`, `season?` (a mais recente), `limit?` (50) | `found`, `message`, `crop`, `season`, `uf`, `cultivars[] {rnc, cultivar, adaptationRegion, group, cycle, attributes{}}`, `count`, `distinctCultivars`, `adaptationRegions`, `truncated`, `availableCrops` | `zarc_cultivar` (SISZARC) |
 | `brgeo-soil-units` | `geometry`, `limit?` (20) | `units[] {symbol, legend, order, suborder, greatGroup, texture, relief, stoniness, rockiness, erosion, components[], componentsCut, restrictions[], overlapHa, percent}`, `byOrder[] {order, overlapHa, percent}`, `mainOrder`, `flags {steepRelief, stony, rocky, organosol, vertisol}`, `restrictions[] {code, label, overlapHa, percent}`, `hasRestrictions`, `hasUnits`, `count`, `truncated`, `areaHa`, `edition` | `ibge_pedology_unit` (edição mais recente) |
 | `brgeo-soil-profiles` | `geometry`, `radiusKm?` (20, máx. 200), `limit?` (5, máx. 50) | `profiles[] {code, pointCode, type, distanceKm, inside, lat, lon, order, suborder, greatGroup, texture, drainage, relief, sand0_40Pct, silt0_40Pct, clay0_40Pct, covered0_40Cm, hasLabData, horizons[] {name, top, bottom, topCm, bottomCm, textureClass, sandPct, siltPct, clayPct}}`, `found`, `count`, `radiusKm`, `edition` | `ibge_pedology_point`, `ibge_pedology_horizon`, `ibge_pedology_analysis` |
-| `brgeo-census-evidence` | `geometry`, `bufferM?` (500, máx. 5000), `edgeToleranceM?` (30) | `status` (`trajeto_interno`, `trajeto_de_borda`, `trajeto_proximo`, `trajeto_nao_encontrado`, `dados_indisponiveis`), `routeInside`, `routeNear`, `dataAvailable`, `insideKm`, `insideMPerHa`, `minDistanceM`, `routesCrossing`, `routesNear`, `cnefeInside`, `cnefeNearCount`, `cnefeNear[]` (até 20) `{distanceM, inside, locality, address, number, situation, municipalityIbge, lat, lon}`, `truncated`, `bufferM`, `edgeToleranceM`, `year` | `census2017_route`, `census2017_cnefe`, `ibge_municipality` |
+| `brgeo-census-evidence` | `geometry`, `bufferM?` (500, máx. 5000), `edgeToleranceM?` (30) | `status` (`trajeto_interno`, `trajeto_de_borda`, `trajeto_proximo`, `trajeto_nao_encontrado`, `dados_indisponiveis`), `routeInside`, `routeEdge`, `routeNear`, `dataAvailable`, `insideKm`, `insideMPerHa`, `minDistanceM`, `routesCrossing`, `routesNear`, `cnefeInside`, `cnefeNearCount`, `cnefeNear[]` (até 20) `{distanceM, inside, locality, address, number, situation, municipalityIbge, lat, lon}`, `truncated`, `bufferM`, `edgeToleranceM`, `year` | `census2017_route`, `census2017_cnefe`, `ibge_municipality` |
 | `brgeo-crop-production-history` | `municipalityIbge` (number), `product`, `years?` (10), `chartVariable?` (`harvestedHa`) | `found`, `message`, `product`, `series[] {year, plantedHa, harvestedHa, quantity, unit, yieldKgHa, valueThousandBrl}`, `count`, `fromYear`, `toYear`, `unit`, `chart` (PNG data URI), `chartVariable`, `availableProducts`, `uf` | `ibge_pam_value`, `ibge_pam_product` (SIDRA 5457) |
 | `brgeo-crop-progress` | `uf` (sigla ou nome), `crop?`, `operation?` (`sowing`/`harvest`), `maxAgeDays?` (60) | `found`, `message`, `state`, `latestWeekEnd`, `items[] {crop, season, operation, operationLabel, weekEnd, pctDone, previousWeekPct, weekChangePoints, lastYearPct, avg5yPct, vsAvg5yPoints, series[] {weekEnd, pctDone}}`, `count`, `availableStates` | `conab_crop_progress` |
 
@@ -537,7 +537,7 @@ a mediana das imagens anteriores. Responde "caiu, quando, e está caído agora?"
 | `points` / `count` | array / number | `{date, value, baseline, delta, isDrop}`; `baseline`/`delta` nulos enquanto não há imagens anteriores suficientes |
 | `events` / `eventCount` / `hasDrops` | array / number / boolean | as quedas do período: `{date, value, baseline, delta}` |
 | `lastDropDate` | date, opcional | última queda do período |
-| `latestStatus` | string | `normal`, `drop` (a última imagem é queda) ou `no-data` |
+| `latestStatus` / `latestIsDrop` | string / boolean | `normal`, `drop` (a última imagem é queda) ou `no-data`; o booleano é para o template (`{{#x.latestIsDrop}}`) |
 | `latestDate`, `latestValue`, `latestDelta` | opcionais | a última imagem do período |
 | `seasonalBaseline` / `hasSeasonalBaseline` | object, opcional / boolean | com 2 anos ou mais de histórico: `{month, years [{year, mean}], mean, observations, latestValue, anomaly}` |
 | `areas` / `areaCount` / `truncated` | | como no `sathub-index-series` |

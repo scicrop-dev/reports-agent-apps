@@ -39,8 +39,8 @@ class CarBlocksLogicTest {
         assertEquals("MT", CarDataReferenceBlock.uf(Map.of("uf", " mt ")));
         assertEquals("BA", CarDataReferenceBlock.uf(Map.of("codImovel", "BA-2915601-735B9BEE97F6498387B672DAA9506DF1")));
         assertEquals("BA", CarDataReferenceBlock.uf(Map.of("uf", "BA", "codImovel", "BA-2915601-735B9BEE97F6498387B672DAA9506DF1")));
-        assertThrows(IllegalArgumentException.class,
-                () -> CarDataReferenceBlock.uf(Map.of("uf", "MT", "codImovel", "BA-2915601-735B9BEE97F6498387B672DAA9506DF1")));
+        // The code wins over the state: a polygon report wires both (main state of the area + CAR code if any).
+        assertEquals("BA", CarDataReferenceBlock.uf(Map.of("uf", "MT", "codImovel", "BA-2915601-735B9BEE97F6498387B672DAA9506DF1")));
         assertThrows(IllegalArgumentException.class, () -> CarDataReferenceBlock.uf(Map.of()));
         assertThrows(IllegalArgumentException.class, () -> CarDataReferenceBlock.uf(Map.of("uf", "M1")));
     }

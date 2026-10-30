@@ -352,8 +352,7 @@ class CarBlocksSyntheticDbTest {
         assertEquals("BA", none.get("uf"));
         assertEquals(false, none.get("hasData"));
         assertNull(none.get("latestPublishedAt"));
-        assertThrows(IllegalArgumentException.class,
-                () -> new CarDataReferenceBlock(queries).execute(Map.of("uf", "GO", "codImovel", ACTIVE), null));
+        assertEquals(ACTIVE.substring(0, 2), run(new CarDataReferenceBlock(queries), Map.of("uf", "GO", "codImovel", ACTIVE)).get("uf"));
         assertThrows(IllegalArgumentException.class, () -> new CarDataReferenceBlock(queries).execute(Map.of(), null));
     }
 
