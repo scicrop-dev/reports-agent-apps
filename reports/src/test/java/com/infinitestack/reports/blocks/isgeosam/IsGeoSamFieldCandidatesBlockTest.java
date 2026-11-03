@@ -43,6 +43,9 @@ class IsGeoSamFieldCandidatesBlockTest {
     @TempDir
     Path staging;
 
+    @TempDir
+    Path etc;
+
     /** A host whose run ends after {@code pollsUntilDone} polls; {@code onDone} is what the script wrote. */
     static final class FakeRuns implements WorkflowRuns {
         String result = "SUCCESS";
@@ -52,6 +55,7 @@ class IsGeoSamFieldCandidatesBlockTest {
         List<GrantedWorkflow> grants = List.of(new GrantedWorkflow("is-geo-sam", true, "is-geo-sam"));
         int polls;
         int starts;
+        String startedProject;
         boolean stopped;
         Map<String, Object> startedParams;
         String startedFor;
@@ -64,6 +68,7 @@ class IsGeoSamFieldCandidatesBlockTest {
         @Override
         public String start(String projectId, String workflow, Map<String, Object> params, String onBehalfOf) {
             starts++;
+            startedProject = projectId;
             startedParams = params;
             startedFor = onBehalfOf;
             return "t-1";
@@ -148,7 +153,11 @@ class IsGeoSamFieldCandidatesBlockTest {
     }
 
     IsGeoSamFieldCandidatesBlock block(FakeRuns runs, FakeResults results) {
-        return new IsGeoSamFieldCandidatesBlock(runs, results, staging, "", "is-geo-sam", Duration.ofMillis(5));
+        return new IsGeoSamFieldCandidatesBlock(runs, results, settings(), Duration.ofMillis(5));
+    }
+
+    IsGeoSamSettings settings() {
+        return new IsGeoSamSettings("reports", "is-geo-sam", "", etc.resolve("reports-workflows.json"), staging);
     }
 
     static String sha(Map<String, Object> in) {
@@ -253,7 +262,7 @@ class IsGeoSamFieldCandidatesBlockTest {
 
         assertEquals(1, runs.starts);
         String file = (String) runs.startedParams.get("file");
-        assertEquals(Map.of("file", file), runs.startedParams);
+        assertEquals(Map.of("file", file, "appId", "reports"), runs.startedParams, "appId: owner of the tables until IS_APP_ID");
         assertEquals("user-42", runs.startedFor);
         assertTrue(Files.isRegularFile(staging.resolve(file)), "the script deletes it, not the Block");
         assertEquals(SceneRequest.sceneSha256(file, Files.readAllBytes(staging.resolve(file))), sha);
@@ -345,11 +354,28 @@ class IsGeoSamFieldCandidatesBlockTest {
     }
 
     @Test
-    void withoutAProjectTheBlockSaysWhatToSet() throws Exception {
+    void withoutAGrantTheBlockSaysWhatToWrite() throws Exception {
         Map<String, Object> in = inputs();
         in.remove("projectId");
         Exception e = assertThrows(IllegalArgumentException.class, () -> block(new FakeRuns(), new FakeResults()).execute(in, META));
-        assertTrue(e.getMessage().contains("REPORTS_ISGEOSAM_PROJECT_ID"), e.getMessage());
+        assertTrue(e.getMessage().contains("reports-workflows.json") && e.getMessage().contains("\"workflow\":\"is-geo-sam\""),
+                e.getMessage());
+    }
+
+    @Test
+    void theProjectComesFromTheGrantOfIsGeoSam() throws Exception {
+        Files.writeString(etc.resolve("reports-workflows.json"), "{\"workflows\":[{\"projectId\":\"p-other\",\"workflow\":\"wf-report\"},"
+                + "{\"projectId\":\"p-sam\",\"workflow\":\"is-geo-sam\"}]}");
+        FakeRuns runs = new FakeRuns();
+        runs.pollsUntilDone = Integer.MAX_VALUE;
+        Map<String, Object> in = inputs();
+        in.remove("projectId");
+        in.put("waitSeconds", 0);
+        block(runs, new FakeResults()).execute(in, META);
+        assertEquals("p-sam", runs.startedProject);
+
+        IsGeoSamSettings fixed = new IsGeoSamSettings("reports", "is-geo-sam", "p-env", etc.resolve("reports-workflows.json"), staging);
+        assertEquals("p-env", fixed.projectId().orElseThrow(), "reports.isgeosam.project-id wins");
     }
 
     @Test

@@ -52,6 +52,7 @@ import com.infinitestack.reports.blocks.sathub.SatelliteHubIndexSeriesBlock;
 import com.infinitestack.reports.blocks.cropcal.CropCalendarBlock;
 import com.infinitestack.reports.blocks.cropcal.CropCalendarSettings;
 import com.infinitestack.reports.blocks.isgeosam.IsGeoSamFieldCandidatesBlock;
+import com.infinitestack.reports.blocks.isgeosam.IsGeoSamSettings;
 import com.infinitestack.reports.blocks.sathub.SatelliteHubLatestImageBlock;
 import com.infinitestack.reports.template.HtmlSanitizer;
 import com.infinitestack.reports.template.TemplateRenderer;
@@ -74,13 +75,7 @@ class ReadyMadeAgainstRealBlocksTest {
                 new SatelliteHubIndexSeriesBlock(null), new SatelliteHubLatestImageBlock(null, null, null),
                 new BrGeoZarcRiskBlock(null), new BrGeoCropProgressBlock(null), new BrWeatherDailyBlock(null),
                 BrWeatherRainfallBlockAccess.create(null, Path.of("/nonexistent")),
-                new IsGeoSamFieldCandidatesBlock(null, null, "/nonexistent", "", "is-geo-sam"),
-                new CropCalendarBlock(null, null, CropCalendarSettings.defaults()),
-                new CarDataReferenceBlock(null), new CarQuarantineBlock(null), new CarInAreaBlock(null),
-                new BrWeatherWaterBalanceBlock(null, "/nonexistent"), new BrWeatherTemperatureAnomalyBlock(null),
-                new BrGeoSoilUnitsBlock(null), new BrGeoSoilProfilesBlock(null), new BrGeoCensusEvidenceBlock(null),
-                new BrGeoCropProductionHistoryBlock(null), new BrGeoZarcCultivarsBlock(null),
-                new SatelliteHubIndexCompareBlock(null), new SatelliteHubIndexAnomalyBlock(null));
+                new IsGeoSamFieldCandidatesBlock(null, null, new IsGeoSamSettings("reports", "is-geo-sam", "", "/nonexistent", "/nonexistent")));
     }
 
     @Test

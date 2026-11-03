@@ -14,7 +14,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -66,28 +65,20 @@ public class IsGeoSamFieldCandidatesBlock implements ReportBlock {
 
     private final WorkflowRuns runs;
     private final SceneResults results;
-    private final Path stagingDir;
-    private final String defaultProjectId;
-    private final String defaultWorkflow;
+    private final IsGeoSamSettings settings;
     private final Duration pollInterval;
     private final CandidateMapRenderer renderer = new CandidateMapRenderer();
     private final ObjectMapper json = new ObjectMapper();
 
     @Autowired
-    public IsGeoSamFieldCandidatesBlock(WorkflowRuns runs, BlockQueries queries,
-                                        @Value("${reports.isgeosam.staging-dir:/opt/infinitestack/var/lake/staging}") String stagingDir,
-                                        @Value("${reports.isgeosam.project-id:}") String projectId,
-                                        @Value("${reports.isgeosam.workflow:is-geo-sam}") String workflow) {
-        this(runs, new GoldSceneResults(queries), Path.of(stagingDir), projectId, workflow, Duration.ofSeconds(2));
+    public IsGeoSamFieldCandidatesBlock(WorkflowRuns runs, BlockQueries queries, IsGeoSamSettings settings) {
+        this(runs, new GoldSceneResults(queries), settings, Duration.ofSeconds(2));
     }
 
-    IsGeoSamFieldCandidatesBlock(WorkflowRuns runs, SceneResults results, Path stagingDir, String projectId,
-                                 String workflow, Duration pollInterval) {
+    IsGeoSamFieldCandidatesBlock(WorkflowRuns runs, SceneResults results, IsGeoSamSettings settings, Duration pollInterval) {
         this.runs = runs;
         this.results = results;
-        this.stagingDir = stagingDir;
-        this.defaultProjectId = projectId;
-        this.defaultWorkflow = workflow;
+        this.settings = settings;
         this.pollInterval = pollInterval;
     }
 
@@ -109,7 +100,7 @@ public class IsGeoSamFieldCandidatesBlock implements ReportBlock {
                                 "the area (GeoJSON, lon/lat); candidates are clipped to it; connect report-area.geometry"),
                         BlockPort.optional("codImovel", DataType.STRING, "CAR property code, kept as metadata of the scene"),
                         BlockPort.optional("projectId", DataType.STRING,
-                                "Skills Lab project with is-geo-sam; default reports.isgeosam.project-id of the instance"),
+                                "Skills Lab project with is-geo-sam; default: the project of the is-geo-sam grant of this app"),
                         BlockPort.optional("workflow", DataType.STRING, "workflow that runs is-geo-sam/main.py; default is-geo-sam"),
                         BlockPort.optional("waitSeconds", DataType.NUMBER,
                                 "how long to wait for a new segmentation, 0 to " + MAX_WAIT_SECONDS + " seconds; default "
@@ -159,10 +150,10 @@ public class IsGeoSamFieldCandidatesBlock implements ReportBlock {
                         "The first report of a new image usually comes out PROCESSING; generate it again a few minutes later.",
                         "The image changes when a newer cloud-free scene appears: that is a new segmentation.",
                         "One segmentation at a time on the instance (lock): requests queue behind each other.",
-                        "Needs, on the instance: is-geo-sam installed in a Skills Lab project with a workflow running is-geo-sam/main.py, "
-                                + "that workflow granted to the reports app in " + GRANTS_FILE + ", reports.isgeosam.project-id "
-                                + "(REPORTS_ISGEOSAM_PROJECT_ID) or the projectId input, write access to the lake staging, and "
-                                + "ISGEOSAM_APP_ID=reports in the script's .env so its tables enter the catalog.",
+                        "Needs, on the instance: is-geo-sam installed in a Skills Lab project with a workflow is-geo-sam running "
+                                + "is-geo-sam/main.py, that workflow granted to the reports app in " + GRANTS_FILE
+                                + " (the app takes the project from there), and write access to the lake staging. The app creates "
+                                + "the gold.is_geo_sam_* tables itself once granted (schemaOnly), which lets the Block be released.",
                         "Works only inside the IS (it needs the host's internal token)."),
                 "is-geo-sam (Skills Lab, SAM 2.1 on CPU) over the Sentinel-2 image of sathub-latest-image; gold.is_geo_sam_*",
                 "{{#<node>.ready}}<img src=\"{{<node>.map}}\">{{#<node>.candidates}}<p>{{number}}: {{areaHa}} ha</p>{{/<node>.candidates}}{{/<node>.ready}}");
@@ -183,25 +174,22 @@ public class IsGeoSamFieldCandidatesBlock implements ReportBlock {
                     + Math.round(known.get().ageSeconds()) + " s ago); generate the report again in a few minutes",
                     false, known.get().runId(), known.get().triggerId());
         }
-        Path file = stagingDir.resolve(request.fileName());
+        Path file = settings.stagingDir().resolve(request.fileName());
         if (isPending(file)) {
             return empty(PROCESSING, "this image is waiting to be segmented; generate the report again in a few minutes",
                     false, null, null);
         }
 
-        String projectId = text(inputs.get("projectId")) != null ? text(inputs.get("projectId")) : text(defaultProjectId);
-        if (projectId == null) {
-            throw new IllegalArgumentException("no Skills Lab project for is-geo-sam: set reports.isgeosam.project-id "
-                    + "(REPORTS_ISGEOSAM_PROJECT_ID) on the instance or the projectId input of the node");
-        }
-        String workflow = text(inputs.get("workflow")) != null ? text(inputs.get("workflow")) : defaultWorkflow;
+        String projectId = text(inputs.get("projectId")) != null ? text(inputs.get("projectId"))
+                : settings.projectId().orElseThrow(() -> new IllegalArgumentException(settings.missingProjectMessage()));
+        String workflow = text(inputs.get("workflow")) != null ? text(inputs.get("workflow")) : settings.workflow();
         requireGranted(projectId, workflow);
 
         write(file, request.json());
         Instant startedAt = Instant.now();
         String triggerId;
         try {
-            triggerId = runs.start(projectId, workflow, Map.of("file", request.fileName()),
+            triggerId = runs.start(projectId, workflow, settings.params(Map.of("file", request.fileName())),
                     metadata == null ? null : metadata.userId());
         } catch (IOException | RuntimeException e) {
             Files.deleteIfExists(file);
@@ -318,8 +306,8 @@ public class IsGeoSamFieldCandidatesBlock implements ReportBlock {
 
     /** Write then rename, so the script never reads half a file. */
     private void write(Path file, byte[] content) throws IOException {
-        if (!Files.isDirectory(stagingDir)) {
-            throw new IOException("the lake staging " + stagingDir + " does not exist on this host (reports.isgeosam.staging-dir)");
+        if (!Files.isDirectory(settings.stagingDir())) {
+            throw new IOException("the lake staging " + settings.stagingDir() + " does not exist on this host (reports.isgeosam.staging-dir)");
         }
         Path part = file.resolveSibling(file.getFileName() + ".part");
         Files.write(part, content);
