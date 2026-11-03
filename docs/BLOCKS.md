@@ -416,7 +416,7 @@ CAR, cadastral ou jurídico.
 | `trueColor`, `imageCrs`, `imageTransform`, `imageBounds`, `widthPx`, `heightPx`, `pixelSizeM`, `scene` | os tipos de `sathub-latest-image`; opcionais | ligue cada um na saída de mesmo nome de `sathub-latest-image`. Sem `trueColor` o Block responde `NO_IMAGE` sem rodar nada |
 | `geometry` | geometry, opcional | a área (`report-area.geometry`); os candidatos são recortados nela |
 | `codImovel` | string, opcional | só metadado da cena |
-| `projectId` | string, opcional | projeto do Skills Lab com o is-geo-sam; padrão `reports.isgeosam.project-id` (`REPORTS_ISGEOSAM_PROJECT_ID`) |
+| `projectId` | string, opcional | projeto do Skills Lab com o is-geo-sam; padrão: o projeto da liberação do workflow em `reports-workflows.json` (ou `REPORTS_ISGEOSAM_PROJECT_ID`, se definido) |
 | `workflow` | string, opcional | workflow que roda `is-geo-sam/main.py`; padrão `reports.isgeosam.workflow` (`is-geo-sam`) |
 | `waitSeconds` | number, opcional | 0 a 90, padrão 60: quanto esperar uma segmentação nova; depois disso o run **continua** e o Block responde `PROCESSING` |
 
@@ -445,7 +445,7 @@ CAR, cadastral ou jurídico.
 3. Há run `RUNNING` dessa cena, ou o arquivo já está no staging (menos de 30 min)? `PROCESSING`, sem
    pedir de novo.
 4. Senão, confere a liberação do workflow, grava o JSON no staging (`.part` + rename), inicia o
-   workflow com `params = {"file": "<nome>"}` em nome do usuário e espera até `waitSeconds`.
+   workflow com `params = {"file": "<nome>", "appId": "reports"}` em nome do usuário e espera até `waitSeconds`.
    Terminou: lê o resultado no gold. Não terminou: `PROCESSING`, e o run segue; a próxima execução do
    relatório acha o resultado no passo 2. Run que termina sem resultado no gold falha o Block com a
    linha `IS_GEO_SAM_RESULT` do script.
@@ -454,6 +454,8 @@ O Block não para o run em nenhum caso (nem quando a execução desiste dele): o
 para o próximo relatório. Quem apaga o arquivo do staging é o script.
 
 `DataRequirement`s em `gold.is_geo_sam_scene` (`scene_id`, `sha256`), `gold.is_geo_sam_run` e
-`gold.is_geo_sam_candidate`: o Block só pode ser liberado depois que o script rodou uma vez
-(`main.py --schema` basta) e registrou as tabelas no catálogo (`ISGEOSAM_APP_ID=reports`).
+`gold.is_geo_sam_candidate`: o Block só pode ser liberado com as tabelas no catálogo. Quem as cria é o
+próprio app (`IsGeoSamSchemaSetup`): depois de subir, e a cada 5 min enquanto faltarem, ele pede ao
+workflow `{"schemaOnly": true, "appId": "reports"}`, que cria as tabelas vazias e as registra na fonte
+`agente-is:reports` ([INTEGRATIONS.md](INTEGRATIONS.md) §3.2).
 Timeout próprio de 100 s. Mantenha o `sizePx` de `sathub-latest-image` em 1024 ou menos (um bloco do SAM).

@@ -64,7 +64,10 @@ mvn -q test                  # testes (nem todo app tem; ver src/test)
   SAM no Skills Lab) candidatos a talhão sobre a imagem de `sathub-latest-image` e lê o resultado em
   `gold.is_geo_sam_*`. É o único Block que **escreve** no disco do host: grava o JSON do pedido em
   `reports.isgeosam.staging-dir` (`REPORTS_ISGEOSAM_STAGING_DIR`, padrão `/opt/infinitestack/var/lake/staging`).
-  Projeto e workflow: `REPORTS_ISGEOSAM_PROJECT_ID` e `REPORTS_ISGEOSAM_WORKFLOW` (padrão `is-geo-sam`).
+  O projeto sai da liberação em `/opt/infinitestack/etc/reports-workflows.json`, que o app só lê
+  (`IsGeoSamSettings`; `REPORTS_ISGEOSAM_PROJECT_ID` sobrepõe). O app cria as tabelas do script com
+  `{"schemaOnly": true}` ao subir, enquanto faltarem no catálogo (`IsGeoSamSchemaSetup`), e manda
+  `appId: "reports"` para o script registrá-las na fonte do app.
   Não cabe nos 120 s: espera até `waitSeconds`, deixa o run seguir e responde `PROCESSING`; a próxima
   execução acha o resultado pela identidade da cena (sha256 do nome + conteúdo do JSON, a mesma do
   script). Desenho e requisitos da instância em INTEGRATIONS.md §3.

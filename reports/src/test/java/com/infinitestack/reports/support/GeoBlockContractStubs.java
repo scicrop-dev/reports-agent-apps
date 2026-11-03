@@ -29,6 +29,7 @@ import com.infinitestack.reports.blocks.brgeo.BrGeoEmbargoesBlock;
 import com.infinitestack.reports.blocks.brgeo.BrGeoMunicipalitiesBlock;
 import com.infinitestack.reports.blocks.brgeo.BrGeoProdesBlock;
 import com.infinitestack.reports.blocks.isgeosam.IsGeoSamFieldCandidatesBlock;
+import com.infinitestack.reports.blocks.isgeosam.IsGeoSamSettings;
 import com.infinitestack.reports.blocks.sathub.IndexSeriesChart;
 import com.infinitestack.reports.blocks.sathub.SatelliteHubIndexSeriesBlock;
 import com.infinitestack.reports.blocks.sathub.SatelliteHubLatestImageBlock;
@@ -325,7 +326,7 @@ public final class GeoBlockContractStubs {
                     new SatelliteHubIndexSeriesBlock(null), new SatelliteHubLatestImageBlock(null, null, null),
                     new BrGeoZarcRiskBlock(null), new BrGeoCropProgressBlock(null), new BrWeatherDailyBlock(null),
                     BrWeatherRainfallBlockAccess.create(null, Path.of("/nonexistent")),
-                    new IsGeoSamFieldCandidatesBlock(null, null, "/nonexistent", "", "is-geo-sam"))
+                    new IsGeoSamFieldCandidatesBlock(null, null, new IsGeoSamSettings("reports", "is-geo-sam", "", "/nonexistent", "/nonexistent")))
             .map(ReportBlock::definition)
             .collect(Collectors.toMap(BlockDefinition::id, d -> d));
 

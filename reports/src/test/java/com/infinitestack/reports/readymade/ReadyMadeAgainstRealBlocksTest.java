@@ -38,6 +38,7 @@ import com.infinitestack.reports.blocks.brgeo.BrGeoMunicipalitiesBlock;
 import com.infinitestack.reports.blocks.brgeo.BrGeoProdesBlock;
 import com.infinitestack.reports.blocks.sathub.SatelliteHubIndexSeriesBlock;
 import com.infinitestack.reports.blocks.isgeosam.IsGeoSamFieldCandidatesBlock;
+import com.infinitestack.reports.blocks.isgeosam.IsGeoSamSettings;
 import com.infinitestack.reports.blocks.sathub.SatelliteHubLatestImageBlock;
 import com.infinitestack.reports.template.HtmlSanitizer;
 import com.infinitestack.reports.template.TemplateRenderer;
@@ -60,7 +61,7 @@ class ReadyMadeAgainstRealBlocksTest {
                 new SatelliteHubIndexSeriesBlock(null), new SatelliteHubLatestImageBlock(null, null, null),
                 new BrGeoZarcRiskBlock(null), new BrGeoCropProgressBlock(null), new BrWeatherDailyBlock(null),
                 BrWeatherRainfallBlockAccess.create(null, Path.of("/nonexistent")),
-                new IsGeoSamFieldCandidatesBlock(null, null, "/nonexistent", "", "is-geo-sam"));
+                new IsGeoSamFieldCandidatesBlock(null, null, new IsGeoSamSettings("reports", "is-geo-sam", "", "/nonexistent", "/nonexistent")));
     }
 
     @Test
