@@ -4,14 +4,16 @@
 </div>
 
 <div class="cover">
-  <div class="cover-kicker">Monitoramento de vegetação - Sentinel-2</div>
+  <div class="cover-kicker">Monitoramento de vegetação - {{vegetation.index.collectionName}}</div>
   <h1>{{#vegetation.areas}}{{#-first}}{{farmName}}{{#blockName}} / {{blockName}}{{/blockName}}{{#parcelName}} / {{parcelName}}{{/parcelName}}{{/-first}}{{/vegetation.areas}}</h1>
   <p class="cover-sub">{{vegetation.index.name}}: {{vegetation.latestMean}} na imagem de {{vegetation.latestDate}}</p>
   <table class="meta">
     <tr><th>Área no Satellite Hub</th><td>id {{inputs.areaId}}{{#vegetation.areas}}{{#-first}}, {{areaHa}} ha{{/-first}}{{/vegetation.areas}}</td></tr>
+    <tr><th>Índice e satélite</th><td>{{vegetation.index.name}} ({{vegetation.index.slug}}), {{vegetation.index.collectionName}}</td></tr>
     <tr><th>Emitido em</th><td>{{report.generatedAt}}</td></tr>
     <tr><th>Execução</th><td>{{#report.executionId}}nº {{report.executionId}} (versão {{report.version}} do relatório){{/report.executionId}}{{^report.executionId}}Prévia, não registrada no histórico{{/report.executionId}}</td></tr>
   </table>
+  {{^vegetation.indexEnabled}}<p class="alert">O índice {{vegetation.index.slug}} está desabilitado no Satellite Hub: a série é a que ele calculou enquanto estava ligado e não recebe imagens novas.</p>{{/vegetation.indexEnabled}}
 </div>
 
 <div class="section">
@@ -26,11 +28,41 @@
   </table>
   {{/-first}}{{/vegetation.series}}
   <img class="chart" src="{{vegetation.chart}}" alt="Série do índice">
-  <p class="note">Linha: média do índice na área, ponderada pelos pixels válidos. Faixa: do percentil 10 ao 90. Só entram imagens com pelo menos 60% da área sem nuvem. {{vegetation.index.description}}</p>
+  <p class="note">Linha: média do índice na área, ponderada pelos pixels válidos. Faixa: do percentil 10 ao 90. Só entram imagens com pelo menos 60% da área válida. {{vegetation.index.description}}</p>
 </div>
 
 <div class="section">
-  <h2><span class="num">2</span> Imagens</h2>
+  <h2><span class="num">2</span> Quedas bruscas do índice</h2>
+  {{#drops.points}}{{#-first}}
+  <table class="highlights">
+    <tr>
+      <td class="highlight"><div class="hl-label">Quedas no período</div><div class="hl-value">{{drops.eventCount}}</div><div class="hl-sub">{{#drops.hasDrops}}a última em {{drops.lastDropDate}}{{/drops.hasDrops}}{{^drops.hasDrops}}nenhuma imagem caiu além do limiar{{/drops.hasDrops}}</div></td>
+      <td class="highlight"><div class="hl-label">Última imagem</div><div class="hl-value">{{drops.latestValue}}</div><div class="hl-sub">{{drops.latestDate}}{{#drops.latestDelta}}; {{drops.latestDelta}} frente à linha de base{{/drops.latestDelta}}</div></td>
+  {{/-first}}{{#-last}}
+      <td class="highlight"><div class="hl-label">Situação atual</div><div class="hl-value">{{#isDrop}}em queda{{/isDrop}}{{^isDrop}}normal{{/isDrop}}</div><div class="hl-sub">{{#isDrop}}a última imagem é uma queda{{/isDrop}}{{^isDrop}}a última imagem não é queda{{/isDrop}}</div></td>
+    </tr>
+  </table>
+  <img class="chart" src="{{drops.chart}}" alt="Quedas do índice">
+  {{/-last}}{{/drops.points}}
+  {{#drops.events}}{{#-first}}
+  <table class="grid">
+    <thead><tr><th>Data da queda</th><th class="r">Valor</th><th class="r">Linha de base</th><th class="r">Queda</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr><td>{{date}}</td><td class="r">{{value}}</td><td class="r">{{baseline}}</td><td class="r">{{delta}}</td></tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/drops.events}}
+  {{#drops.hasSeasonalBaseline}}<p>Frente aos anos anteriores: no mesmo mês, o {{drops.index.name}} médio foi {{drops.seasonalBaseline.mean}} ({{drops.seasonalBaseline.observations}} imagens); diferença da última imagem para essa média: {{drops.seasonalBaseline.anomaly}} (negativo = abaixo do normal para o mês).</p>{{/drops.hasSeasonalBaseline}}
+  {{#drops.points}}{{#-first}}
+  <p class="note">Cada imagem é comparada com a mediana das imagens anteriores (linha tracejada); queda é cair 0,15 ou mais abaixo dela (círculos vermelhos). Queda não diz o porquê: colheita, roçada, fogo, estresse hídrico ou uma nuvem não mascarada parecem iguais. No radar (rvi_s1, escala 0 a 4) o limiar de 0,15 é pequeno: espere mais quedas.</p>
+  {{/-first}}{{/drops.points}}
+  {{^drops.points}}<p class="empty">Sem imagens no período para procurar quedas.</p>{{/drops.points}}
+</div>
+
+<div class="section">
+  <h2><span class="num">3</span> Imagens</h2>
   {{#vegetation.series}}{{#-first}}
   <table class="grid">
     <thead><tr><th>Data</th><th class="r">Média</th><th class="r">P10</th><th class="r">P90</th><th class="r">Mín.</th><th class="r">Máx.</th><th class="r">Área válida (%)</th></tr></thead>
@@ -45,9 +77,9 @@
 </div>
 
 <div class="section">
-  <h2><span class="num">3</span> Fontes e limitações</h2>
+  <h2><span class="num">4</span> Fontes e limitações</h2>
   <ul class="sources">
-    <li>Índices calculados pelo Satellite Hub a partir de imagens Sentinel-2 L2A (10 m), com máscara de nuvens.</li>
+    <li>Índice calculado pelo Satellite Hub a partir das imagens de {{vegetation.index.collectionName}}, com máscara de nuvens nos ópticos. Sentinel-2 tem pixel de 10 m; Landsat 8/9, de 30 m; o Sentinel-1 é radar (vê através de nuvens) e o RVI vai de 0 a 4, não de -1 a 1.</li>
     <li>O índice descreve o vigor da vegetação; ele não identifica a cultura nem comprova desmatamento.</li>
   </ul>
 </div>

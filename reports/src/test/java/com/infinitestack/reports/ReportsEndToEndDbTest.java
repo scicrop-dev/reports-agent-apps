@@ -104,12 +104,12 @@ class ReportsEndToEndDbTest {
         for (JsonNode item : list) if ("car-socioenvironmental".equals(item.get("id").asText())) laudo = item;
         org.junit.jupiter.api.Assertions.assertNotNull(laudo, list.toString());
         org.junit.jupiter.api.Assertions.assertFalse(laudo.get("runnable").asBoolean());
-        org.junit.jupiter.api.Assertions.assertEquals(6, laudo.get("blocks").size());
+        org.junit.jupiter.api.Assertions.assertEquals(8, laudo.get("blocks").size());
         org.junit.jupiter.api.Assertions.assertFalse(laudo.at("/blocks/0/usable").asBoolean());
         org.junit.jupiter.api.Assertions.assertTrue(laudo.at("/blocks/0/problem").asText().contains("is not released"));
 
         mvc.perform(as(get(BASE + "/ready-made/car-socioenvironmental"), "USER"))
-                .andExpect(jsonPath("$.content.flow.nodes.length()").value(6))
+                .andExpect(jsonPath("$.content.flow.nodes.length()").value(8))
                 .andExpect(jsonPath("$.content.templateHtml", containsString("{{property.codImovel}}")));
         mvc.perform(as(get(BASE + "/ready-made/nope"), "USER")).andExpect(status().isNotFound());
         mvc.perform(as(post(BASE + "/ready-made/nope/instantiate"), "USER").content("{}")).andExpect(status().isNotFound());
@@ -126,7 +126,7 @@ class ReportsEndToEndDbTest {
         mvc.perform(as(get(BASE + "/reports/" + id + "/versions/1"), "USER"))
                 .andExpect(jsonPath("$.version.status").value("DRAFT"))
                 .andExpect(jsonPath("$.version.inputs[0].name").value("codImovel"))
-                .andExpect(jsonPath("$.version.flow.nodes.length()").value(6))
+                .andExpect(jsonPath("$.version.flow.nodes.length()").value(8))
                 .andExpect(jsonPath("$.version.page.marginMm").value(18))
                 .andExpect(jsonPath("$.version.templateCss", containsString("counter(pages)")));
 

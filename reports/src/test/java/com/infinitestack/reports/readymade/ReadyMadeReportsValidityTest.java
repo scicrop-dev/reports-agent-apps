@@ -88,6 +88,33 @@ class ReadyMadeReportsValidityTest {
         }
     }
 
+    /** Each report that takes a GIS dataset runs and renders with one, in place of the CAR code or the polygon. */
+    @Test
+    void everyAreaReportRendersForAGisDataset() throws Exception {
+        List<ReportBlock> blocks = new ArrayList<>(CarBlockContractStubs.all(false));
+        blocks.addAll(GeoBlockContractStubs.all(false));
+        BlockRegistry registry = new BlockRegistry(blocks);
+        int checked = 0;
+        for (ReadyMadeReport report : catalog.all()) {
+            if (report.inputs().stream().noneMatch(i -> InputDefinition.PICKER_GIS_DATASET.equals(i.picker()))) continue;
+            ValidatedFlow flow = new FlowValidator(registry, limits).validate(report.flow(), report.inputs());
+            Map<String, Object> values = new HashMap<>(sampleInputs(report.inputs(), false));
+            values.put("codImovel", null);
+            values.put("area", null);
+            values.put("gisDataset", "7");
+            FlowRun run = executor.run(flow, values, new ExecutionMetadata(42L, 1, 1, "u", "USER"));
+            assertTrue(run.completed(), report.id() + " (gis): " + run.failure());
+            Map<String, Object> model = run.context().templateModel(
+                    ExecutionContext.reportMetadata(report.name(), 1, 42L, Instant.parse("2026-10-26T13:00:00Z")));
+            String html = templates.render(report.name(), report.templateHtml(), report.templateCss(), report.page(), model);
+            Files.createDirectories(Path.of("target", "ready-made"));
+            Files.writeString(Path.of("target", "ready-made", report.id() + "-gis.html"), html);
+            assertTrue(html.contains("Talhões 7"), report.id() + " (gis) names the dataset");
+            checked++;
+        }
+        assertTrue(checked >= 8, "reports with a GIS dataset input: " + checked);
+    }
+
     /** The parts of the laudo that depend on data: each branch shows up when it should. */
     private static void checkLaudo(String html, String text, boolean bare, String label) {
         assertTrue(text.contains(CarBlockContractStubs.COD_IMOVEL), label);
@@ -138,6 +165,10 @@ class ReadyMadeReportsValidityTest {
         boolean carOrArea = inputs.stream().anyMatch(i -> "codImovel".equals(i.name()) && !i.required())
                 && inputs.stream().anyMatch(i -> "area".equals(i.name()));
         for (InputDefinition input : inputs) {
+            if (input.picker() != null) {
+                values.put(input.name(), null); // GIS pickers: covered by everyAreaReportRendersForAGisDataset
+                continue;
+            }
             if (carOrArea && ("codImovel".equals(input.name()) || "area".equals(input.name()))) {
                 boolean filled = bare == "area".equals(input.name());
                 values.put(input.name(), filled ? sampleValue(input) : null);

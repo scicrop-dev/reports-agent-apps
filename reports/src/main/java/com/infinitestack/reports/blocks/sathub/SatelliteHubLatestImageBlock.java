@@ -61,8 +61,16 @@ public class SatelliteHubLatestImageBlock implements ReportBlock {
     static final String SCHEMA = "gold";
     static final String INDICES = "satellite_hub_analytics_indices";
 
-    static final String INDICES_SQL = "SELECT slug, name, description, formula, collection, mask_clouds, clamp_min, clamp_max,"
-            + " display_min, display_max, enabled FROM " + SCHEMA + "." + INDICES + " ORDER BY slug";
+    /**
+     * display_min/display_max are added by the Satellite Hub app when it starts, not by its scripts: an
+     * instance where only the scripts ran has no such columns. They are read through the row as JSON,
+     * so a missing column is a null (the default range) instead of an SQL error, and they are not
+     * DataRequirements (the gate would hide the Block on those instances).
+     */
+    static final String INDICES_SQL = "SELECT i.slug, i.name, i.description, i.formula, i.collection, i.mask_clouds, i.clamp_min,"
+            + " i.clamp_max, i.enabled, (to_jsonb(i) ->> 'display_min')::double precision AS display_min,"
+            + " (to_jsonb(i) ->> 'display_max')::double precision AS display_max"
+            + " FROM " + SCHEMA + "." + INDICES + " i ORDER BY i.slug";
 
     /** The Satellite Hub collection this Block reads; an index without collection is of it (Satellite Hub's legacy default). */
     static final String COLLECTION = "sentinel-2-l2a";
@@ -106,7 +114,7 @@ public class SatelliteHubLatestImageBlock implements ReportBlock {
     public BlockDefinition definition() {
         return new BlockDefinition("sathub-latest-image", "Latest satellite image (Sentinel-2)",
                 "Latest cloud-free Sentinel-2 image of an area as PNGs (true color and index maps), with the index statistics",
-                "1.0.0",
+                "1.0.1",
                 List.of(
                         BlockPort.required("geometry", DataType.GEOMETRY,
                                 "area (GeoJSON Polygon or MultiPolygon, lon/lat SIRGAS 2000); connect car-property-geometry.geometry"),
@@ -142,8 +150,9 @@ public class SatelliteHubLatestImageBlock implements ReportBlock {
                         BlockPort.required("candidatesTried", DataType.NUMBER, "scenes whose clouds over the area were checked"),
                         BlockPort.required("skipped", DataType.ARRAY,
                                 "scenes skipped for clouds over the area, newest first: {id, date, areaCloudPercent}")),
+                // display_min/display_max are read when present (see INDICES_SQL), so they are not required.
                 List.of(DataRequirement.table(SCHEMA, INDICES, "slug", "name", "description", "formula", "collection", "mask_clouds",
-                        "clamp_min", "clamp_max", "display_min", "display_max", "enabled")),
+                        "clamp_min", "clamp_max", "enabled")),
                 Duration.ofSeconds(110));
     }
 
@@ -154,7 +163,8 @@ public class SatelliteHubLatestImageBlock implements ReportBlock {
                         + "true color picture and a map per index (NDVI, EVI, NDMI...), with the index statistics over the area. "
                         + "Works for any area, also one that is not registered in Satellite Hub.",
                 List.of(
-                        "Reads the index definitions (formula, cloud mask, value and display ranges) Satellite Hub keeps in gold.satellite_hub_analytics_indices.",
+                        "Reads the index definitions (formula, cloud mask, value and display ranges) Satellite Hub keeps in gold.satellite_hub_analytics_indices; "
+                                + "the display range exists only once the Satellite Hub app has run, and without it the map uses 0 to 1 (vegetation indices) or -1 to 1.",
                         "Searches Earth Search (Element 84), the STAC catalog Satellite Hub uses, for Sentinel-2 L2A scenes over the area in the last maxAgeDays days with at most maxCloudPercent of clouds.",
                         "Picks the newest scene that covers the whole area (or the one that covers most of it) and reads only the window of the area from its SCL band.",
                         "Counts the share of the area under cloud, cloud shadow or without data (SCL other than 4 vegetation, 5 bare soil, 6 water, 7 unclassified); above maxAreaCloudPercent it tries the next older scene, up to 4.",

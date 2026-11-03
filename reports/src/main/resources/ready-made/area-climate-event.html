@@ -8,7 +8,7 @@
   <h1>{{#area.isCar}}Imóvel rural {{area.codImovel}}{{/area.isCar}}{{^area.isCar}}{{area.label}}{{/area.isCar}}</h1>
   <p class="cover-sub">{{#area.isCar}}{{property.municipality}} / {{property.uf}}{{/area.isCar}}{{^area.isCar}}{{#municipalities.main}}{{name}} / {{uf}}{{/municipalities.main}}{{^municipalities.main}}fora da malha municipal do IBGE{{/municipalities.main}}{{/area.isCar}}</p>
   <table class="meta">
-    <tr><th>Área analisada</th><td>{{#area.isCar}}imóvel do CAR <span class="code">{{area.codImovel}}</span>{{/area.isCar}}{{^area.isCar}}polígono informado ({{area.vertices}} vértices){{/area.isCar}}</td></tr>
+    <tr><th>Área analisada</th><td>{{#area.isCar}}imóvel do CAR <span class="code">{{area.codImovel}}</span>{{/area.isCar}}{{^area.isCar}}{{#area.isGis}}dado GIS do Data Library <strong>{{area.gisDatasetName}}</strong>{{#area.gisFeatureId}}, feição {{area.gisFeatureId}}{{/area.gisFeatureId}} ({{area.gisPolygons}} polígono(s), {{area.vertices}} vértices){{/area.isGis}}{{^area.isGis}}polígono informado ({{area.vertices}} vértices){{/area.isGis}}{{/area.isCar}}</td></tr>
     <tr><th>Área calculada</th><td>{{area.areaHa}} ha</td></tr>
     <tr><th>Período do evento</th><td>{{inputs.from}} a {{inputs.to}}</td></tr>
     <tr><th>Emitido em</th><td>{{report.generatedAt}}</td></tr>
@@ -26,15 +26,18 @@
     <tr><td class="flag-label">Chuva acumulada</td><td>{{#rain.found}}<span class="flag-neutral">{{rain.totalMm}} mm</span> ({{rain.meanDailyMm}} mm por dia em média){{/rain.found}}{{^rain.found}}<span class="flag-neutral">sem dados</span>{{/rain.found}}</td></tr>
     <tr><td class="flag-label">Dias com chuva (1 mm ou mais)</td><td>{{#rain.found}}{{rain.rainyDays}} de {{rain.daysWithData}}{{/rain.found}}</td></tr>
     <tr><td class="flag-label">Maior sequência sem chuva</td><td>{{#rain.found}}<span class="flag-neutral">{{rain.longestDrySpell}} dias</span>{{/rain.found}}</td></tr>
-    <tr><td class="flag-label">Maior chuva em um dia</td><td>{{#rain.found}}{{rain.maxDayMm}} mm em {{rain.maxDayDate}}{{/rain.found}}</td></tr>
+    <tr><td class="flag-label">Veranicos de 10 / 15 dias ou mais</td><td>{{#rain.found}}<span class="flag-neutral">{{rain.drySpells10}} / {{rain.drySpells15}}</span>{{/rain.found}}</td></tr>
+    <tr><td class="flag-label">Chuva extrema</td><td>{{#rain.found}}maior em 1 dia: {{rain.rx1dayMm}} mm ({{rain.maxDayDate}}); em 5 dias: {{#rain.rx5dayMm}}{{rain.rx5dayMm}} mm{{/rain.rx5dayMm}}{{^rain.rx5dayMm}}sem 5 dias seguidos com dado{{/rain.rx5dayMm}}; {{rain.heavyRainDays}} dia(s) com 50 mm ou mais{{/rain.found}}</td></tr>
     <tr><td class="flag-label">Temperatura máxima</td><td>{{#weather.found}}<span class="flag-neutral">{{weather.maxT2m}} °C</span> em {{weather.maxT2mDate}}; {{weather.hotDays}} dia(s) com 35 °C ou mais{{/weather.found}}{{^weather.found}}<span class="flag-neutral">sem dados</span>{{/weather.found}}</td></tr>
     <tr><td class="flag-label">Temperatura mínima</td><td>{{#weather.found}}<span class="flag-neutral">{{weather.minT2m}} °C</span> em {{weather.minT2mDate}}; {{weather.coldNights}} noite(s) com 3 °C ou menos (geada){{/weather.found}}</td></tr>
+    <tr><td class="flag-label">Frente à média desde 2000 (mesmas datas)</td><td>{{#anomaly.found}}média <span class="flag-neutral">{{anomaly.anomalyT2m}} °C</span>, máxima {{anomaly.anomalyT2mMax}} °C, mínima {{anomaly.anomalyT2mMin}} °C (positivo = mais quente){{/anomaly.found}}{{^anomaly.found}}<span class="flag-neutral">sem climatologia</span>{{/anomaly.found}}</td></tr>
     <tr><td class="flag-label">Vegetação no período (Satellite Hub)</td><td>{{#series.series}}{{#-first}}{{series.index.name}} de {{series.periodMin}} a {{series.periodMax}}; último valor {{series.latestMean}} em {{series.latestDate}}{{/-first}}{{/series.series}}{{^series.series}}<span class="flag-neutral">sem série: a área não tem talhões no Satellite Hub</span>{{/series.series}}</td></tr>
+    <tr><td class="flag-label">Quedas bruscas do índice desde o início</td><td>{{#drops.points}}{{#-first}}{{#drops.hasDrops}}<span class="flag-bad">{{drops.eventCount}} queda(s)</span>, a última em {{drops.lastDropDate}}{{/drops.hasDrops}}{{^drops.hasDrops}}<span class="flag-good">nenhuma queda</span>{{/drops.hasDrops}}{{/-first}}{{/drops.points}}{{^drops.points}}<span class="flag-neutral">sem série no Satellite Hub</span>{{/drops.points}}</td></tr>
     {{#inputs.crop}}
     <tr><td class="flag-label">ZARC de {{inputs.crop}}</td><td>{{#zarc.found}}<span class="flag-good">zoneada</span> no município, safra {{zarc.season}}{{/zarc.found}}{{^zarc.found}}<span class="flag-bad">não zoneada</span> no município{{/zarc.found}}</td></tr>
     {{/inputs.crop}}
   </table>
-  <p class="note">Os números descrevem o que as fontes registraram sobre a área no período. Não comparam com a média histórica nem atestam perda de produção: servem de base para a análise de quem vai concluir.</p>
+  <p class="note">Os números descrevem o que as fontes registraram sobre a área no período. Só a temperatura é comparada com a média histórica (a chuva não); nada aqui atesta perda de produção: servem de base para a análise de quem vai concluir.</p>
 </div>
 
 <div class="section">
@@ -50,7 +53,7 @@
     {{/area.isCar}}
     {{^area.isCar}}
     <tr><th>Nome</th><td>{{area.label}}</td></tr>
-    <tr><th>Origem da geometria</th><td>polígono informado por quem rodou o relatório (não é um imóvel do CAR)</td></tr>
+    <tr><th>Origem da geometria</th><td>{{#area.isGis}}dado GIS "{{area.gisDatasetName}}" do Data Library{{#area.gisFeatureId}} (feição {{area.gisFeatureId}}){{/area.gisFeatureId}}, não é um imóvel do CAR{{/area.isGis}}{{^area.isGis}}polígono informado por quem rodou o relatório (não é um imóvel do CAR){{/area.isGis}}</td></tr>
     {{/area.isCar}}
     <tr><th>Área calculada da geometria</th><td>{{area.areaHa}} ha</td></tr>
     <tr><th>Ponto de referência (dentro da área)</th><td>latitude {{area.centroidLat}}, longitude {{area.centroidLon}}</td></tr>
@@ -69,7 +72,14 @@
     </tr>
   </table>
   <img class="chart" src="{{rain.chart}}" alt="Chuva diária">
-  <p class="note">Chuva diária (mm) do CHIRPS v3, média dos {{rain.pixels}} pixel(s) de 0,05° (cerca de 5,5 km) sobre a área; média de {{rain.meanDailyMm}} mm por dia com dado. Dias sem recorte carregado: {{rain.missingDays}}; dias ainda da série preliminar (revisada depois): {{rain.preliminaryDays}}.{{^rain.wholePixels}} A área é menor que um pixel: valem os pixels ao redor dela.{{/rain.wholePixels}}</p>
+  <table class="kv">
+    <tr><th>Maior chuva em 1 dia</th><td>{{rain.rx1dayMm}} mm{{#rain.maxDayDate}} ({{rain.maxDayDate}}){{/rain.maxDayDate}}</td></tr>
+    <tr><th>Maior chuva em 5 dias seguidos</th><td>{{#rain.rx5dayMm}}{{rain.rx5dayMm}} mm{{/rain.rx5dayMm}}{{^rain.rx5dayMm}}sem 5 dias seguidos com dado{{/rain.rx5dayMm}}</td></tr>
+    <tr><th>Dias com 50 mm ou mais</th><td>{{rain.heavyRainDays}}</td></tr>
+    <tr><th>Veranicos de 10 dias ou mais / de 15 dias ou mais</th><td>{{rain.drySpells10}} / {{rain.drySpells15}}</td></tr>
+    <tr><th>Evapotranspiração de referência (ET0)</th><td>{{#weather.totalEt0Mm}}{{weather.totalEt0Mm}} mm (média de {{weather.meanEt0Mm}} mm/dia em {{weather.et0Days}} dias){{/weather.totalEt0Mm}}{{^weather.totalEt0Mm}}sem dado do NASA POWER{{/weather.totalEt0Mm}}</td></tr>
+  </table>
+  <p class="note">Chuva diária (mm) do CHIRPS v3, média dos {{rain.pixels}} pixel(s) de 0,05° (cerca de 5,5 km) sobre a área; média de {{rain.meanDailyMm}} mm por dia com dado. Dias sem recorte carregado: {{rain.missingDays}}; dias ainda da série preliminar (revisada depois): {{rain.preliminaryDays}}.{{^rain.wholePixels}} A área é menor que um pixel: valem os pixels ao redor dela.{{/rain.wholePixels}} Extremos no estilo ETCCDI: veranico = dias seguidos com menos de 1 mm; um dia sem dado interrompe veranico e janela de 5 dias, e veranico cortado pelo início ou fim do período conta só os dias de dentro. A ET0 (Penman-Monteith FAO-56) é a demanda de água da atmosfera, calculada com o NASA POWER.</p>
   {{/rain.found}}
   {{^rain.found}}
   <p class="alert">Sem dados de chuva para a área no período.{{#rain.message}} Detalhe: {{rain.message}}.{{/rain.message}}{{^rain.message}} A consulta não respondeu nesta execução; o detalhe está nos blocos da execução.{{/rain.message}}</p>
@@ -100,6 +110,22 @@
   {{^weather.found}}
   <p class="alert">Sem dados de temperatura para a área no período.{{#weather.message}} Detalhe: {{weather.message}}.{{/weather.message}}{{^weather.message}} A consulta não respondeu nesta execução; o detalhe está nos blocos da execução.{{/weather.message}}</p>
   {{/weather.found}}
+  <h3>O período frente à média histórica</h3>
+  {{#anomaly.found}}
+  <table class="grid">
+    <thead><tr><th></th><th class="r">No evento (°C)</th><th class="r">Normal das mesmas datas (°C)</th><th class="r">Anomalia (°C)</th></tr></thead>
+    <tbody>
+      <tr><td>Temperatura média</td><td class="r">{{anomaly.meanT2m}}</td><td class="r">{{anomaly.climatologyT2m}}</td><td class="r"><strong>{{anomaly.anomalyT2m}}</strong></td></tr>
+      <tr><td>Máxima média</td><td class="r">{{anomaly.meanT2mMax}}</td><td class="r">{{anomaly.climatologyT2mMax}}</td><td class="r"><strong>{{anomaly.anomalyT2mMax}}</strong></td></tr>
+      <tr><td>Mínima média</td><td class="r">{{anomaly.meanT2mMin}}</td><td class="r">{{anomaly.climatologyT2mMin}}</td><td class="r"><strong>{{anomaly.anomalyT2mMin}}</strong></td></tr>
+    </tbody>
+  </table>
+  <p>Dias quentes (máxima acima do percentil 90 das mesmas datas, {{anomaly.hotDayThresholdC}} °C): <strong>{{anomaly.hotDays}}</strong>. Noites frias (mínima abaixo do percentil 10, {{anomaly.coldNightThresholdC}} °C): <strong>{{anomaly.coldNights}}</strong>.</p>
+  <p class="note">Normal = média da mesma janela de datas em {{anomaly.yearsUsed}} anos completos, de {{anomaly.firstYear}} a {{anomaly.lastYear}} (NASA POWER), cada ano com o mesmo peso. Anomalia positiva = mais quente que o normal.</p>
+  {{/anomaly.found}}
+  {{^anomaly.found}}
+  <p class="empty">Sem comparação com a média histórica.{{#anomaly.message}} ({{anomaly.message}}){{/anomaly.message}}</p>
+  {{/anomaly.found}}
 </div>
 
 <div class="section">
@@ -112,6 +138,24 @@
   {{^series.series}}
   <p class="empty">Sem série do índice para a área no período. O Satellite Hub só calcula séries das áreas cadastradas nele; para monitorar esta área, cadastre-a lá. A situação atual, vista pela imagem mais recente, está na seção 5.</p>
   {{/series.series}}
+  {{#drops.points}}{{#-first}}
+  <h3>Quedas bruscas do índice, do início do evento até hoje</h3>
+  <img class="chart" src="{{drops.chart}}" alt="Quedas do índice">
+  {{/-first}}{{/drops.points}}
+  {{#drops.events}}{{#-first}}
+  <table class="grid">
+    <thead><tr><th>Data da queda</th><th class="r">Valor</th><th class="r">Linha de base</th><th class="r">Queda</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr><td>{{date}}</td><td class="r">{{value}}</td><td class="r">{{baseline}}</td><td class="r">{{delta}}</td></tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/drops.events}}
+  {{#drops.points}}{{#-last}}
+  <p>{{^drops.hasDrops}}Nenhuma imagem caiu além do limiar desde {{inputs.from}}. {{/drops.hasDrops}}Última imagem: {{drops.index.name}} {{drops.latestValue}} em {{date}}, {{#isDrop}}<strong>ainda em queda</strong>{{/isDrop}}{{^isDrop}}sem queda{{/isDrop}}.{{#drops.hasSeasonalBaseline}} No mesmo mês dos anos anteriores, a média foi {{drops.seasonalBaseline.mean}} (diferença {{drops.seasonalBaseline.anomaly}}).{{/drops.hasSeasonalBaseline}}</p>
+  <p class="note">Cada imagem é comparada com a mediana das imagens anteriores, inclusive as de antes do evento (linha tracejada); queda é cair 0,15 ou mais abaixo dela (círculos vermelhos). A série segue até a imagem mais recente, para mostrar se a vegetação se recuperou. Queda não diz o porquê: colheita, roçada, fogo ou nuvem não mascarada também derrubam o índice.</p>
+  {{/-last}}{{/drops.points}}
 </div>
 
 <div class="section">
@@ -176,7 +220,7 @@
   {{/zarc.found}}
   {{^zarc.found}}
   <p class="alert">O ZARC não traz {{inputs.crop}} para o município da área{{#zarc.message}} ({{zarc.message}}){{/zarc.message}}. Sem zoneamento, a lavoura não tem acesso ao Proagro nem à subvenção do seguro rural para essa cultura.</p>
-  <p class="note">Culturas que o ZARC zoneia na safra: {{#zarc.availableCrops}}{{.}}; {{/zarc.availableCrops}}</p>
+  {{#zarc.availableCrops}}{{#-first}}<p class="note">Culturas que o ZARC zoneia na safra: {{/-first}}{{.}}{{^-last}}; {{/-last}}{{#-last}}.</p>{{/-last}}{{/zarc.availableCrops}}
   {{/zarc.found}}
   {{/inputs.crop}}
   {{^inputs.crop}}<p class="empty">Nenhuma cultura foi informada; informe-a para ver se ela é zoneada no município e em que janelas.</p>{{/inputs.crop}}
@@ -185,10 +229,10 @@
 <div class="section">
   <h2><span class="num">7</span> Fontes e limitações</h2>
   <ul class="sources">
-    <li>Área: {{#area.isCar}}geometria vigente do imóvel no CAR (SICAR, coletado pelo car-agent-app; informação autodeclaratória){{/area.isCar}}{{^area.isCar}}polígono informado por quem rodou o relatório, corrigido para geometria válida{{/area.isCar}}. Áreas em SIRGAS 2000, com cálculo geodésico.</li>
+    <li>Área: {{#area.isCar}}geometria vigente do imóvel no CAR (SICAR, coletado pelo car-agent-app; informação autodeclaratória){{/area.isCar}}{{^area.isCar}}{{#area.isGis}}polígonos do dado GIS "{{area.gisDatasetName}}" do Data Library (armazenados em WGS 84), unidos e corrigidos para geometria válida{{/area.isGis}}{{^area.isGis}}polígono informado por quem rodou o relatório, corrigido para geometria válida{{/area.isGis}}{{/area.isCar}}. Áreas em SIRGAS 2000, com cálculo geodésico.</li>
     <li>Chuva: CHIRPS v3 (Climate Hazards Center, UC Santa Barbara), diária, 0,05°; os últimos dias vêm da série preliminar. Mantido pelo br-weather-agent-app.</li>
-    <li>Temperatura, umidade, vento e radiação: NASA POWER (MERRA-2), diário, células de 0,5° x 0,625°. É reanálise, não estação: suaviza extremos locais. Mantido pelo br-weather-agent-app.</li>
-    <li>Série do índice: Satellite Hub, calculada para as áreas cadastradas nele.</li>
+    <li>Temperatura, umidade, vento, radiação e ET0 (Penman-Monteith FAO-56): NASA POWER (MERRA-2), diário, células de 0,5° x 0,625°. É reanálise, não estação: suaviza extremos locais. A média histórica é a do próprio NASA POWER desde 2000. Mantido pelo br-weather-agent-app.</li>
+    <li>Série e quedas do índice: Satellite Hub, calculadas para as áreas cadastradas nele.</li>
     <li>Imagem: Sentinel-2 L2A (Copernicus/ESA) do catálogo Earth Search (Element 84), lida na hora; índices com as fórmulas e a máscara de nuvem do Satellite Hub.</li>
     <li>ZARC: portarias do MAPA por cultura, município e safra, carregadas pelo br-geo-agent-app. O enquadramento depende da cultivar e do solo efetivos.</li>
     <li>A imagem é a mais recente disponível hoje, não a da data do evento.</li>

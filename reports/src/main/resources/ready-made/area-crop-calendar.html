@@ -1,0 +1,143 @@
+<div class="running-header">
+  <span class="rh-title">Calendário da safra</span>
+  <span class="rh-code">{{area.label}}</span>
+</div>
+
+<div class="cover">
+  <div class="cover-kicker">Calendário da safra do talhão - Sentinel-2 + Sentinel-1</div>
+  <h1>{{#area.isCar}}Imóvel rural {{area.codImovel}}{{/area.isCar}}{{^area.isCar}}{{area.label}}{{/area.isCar}}</h1>
+  <p class="cover-sub">{{#area.isCar}}{{property.municipality}} / {{property.uf}}{{/area.isCar}}{{^area.isCar}}ponto de referência {{area.centroidLat}}, {{area.centroidLon}}{{/area.isCar}}</p>
+  <table class="meta">
+    <tr><th>Talhão analisado</th><td>{{#area.isCar}}imóvel do CAR <span class="code">{{area.codImovel}}</span>{{/area.isCar}}{{^area.isCar}}{{#area.isGis}}dado GIS do Data Library <strong>{{area.gisDatasetName}}</strong>{{#area.gisFeatureId}}, feição {{area.gisFeatureId}}{{/area.gisFeatureId}} ({{area.gisPolygons}} polígono(s), {{area.vertices}} vértices){{/area.isGis}}{{^area.isGis}}polígono informado ({{area.vertices}} vértices){{/area.isGis}}{{/area.isCar}}</td></tr>
+    <tr><th>Período</th><td>{{cal.fromLabel}} a {{cal.toLabel}}</td></tr>
+    <tr><th>Emitido em</th><td>{{report.generatedAt}}</td></tr>
+    <tr><th>Execução</th><td>{{#report.executionId}}nº {{report.executionId}} (versão {{report.version}} do relatório){{/report.executionId}}{{^report.executionId}}Prévia, não registrada no histórico{{/report.executionId}}</td></tr>
+  </table>
+  <p class="alert">Cada data deste relatório é um intervalo em que o evento certamente aconteceu, não um dia exato. O método supõe um talhão só (ou uma área de manejo homogênea): num imóvel com culturas diferentes, gere um relatório por talhão.</p>
+</div>
+
+<div class="section">
+  <h2><span class="num">1</span> Área e período</h2>
+  <table class="kv">
+    <tr><th>Origem da geometria</th><td>{{#area.isCar}}geometria vigente do imóvel no CAR (o imóvel inteiro é tratado como um talhão){{/area.isCar}}{{^area.isCar}}{{#area.isGis}}dado GIS "{{area.gisDatasetName}}" do Data Library{{#area.gisFeatureId}} (feição {{area.gisFeatureId}}){{/area.gisFeatureId}}{{/area.isGis}}{{^area.isGis}}polígono informado por quem rodou o relatório{{/area.isGis}}{{/area.isCar}}</td></tr>
+    <tr><th>Área calculada</th><td>{{area.areaHa}} ha{{#cal.blocks}} ({{cal.blocks}} blocos de 100 m){{/cal.blocks}}</td></tr>
+    <tr><th>Período analisado</th><td>{{cal.fromLabel}} a {{cal.toLabel}}</td></tr>
+    {{#cal.ready}}
+    <tr><th>Imagens Sentinel-2</th><td>{{cal.s2Dates}} datas no período, {{cal.s2ClearDates}} com ao menos metade do talhão sem nuvem (a série do talhão)</td></tr>
+    <tr><th>Passagens Sentinel-1</th><td>{{cal.s1Passes}} passagens usadas{{#cal.orbit}}, órbita relativa {{cal.orbit}}{{/cal.orbit}}</td></tr>
+    <tr><th>Calculado em</th><td>{{cal.computedAtLabel}}{{#cal.reused}} (resultado guardado de um cálculo anterior do mesmo pedido){{/cal.reused}}</td></tr>
+    {{/cal.ready}}
+  </table>
+  {{#area.isCar}}<p class="note">Um imóvel do CAR costuma ter vários talhões. Se houver culturas ou datas de plantio diferentes, o calendário do imóvel inteiro mistura tudo: prefira o polígono do talhão.</p>{{/area.isCar}}
+</div>
+
+<div class="section">
+  <h2><span class="num">2</span> Situação</h2>
+  {{#cal.processing}}
+  <p class="alert">O calendário deste talhão ainda está sendo calculado (leva de 4 a 7 minutos na primeira vez). Gere o relatório de novo em alguns minutos: o resultado fica guardado e sai na hora.</p>
+  {{/cal.processing}}
+  {{#cal.ready}}
+  {{#cal.hasSeasons}}<p>Calendário calculado: as safras encontradas estão abaixo.</p>{{/cal.hasSeasons}}
+  {{^cal.hasSeasons}}<p class="alert">Nenhuma safra foi encontrada no período (nenhum trecho com o talhão verde, EVI médio de 0,5 ou mais, entre datas sem nuvem).{{#cal.message}} Detalhe: {{cal.message}}.{{/cal.message}}</p>{{/cal.hasSeasons}}
+  {{/cal.ready}}
+  {{^cal.ready}}{{^cal.processing}}
+  <p class="alert">O calendário não pôde ser calculado.{{#cal.message}} Detalhe: {{cal.message}}.{{/cal.message}}</p>
+  {{/cal.processing}}{{/cal.ready}}
+</div>
+
+{{#cal.hasSeasons}}
+<div class="section">
+  <h2><span class="num">3</span> Safras detectadas</h2>
+  <table class="grid">
+    <thead><tr><th>Safra</th><th>Plantio</th><th>Colheita</th><th class="r">Pico do EVI</th><th class="r">Ciclo (dias)</th></tr></thead>
+    <tbody>
+      {{#cal.seasons}}
+      <tr><td><strong>{{label}}</strong></td><td>{{plantingText}}</td><td>{{harvestText}}</td><td class="r">{{peakEvi}}{{#peakEviOnLabel}} em {{peakEviOnLabel}}{{/peakEviOnLabel}}</td><td class="r">{{#cycleMidDays}}{{cycleMidDays}}{{/cycleMidDays}}{{^cycleMidDays}}-{{/cycleMidDays}}</td></tr>
+      {{/cal.seasons}}
+    </tbody>
+  </table>
+  <p class="note">O pacote não identifica a cultura: "Safra 1" é a primeira safra do período, na ordem do tempo.</p>
+</div>
+
+<div class="section">
+  <h2><span class="num">4</span> Calendário por safra</h2>
+  <p class="note">"Talhão" é o intervalo do talhão como um todo. 10%, 50% e 90% são as datas até as quais 10%, metade e 90% dos blocos de 100 m tinham passado pelo evento (pelo meio do intervalo de cada bloco).</p>
+  {{#cal.seasons}}
+  <h3>{{label}}</h3>
+  <table class="grid">
+    <thead><tr><th>Evento</th><th>Talhão</th><th>10% dos blocos</th><th>50%</th><th>90%</th><th class="r">Incerteza (dias)</th></tr></thead>
+    <tbody>
+      <tr><td>Plantio</td><td>{{plantingText}}</td><td>{{plantingP10Label}}</td><td>{{plantingP50Label}}</td><td>{{plantingP90Label}}</td><td class="r">{{plantingUncertaintyDays}}</td></tr>
+      <tr><td>Senescência</td><td>{{senescenceText}}</td><td>{{senescenceP10Label}}</td><td>{{senescenceP50Label}}</td><td>{{senescenceP90Label}}</td><td class="r">{{senescenceUncertaintyDays}}</td></tr>
+      <tr><td>Colheita</td><td>{{harvestText}}</td><td>{{harvestP10Label}}</td><td>{{harvestP50Label}}</td><td>{{harvestP90Label}}</td><td class="r">{{harvestUncertaintyDays}}</td></tr>
+    </tbody>
+  </table>
+  <p class="note">Emergência do talhão (cultura aparecendo no EVI): {{emergenceText}}.{{#harvestS1SharePct}} O radar (Sentinel-1) estreitou a colheita de {{harvestS1SharePct}}% dos blocos.{{/harvestS1SharePct}}</p>
+  {{/cal.seasons}}
+</div>
+
+<div class="section">
+  <h2><span class="num">5</span> Duração</h2>
+  <table class="grid">
+    <thead><tr><th>Safra</th><th>Ciclo (plantio à colheita)</th><th>Secagem (senescência à colheita)</th><th>Entressafra (até o plantio seguinte)</th></tr></thead>
+    <tbody>
+      {{#cal.seasons}}
+      <tr><td><strong>{{label}}</strong></td>
+        <td>{{#cycleMidDays}}{{cycleMidDays}} dias (de {{cycleMinDays}} a {{cycleMaxDays}}){{/cycleMidDays}}{{^cycleMidDays}}-{{/cycleMidDays}}</td>
+        <td>{{#dryingMidDays}}{{dryingMidDays}} dias (de {{dryingMinDays}} a {{dryingMaxDays}}){{/dryingMidDays}}{{^dryingMidDays}}-{{/dryingMidDays}}</td>
+        <td>{{#hasFallow}}{{fallowMidDays}} dias (de {{fallowMinDays}} a {{fallowMaxDays}}){{/hasFallow}}{{^hasFallow}}última safra do período{{/hasFallow}}</td></tr>
+      {{/cal.seasons}}
+    </tbody>
+  </table>
+  <p class="note">Medianas dos blocos: o número principal é o meio do intervalo possível; "de ... a ..." são o mínimo e o máximo possíveis, pelas pontas dos intervalos.</p>
+</div>
+{{/cal.hasSeasons}}
+
+{{#cal.seriesChart}}
+<div class="section">
+  <h2><span class="num">6</span> Série do talhão</h2>
+  <img class="chart" src="{{cal.seriesChart}}" alt="EVI, CIre e VH do talhão">
+  <div class="legend">EVI (verde) e CIre red-edge (roxo) do Sentinel-2, médias dos blocos sem nuvem nas datas com ao menos metade do talhão limpo; VH em dB do Sentinel-1 (azul tracejado, eixo da direita). Faixas: plantio (verde), senescência (amarelo) e colheita (marrom) do talhão.</div>
+</div>
+{{/cal.seriesChart}}
+
+{{#cal.stateChart}}
+<div class="section">
+  <h2><span class="num">7</span> Área por estado ao longo do tempo</h2>
+  <img class="chart" src="{{cal.stateChart}}" alt="Porcentagem do talhão em cada estado por dia">
+  <div class="legend">{{#cal.stateLegend}}<span class="legend-item"><span class="swatch" style="background: {{color}}"></span>{{label}}</span> {{/cal.stateLegend}}</div>
+  <p class="note">Cada bloco muda de estado no meio de cada intervalo. "Sem data" é o bloco sem algum intervalo daquela safra.</p>
+</div>
+{{/cal.stateChart}}
+
+{{#cal.plantingMap}}
+<div class="section">
+  <h2><span class="num">8</span> Mapas de plantio e colheita (primeira safra)</h2>
+  <div class="map-block">
+    <img class="map" src="{{cal.plantingMap}}" alt="Plantio por bloco de 100 m">
+    <div class="legend"><span class="legend-title">Plantio (meio do intervalo do bloco):</span> {{#cal.plantingLegend}}<span class="legend-item"><span class="swatch" style="background: {{color}}"></span>{{label}}</span> {{/cal.plantingLegend}}</div>
+  </div>
+  {{#cal.harvestMap}}
+  <div class="map-block">
+    <img class="map" src="{{cal.harvestMap}}" alt="Colheita por bloco de 100 m">
+    <div class="legend"><span class="legend-title">Colheita (meio do intervalo do bloco):</span> {{#cal.harvestLegend}}<span class="legend-item"><span class="swatch" style="background: {{color}}"></span>{{label}}</span> {{/cal.harvestLegend}}</div>
+  </div>
+  {{/cal.harvestMap}}
+  <p class="note">Blocos de 100 m com ao menos 75% dentro do talhão (contorno em vermelho); o quadrado do bloco não é recortado pelo limite.</p>
+</div>
+{{/cal.plantingMap}}
+
+<div class="section">
+  <h2>Metodologia e limitações</h2>
+  <ul class="sources">
+    <li>Cálculo: pacote is-crop-calendar do Skills Lab, sobre Sentinel-2 L2A (EVI e índice de clorofila red-edge, CIre, só em pixel sem nuvem pela máscara SCL) e Sentinel-1 RTC (retroespalhamento VH, que enxerga através das nuvens), lidos do Microsoft Planetary Computer numa grade de 10 m e resumidos em blocos de 100 m.</li>
+    <li>Safra: cada trecho com o talhão verde (EVI médio de 0,5 ou mais). Emergência: da última data com solo exposto (EVI até 0,2) à primeira com a cultura visível (EVI de 0,25 ou mais). Colheita: da última data verde à primeira de novo com solo exposto, estreitada pela maior queda do VH do radar quando há uma. Senescência: queda do CIre depois do pico.</li>
+    <li>O resultado é um intervalo, não uma data: o evento aconteceu em algum dia entre as duas pontas. Os 10/50/90% e os dias resumidos usam o meio do intervalo só para resumir.</li>
+    <li>O plantio é a estimativa mais grosseira: é a emergência vista no EVI recuada 15 dias fixos; conte uma semana para cada lado.</li>
+    <li>Nuvens: uma safra sem data limpa antes e depois não aparece; sem datas limpas no fim do ciclo, a senescência fica igual à colheita; bloco nublado herda a ponta do talhão.</li>
+    <li>EVI baixo nem sempre é colheita (soja dessecada, milho seco de pé); o radar ajuda quando vê a queda.</li>
+    <li>O método não identifica a cultura e supõe um talhão só: um imóvel com várias culturas gera um calendário sem sentido.</li>
+    <li>Datas recentes podem mudar: enquanto o fim do período estiver a menos de 7 dias do cálculo, um relatório gerado depois de 24 horas calcula de novo.</li>
+    <li>Área: {{#area.isCar}}geometria vigente do imóvel no CAR (SICAR, coletado pelo car-agent-app; informação autodeclaratória){{/area.isCar}}{{^area.isCar}}{{#area.isGis}}polígonos do dado GIS "{{area.gisDatasetName}}" do Data Library (armazenados em WGS 84), unidos e corrigidos para geometria válida{{/area.isGis}}{{^area.isGis}}polígono informado por quem rodou o relatório, corrigido para geometria válida{{/area.isGis}}{{/area.isCar}}.</li>
+  </ul>
+</div>

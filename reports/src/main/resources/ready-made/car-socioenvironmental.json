@@ -1,8 +1,8 @@
 {
   "id": "car-socioenvironmental",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "name": "Laudo socioambiental do imóvel CAR",
-  "description": "Identificação, localização, situação do cadastro, uso e cobertura declarados e sobreposições de um imóvel do CAR, a partir dos dados do SICAR.",
+  "description": "Identificação, localização, situação do cadastro (com a data da base SICAR, pendências de carga e alertas de imóvel removido e de divergência de área), uso e cobertura declarados e sobreposições de um imóvel do CAR, a partir dos dados do SICAR.",
   "category": "Socioambiental",
   "inputs": [
     { "name": "codImovel", "type": "string", "required": true, "label": "Código do imóvel no CAR" }
@@ -14,7 +14,9 @@
       { "id": "layers", "block": "car-environmental-layers" },
       { "id": "overlaps", "block": "car-overlaps" },
       { "id": "history", "block": "car-history" },
-      { "id": "map", "block": "car-property-map" }
+      { "id": "map", "block": "car-property-map" },
+      { "id": "carRef", "block": "car-data-reference", "optional": true },
+      { "id": "quarantine", "block": "car-quarantine", "optional": true }
     ],
     "connections": [
       { "from": "inputs.codImovel", "to": "property.codImovel" },
@@ -22,7 +24,9 @@
       { "from": "inputs.codImovel", "to": "layers.codImovel" },
       { "from": "inputs.codImovel", "to": "overlaps.codImovel" },
       { "from": "inputs.codImovel", "to": "history.codImovel" },
-      { "from": "inputs.codImovel", "to": "map.codImovel" }
+      { "from": "inputs.codImovel", "to": "map.codImovel" },
+      { "from": "inputs.codImovel", "to": "carRef.codImovel" },
+      { "from": "inputs.codImovel", "to": "quarantine.codImovel" }
     ]
   },
   "templateHtmlFile": "car-socioenvironmental.html",

@@ -1,13 +1,15 @@
 {
   "id": "car-socioenvironmental-complete",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "name": "Laudo socioambiental completo (imóvel CAR ou polígono)",
-  "description": "Para um imóvel do CAR ou qualquer polígono: cadastro, uso declarado e sobreposições (CAR), bioma, municípios, embargos do IBAMA, DETER, PRODES, imagem Sentinel-2 recente com NDVI e NDMI, chuva e temperatura dos últimos 12 meses, perfil agrícola do município e, se informada a cultura, o ZARC.",
+  "description": "Para um imóvel do CAR, qualquer polígono ou um dado GIS: cadastro, data da base SICAR, pendências de carga, uso declarado e sobreposições (CAR) ou os imóveis do CAR na área, bioma, municípios, embargos do IBAMA, DETER, PRODES, solo e restrições, evidências do Censo Agro 2017, imagem Sentinel-2 recente com NDVI e NDMI, chuva e temperatura dos últimos 12 meses, perfil agrícola do município e, se informada a cultura, o ZARC.",
   "category": "Socioambiental",
   "inputs": [
-    { "name": "codImovel", "type": "string", "required": false, "label": "Código do imóvel no CAR (ou deixe em branco e informe o polígono)" },
+    { "name": "codImovel", "type": "string", "required": false, "label": "Código do imóvel no CAR (ou deixe em branco e informe o polígono ou um dado GIS)" },
     { "name": "area", "type": "geometry", "required": false, "label": "Polígono da área em GeoJSON, no lugar do código CAR" },
     { "name": "areaName", "type": "string", "required": false, "label": "Nome da área (só para polígono)" },
+    { "name": "gisDataset", "type": "string", "required": false, "picker": "gis-dataset", "label": "Ou um dado GIS do Data Library (conjunto)" },
+    { "name": "gisFeature", "type": "number", "required": false, "picker": "gis-feature", "label": "Feição do dado GIS (opcional; padrão todos os polígonos)" },
     { "name": "crop", "type": "string", "required": false, "label": "Cultura (opcional), ex.: Soja, Milho 2ª safra" }
   ],
   "flow": {
@@ -25,6 +27,11 @@
       { "id": "prodes", "block": "brgeo-prodes" },
       { "id": "crops", "block": "brgeo-crop-production", "optional": true },
       { "id": "zarc", "block": "brgeo-zarc-risk", "optional": true },
+      { "id": "carRef", "block": "car-data-reference", "optional": true },
+      { "id": "quarantine", "block": "car-quarantine", "optional": true },
+      { "id": "inArea", "block": "car-in-area", "optional": true },
+      { "id": "soil", "block": "brgeo-soil-units", "optional": true },
+      { "id": "census", "block": "brgeo-census-evidence", "optional": true },
       { "id": "rain", "block": "brweather-rainfall", "values": {"days": 365}, "optional": true },
       { "id": "weather", "block": "brweather-daily-weather", "values": {"days": 365}, "optional": true },
       { "id": "image", "block": "sathub-latest-image", "values": {"indices": "ndvi,ndmi"}, "optional": true }
@@ -33,6 +40,8 @@
       { "from": "inputs.codImovel", "to": "area.codImovel" },
       { "from": "inputs.area", "to": "area.geometry" },
       { "from": "inputs.areaName", "to": "area.name" },
+      { "from": "inputs.gisDataset", "to": "area.gisDataset" },
+      { "from": "inputs.gisFeature", "to": "area.gisFeature" },
       { "from": "area.codImovel", "to": "property.codImovel" },
       { "from": "area.geometry", "to": "municipalities.geometry" },
       { "from": "area.codImovel", "to": "layers.codImovel" },
@@ -46,6 +55,12 @@
       { "from": "municipalities.mainIbgeCode", "to": "crops.municipalityIbge" },
       { "from": "municipalities.mainIbgeCode", "to": "zarc.municipalityIbge" },
       { "from": "inputs.crop", "to": "zarc.crop" },
+      { "from": "area.codImovel", "to": "carRef.codImovel" },
+      { "from": "municipalities.mainUf", "to": "carRef.uf" },
+      { "from": "area.codImovel", "to": "quarantine.codImovel" },
+      { "from": "area.geometry", "to": "inArea.geometry" },
+      { "from": "area.geometry", "to": "soil.geometry" },
+      { "from": "area.geometry", "to": "census.geometry" },
       { "from": "area.geometry", "to": "rain.geometry" },
       { "from": "area.geometry", "to": "weather.geometry" },
       { "from": "area.geometry", "to": "image.geometry" }

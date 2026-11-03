@@ -44,14 +44,13 @@ public class CarPropertyMapBlock implements ReportBlock {
     private static final String LAYER_TABLE = "car_agent_app_camada";
     private static final Duration TIMEOUT = Duration.ofSeconds(30);
 
-    private static final String PROPERTY_SQL = """
-            SELECT v.imovel_id, g.id AS geometria_id,
-                   ST_XMin(g.geom) AS min_lon, ST_YMin(g.geom) AS min_lat,
-                   ST_XMax(g.geom) AS max_lon, ST_YMax(g.geom) AS max_lat
-              FROM gold.car_agent_app_imovel_versao v
-              JOIN gold.car_agent_app_imovel_geometria g ON g.id = v.geometria_id
-             WHERE v.cod_imovel = ? AND v.valido_ate IS NULL
-            """;
+    /** The version in effect: the current one, or the last one of a property removed from the SICAR. */
+    private static final String PROPERTY_SQL = "SELECT v.imovel_id, g.id AS geometria_id,"
+            + " ST_XMin(g.geom) AS min_lon, ST_YMin(g.geom) AS min_lat,"
+            + " ST_XMax(g.geom) AS max_lon, ST_YMax(g.geom) AS max_lat"
+            + " FROM " + CarTables.Q_IMOVEL + " i" + CarTables.VERSION_IN_EFFECT
+            + " JOIN gold.car_agent_app_imovel_geometria g ON g.id = v.geometria_id"
+            + " WHERE i.cod_imovel = ?";
 
     private static final String PROPERTY_GEOMETRY_SQL = """
             SELECT ST_AsGeoJSON(ST_SimplifyPreserveTopology(g.geom, ?), 6)
@@ -59,13 +58,13 @@ public class CarPropertyMapBlock implements ReportBlock {
              WHERE g.id = ?
             """;
 
-    private static final String FEATURES_SQL = """
-            SELECT f.camada, c.nome, ST_AsGeoJSON(ST_SimplifyPreserveTopology(f.geom, ?), 6) AS geojson
-              FROM gold.car_agent_app_feicao f
-              JOIN gold.car_agent_app_camada c ON c.codigo = f.camada
-             WHERE f.cod_imovel = ? AND f.valido_ate IS NULL AND f.camada <> 'AREA_IMOVEL'
-             ORDER BY c.ordem, f.id
-            """;
+    private static final String FEATURES_SQL = "SELECT f.camada, c.nome,"
+            + " ST_AsGeoJSON(ST_SimplifyPreserveTopology(f.geom, ?), 6) AS geojson"
+            + " FROM " + CarTables.Q_IMOVEL + " i" + CarTables.VERSION_IN_EFFECT
+            + " JOIN gold.car_agent_app_feicao f ON f.imovel_id = i.id"
+            + " JOIN gold.car_agent_app_camada c ON c.codigo = f.camada"
+            + " WHERE i.cod_imovel = ? AND " + CarTables.FEATURE_IN_EFFECT + " AND f.camada <> 'AREA_IMOVEL'"
+            + " ORDER BY c.ordem, f.id";
 
     /*
      * Current geometries of other properties touching the visible window: && uses the GiST index,
@@ -94,15 +93,16 @@ public class CarPropertyMapBlock implements ReportBlock {
     public BlockDefinition definition() {
         return new BlockDefinition("car-property-map", "CAR property map",
                 "PNG map of the CAR property with its current declared layers and neighbouring properties",
-                "1.0.0",
+                "1.0.1",
                 List.of(BlockPort.required("codImovel", DataType.STRING, "SICAR property code (UF-IBGE-hash)"),
                         BlockPort.optional("width", DataType.NUMBER, "image width in pixels, default 1000 (300-2000)"),
                         BlockPort.optional("height", DataType.NUMBER, "image height in pixels, default 700 (300-2000)")),
                 List.of(BlockPort.required("image", DataType.STRING, "PNG as a data:image/png;base64 URL"),
                         BlockPort.required("legend", DataType.ARRAY, "{layer, layerName, color} of the layers drawn")),
-                List.of(DataRequirement.table(SCHEMA, VERSION_TABLE, "imovel_id", "cod_imovel", "valido_ate", "geometria_id"),
+                List.of(DataRequirement.table(SCHEMA, CarTables.IMOVEL, "id", "cod_imovel", "removido_em"),
+                        DataRequirement.table(SCHEMA, VERSION_TABLE, "imovel_id", "cod_imovel", "valido_de", "valido_ate", "geometria_id"),
                         DataRequirement.table(SCHEMA, GEOMETRY_TABLE, "id", "imovel_id", "geom"),
-                        DataRequirement.table(SCHEMA, FEATURE_TABLE, "id", "camada", "cod_imovel", "geom", "valido_ate"),
+                        DataRequirement.table(SCHEMA, FEATURE_TABLE, "id", "imovel_id", "camada", "cod_imovel", "geom", "valido_de", "valido_ate"),
                         DataRequirement.table(SCHEMA, LAYER_TABLE, "codigo", "nome", "ordem")),
                 TIMEOUT);
     }

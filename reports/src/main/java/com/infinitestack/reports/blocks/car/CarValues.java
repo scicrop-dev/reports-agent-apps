@@ -6,6 +6,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.Map;
 
 import com.infinitestack.reports.engine.DataType;
@@ -56,5 +57,11 @@ final class CarValues {
     static String isoDate(ResultSet rs, String column) throws SQLException {
         LocalDate date = rs.getObject(column, LocalDate.class);
         return date == null ? null : date.toString();
+    }
+
+    /** A timestamptz column as an ISO offset date-time string (what {@link DataType#DATETIME} expects), or null. */
+    static String isoDateTime(ResultSet rs, String column) throws SQLException {
+        OffsetDateTime value = rs.getObject(column, OffsetDateTime.class);
+        return value == null ? null : value.toString();
     }
 }

@@ -24,6 +24,9 @@ import com.infinitestack.reports.engine.block.ReportBlock;
  * {@code car-property-geometry}: the current geometry of a CAR property as GeoJSON (SIRGAS 2000,
  * SRID 4674), with its computed area, a point inside it, its bounding box and vertex count.
  * The point uses {@code ST_PointOnSurface}, not the centroid, so it always falls inside the polygon.
+ * A property removed from the SICAR gives the geometry of its last version
+ * ({@link CarTables#VERSION_IN_EFFECT}). {@link #SQL} is reused by {@code report-area}: keep its
+ * name and output columns.
  */
 @Component
 public class CarPropertyGeometryBlock implements ReportBlock {
@@ -37,7 +40,7 @@ public class CarPropertyGeometryBlock implements ReportBlock {
             + " ST_XMax(g.geom) AS max_lon, ST_YMax(g.geom) AS max_lat,"
             + " ST_NPoints(g.geom) AS vertices"
             + " FROM " + Q_IMOVEL + " i"
-            + " JOIN " + Q_IMOVEL_VERSAO + " v ON v.imovel_id = i.id AND v.valido_ate IS NULL"
+            + VERSION_IN_EFFECT
             + " JOIN " + Q_IMOVEL_GEOMETRIA + " g ON g.id = v.geometria_id"
             + " WHERE i.cod_imovel = ?";
 
@@ -51,7 +54,7 @@ public class CarPropertyGeometryBlock implements ReportBlock {
     public BlockDefinition definition() {
         return new BlockDefinition("car-property-geometry", "CAR property geometry",
                 "Current geometry of a CAR property as GeoJSON, with area, inner point, bounding box and vertex count",
-                "1.0.0",
+                "1.0.1",
                 List.of(CarValues.COD_IMOVEL_INPUT),
                 List.of(
                         BlockPort.required("geometry", DataType.GEOMETRY, "GeoJSON geometry, SRID 4674"),
@@ -61,8 +64,8 @@ public class CarPropertyGeometryBlock implements ReportBlock {
                         BlockPort.required("bbox", DataType.OBJECT, "{minLon, minLat, maxLon, maxLat}"),
                         BlockPort.required("vertices", DataType.NUMBER, "number of vertices")),
                 List.of(
-                        requirement(IMOVEL, "id", "cod_imovel"),
-                        requirement(IMOVEL_VERSAO, "imovel_id", "valido_ate", "geometria_id"),
+                        requirement(IMOVEL, "id", "cod_imovel", "removido_em"),
+                        requirement(IMOVEL_VERSAO, "imovel_id", "valido_ate", "valido_de", "geometria_id"),
                         requirement(IMOVEL_GEOMETRIA, "id", "geom", "area_calc_ha")),
                 null);
     }
@@ -73,7 +76,8 @@ public class CarPropertyGeometryBlock implements ReportBlock {
                 "Gives the boundary of a CAR property as a geometry, plus its computed area, a reference point "
                         + "inside it and its bounding box. It is the bridge from the CAR to every spatial Block.",
                 List.of(
-                        "Takes the geometry of the current registration version.",
+                        "Takes the geometry of the current registration version; for a property removed from the SICAR, "
+                                + "the geometry of its last version.",
                         "Returns it as GeoJSON in SIRGAS 2000 (SRID 4674), with 6 decimals.",
                         "Computes the reference point with ST_PointOnSurface, so it always falls inside the polygon."),
                 List.of(

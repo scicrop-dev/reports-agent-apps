@@ -1,0 +1,119 @@
+<div class="running-header">
+  <span class="rh-title">Imóveis do CAR na área</span>
+  <span class="rh-code">{{area.label}}</span>
+</div>
+
+<div class="cover">
+  <div class="cover-kicker">Imóveis do CAR na área</div>
+  <h1>{{#area.isCar}}Ao redor do imóvel {{area.codImovel}}{{/area.isCar}}{{^area.isCar}}{{area.label}}{{/area.isCar}}</h1>
+  <p class="cover-sub">{{#municipalities.main}}{{name}} / {{uf}}{{/municipalities.main}}{{^municipalities.main}}fora da malha municipal do IBGE{{/municipalities.main}}</p>
+  <table class="meta">
+    <tr><th>Área analisada</th><td>{{#area.isCar}}geometria do imóvel do CAR <span class="code">{{area.codImovel}}</span>{{/area.isCar}}{{^area.isCar}}{{#area.isGis}}dado GIS do Data Library <strong>{{area.gisDatasetName}}</strong>{{#area.gisFeatureId}}, feição {{area.gisFeatureId}}{{/area.gisFeatureId}} ({{area.gisPolygons}} polígono(s), {{area.vertices}} vértices){{/area.isGis}}{{^area.isGis}}polígono informado ({{area.vertices}} vértices){{/area.isGis}}{{/area.isCar}}</td></tr>
+    <tr><th>Área calculada</th><td>{{area.areaHa}} ha</td></tr>
+    <tr><th>Emitido em</th><td>{{report.generatedAt}}</td></tr>
+    <tr><th>Execução</th><td>{{#report.executionId}}nº {{report.executionId}} (versão {{report.version}} do relatório){{/report.executionId}}{{^report.executionId}}Prévia, não registrada no histórico{{/report.executionId}}</td></tr>
+  </table>
+</div>
+
+<div class="section">
+  <h2><span class="num">0</span> Síntese</h2>
+  <table class="flags">
+    <tr><td class="flag-label">Imóveis do CAR que cortam a área</td><td>{{#inArea.hasProperties}}<span class="flag-neutral">{{inArea.count}} imóvel(is)</span>{{#inArea.truncated}} (lista cortada no limite){{/inArea.truncated}}{{/inArea.hasProperties}}{{^inArea.hasProperties}}<span class="flag-bad">nenhum</span>{{/inArea.hasProperties}}</td></tr>
+    <tr><td class="flag-label">Parte da área dentro de algum imóvel</td><td><span class="flag-neutral">{{inArea.coveragePct}}%</span> ({{inArea.coveredHa}} ha de {{inArea.areaHa}} ha)</td></tr>
+    <tr><td class="flag-label">Soma das partes dos imóveis</td><td>{{inArea.totalOverlapHa}} ha (quando passa da área coberta, há terra declarada por mais de um imóvel)</td></tr>
+    <tr><td class="flag-label">Bioma predominante</td><td>{{#biomes.mainBiome}}<span class="flag-neutral">{{biomes.mainBiome}}</span>{{/biomes.mainBiome}}{{^biomes.mainBiome}}<span class="flag-neutral">fora dos biomas mapeados</span>{{/biomes.mainBiome}}</td></tr>
+    <tr><td class="flag-label">Embargos do IBAMA ativos na área</td><td>{{#embargoes.hasActive}}<span class="flag-bad">{{embargoes.activeCount}} termo(s)</span>, {{embargoes.activeOverlapHa}} ha{{/embargoes.hasActive}}{{^embargoes.hasActive}}<span class="flag-good">nenhum encontrado</span>{{/embargoes.hasActive}}</td></tr>
+    <tr><td class="flag-label">Base SICAR de referência</td><td>{{#carRef.hasData}}<span class="flag-neutral">{{carRef.uf}}, publicada até {{carRef.latestPublishedAt}}</span>{{/carRef.hasData}}{{^carRef.hasData}}<span class="flag-neutral">sem data registrada</span>{{/carRef.hasData}}</td></tr>
+  </table>
+  <p class="note">Responde "quais imóveis do CAR estão aqui". O CAR é autodeclaratório: estar dentro de um imóvel declarado não diz quem é o dono nem se o cadastro foi analisado.</p>
+</div>
+
+<div class="section">
+  <h2><span class="num">1</span> Área analisada</h2>
+  <table class="kv">
+    <tr><th>Nome</th><td>{{area.label}}</td></tr>
+    <tr><th>Origem da geometria</th><td>{{#area.isCar}}geometria vigente do imóvel do CAR {{area.codImovel}}; a lista inclui o próprio imóvel e os vizinhos que se sobrepõem a ele{{/area.isCar}}{{^area.isCar}}{{#area.isGis}}dado GIS "{{area.gisDatasetName}}" do Data Library{{#area.gisFeatureId}} (feição {{area.gisFeatureId}}){{/area.gisFeatureId}}{{/area.isGis}}{{^area.isGis}}polígono informado por quem rodou o relatório{{/area.isGis}}{{/area.isCar}}</td></tr>
+    <tr><th>Área calculada da geometria</th><td>{{area.areaHa}} ha</td></tr>
+    <tr><th>Ponto de referência (dentro da área)</th><td>latitude {{area.centroidLat}}, longitude {{area.centroidLon}}</td></tr>
+    <tr><th>Caixa envolvente (lon/lat)</th><td>{{area.bbox.minLon}}, {{area.bbox.minLat}} a {{area.bbox.maxLon}}, {{area.bbox.maxLat}}</td></tr>
+    <tr><th>Municípios (malha IBGE {{municipalities.edition}})</th><td>{{#municipalities.municipalities}}{{name}}/{{uf}} ({{percentOfArea}}%)<br>{{/municipalities.municipalities}}{{^municipalities.municipalities}}fora da malha municipal{{/municipalities.municipalities}}</td></tr>
+    <tr><th>Bioma (IBGE {{biomes.edition}})</th><td>{{#biomes.biomes}}{{name}} ({{percentOfArea}}%)<br>{{/biomes.biomes}}{{^biomes.biomes}}fora dos biomas mapeados{{/biomes.biomes}}</td></tr>
+  </table>
+</div>
+
+<div class="section">
+  <h2><span class="num">2</span> Imóveis do CAR na área</h2>
+  {{#inArea.hasProperties}}
+  <table class="grid">
+    <thead><tr><th>Imóvel</th><th>Município / UF</th><th>Situação</th><th>Tipo</th><th class="r">Declarada (ha)</th><th class="r">Na área (ha)</th><th class="r">% da área</th><th class="r">% do imóvel</th></tr></thead>
+    <tbody>
+    {{#inArea.properties}}
+      <tr><td class="code">{{codImovel}}</td><td>{{municipality}} / {{uf}}</td><td>{{statusLabel}}</td><td>{{typeLabel}}</td><td class="r">{{declaredAreaHa}}</td><td class="r">{{overlapHa}}</td><td class="r">{{overlapPctOfArea}}</td><td class="r">{{overlapPctOfProperty}}</td></tr>
+    {{/inArea.properties}}
+    </tbody>
+  </table>
+  {{#inArea.truncated}}<p class="alert">A lista foi cortada no limite pedido; há mais imóveis na área. A cobertura (seção 3) considera todos.</p>{{/inArea.truncated}}
+  <p class="note">Maior parte na área primeiro. "% da área" = parte do imóvel dentro da área analisada; "% do imóvel" = quanto do imóvel está dentro dela (sobre a área calculada do imóvel). Só imóveis vigentes, com a geometria da versão atual; imóveis removidos do SICAR e encostas de borda abaixo de 0,01 ha ficam de fora.</p>
+  {{/inArea.hasProperties}}
+  {{^inArea.hasProperties}}
+  <p class="alert">Nenhum imóvel vigente do CAR corta a área: ela não está inscrita no CAR (ou só em imóveis removidos).</p>
+  {{/inArea.hasProperties}}
+</div>
+
+<div class="section">
+  <h2><span class="num">3</span> Cobertura e sobreposições</h2>
+  <table class="highlights">
+    <tr>
+      <td class="highlight"><div class="hl-label">Área coberta pelo CAR</div><div class="hl-value">{{inArea.coveragePct}}%</div><div class="hl-sub">{{inArea.coveredHa}} ha de {{inArea.areaHa}} ha</div></td>
+      <td class="highlight"><div class="hl-label">Soma das partes dos imóveis</div><div class="hl-value">{{inArea.totalOverlapHa}} ha</div><div class="hl-sub">conta duas vezes a terra declarada por dois imóveis</div></td>
+      <td class="highlight"><div class="hl-label">Imóveis</div><div class="hl-value">{{inArea.count}}</div><div class="hl-sub">vigentes, acima de 0,01 ha</div></td>
+    </tr>
+  </table>
+  <p>A cobertura conta cada hectare uma vez (união das partes); a soma das partes conta de novo a terra declarada por mais de um imóvel. Se a soma passa da área coberta, a diferença é terra com sobreposição entre cadastros, que costuma pedir retificação no SICAR. A parte não coberta é área sem imóvel do CAR declarado.</p>
+</div>
+
+<div class="section">
+  <h2><span class="num">4</span> Embargos do IBAMA na área</h2>
+  {{#embargoes.hasActive}}<p class="alert">Há {{embargoes.activeCount}} termo(s) de embargo ativo(s) sobre a área, somando {{embargoes.activeOverlapHa}} ha de sobreposição.</p>{{/embargoes.hasActive}}
+  {{#embargoes.embargoes}}{{#-first}}
+  <table class="grid">
+    <thead><tr><th>Termo (TAD)</th><th>Data</th><th>Situação</th><th>Tipo de área</th><th class="r">Sobre a área (ha)</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr><td class="code">{{term}}</td><td class="nowrap">{{embargoedAt}}</td><td>{{#active}}<strong>ativo</strong>{{/active}}{{#lifted}}desembargado {{liftedAt}}{{/lifted}}{{#cancelled}}cancelado{{/cancelled}}</td><td>{{areaType}}</td><td class="r">{{overlapHa}}</td></tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/embargoes.embargoes}}
+  {{^embargoes.embargoes}}<p class="ok">Nenhum termo de embargo do IBAMA foi encontrado sobre a área.</p>{{/embargoes.embargoes}}
+  <p class="note">O embargo é da área, não de um imóvel: cruze com a tabela da seção 2 para ver em que imóveis ele cai. Termos publicados só com coordenada entram quando o ponto cai dentro da área ("sobre a área" vazio).{{#embargoes.truncated}} A lista mostra os 100 primeiros termos (ativos primeiro).{{/embargoes.truncated}}</p>
+</div>
+
+<div class="section">
+  <h2><span class="num">5</span> Data de referência da base SICAR</h2>
+  {{#carRef.hasData}}
+  <p>A lista vem da base do SICAR de {{carRef.uf}} publicada até <strong>{{carRef.latestPublishedAt}}</strong>{{#carRef.oldestPublishedAt}} (a camada mais antiga é de {{carRef.oldestPublishedAt}}){{/carRef.oldestPublishedAt}}. Imóveis inscritos ou alterados depois disso não aparecem.{{^carRef.complete}} Nem todas as camadas foram carregadas para a UF.{{/carRef.complete}}</p>
+  {{#carRef.layers}}{{#-first}}
+  <table class="grid">
+    <thead><tr><th>Camada</th><th>Publicação no SICAR</th><th>Carregada em</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr><td>{{layerLabel}}</td><td>{{#loaded}}{{publishedAt}}{{/loaded}}{{^loaded}}não carregada{{/loaded}}</td><td>{{loadedAt}}</td></tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/carRef.layers}}
+  <p class="note">A UF é a do município com a maior parte da área. Imóveis de outra UF que cortam a área seguem a data da base da sua UF.</p>
+  {{/carRef.hasData}}
+  {{^carRef.hasData}}<p class="empty">Sem data de referência da base SICAR para a UF da área (carga não registrada ou consulta sem resposta nesta execução).</p>{{/carRef.hasData}}
+</div>
+
+<div class="section">
+  <h2><span class="num">6</span> Fontes e limitações</h2>
+  <ul class="sources">
+    <li>Área: {{#area.isCar}}geometria vigente do imóvel no CAR{{/area.isCar}}{{^area.isCar}}{{#area.isGis}}polígonos do dado GIS "{{area.gisDatasetName}}" do Data Library (armazenados em WGS 84), unidos e corrigidos para geometria válida{{/area.isGis}}{{^area.isGis}}polígono informado por quem rodou o relatório, corrigido para geometria válida{{/area.isGis}}{{/area.isCar}}. Áreas em SIRGAS 2000, com cálculo geodésico.</li>
+    <li>Imóveis: SICAR (Sistema Nacional de Cadastro Ambiental Rural), carregado pelo car-agent-app; só a versão vigente de cada imóvel. Informação autodeclaratória, sem dados pessoais.</li>
+    <li>Municípios e biomas: IBGE. Embargos: IBAMA, dados abertos de termos de embargo. Mantidos em versões pelo br-geo-agent-app.</li>
+    <li>Este relatório reúne bases públicas e não substitui certidão, consulta ao órgão ambiental nem vistoria em campo.</li>
+  </ul>
+</div>

@@ -16,13 +16,17 @@ import com.infinitestack.reports.blocks.car.PropertyMapRenderer;
 
 /**
  * Draws daily values as bars (the rain of each day) as a PNG for the PDF, with a horizontal grid and
- * date ticks. A day without value leaves a gap. Like the other charts, every label is optional: a
+ * date ticks. A day without value leaves a gap. Optional lines (e.g. the soil water storage of a water
+ * balance) are drawn over the bars on the same axis, one point per day at the centre of its slot. Like the other charts, every label is optional: a
  * host JRE without fonts gets the chart without text.
  */
 public class DailyBarChart {
 
     /** One day; {@code value} null when there is no data. */
     public record Bar(LocalDate date, Double value) {}
+
+    /** A line over the bars, on the same axis; a point with a null value breaks the line. */
+    public record Line(Color color, List<Bar> points) {}
 
     private static final Color BAR = new Color(0x1565C0);
     private static final Color GRID = new Color(0xE0E0E0);
@@ -45,6 +49,11 @@ public class DailyBarChart {
     }
 
     public byte[] render(List<Bar> bars, int width, int height) {
+        return render(bars, List.of(), width, height);
+    }
+
+    /** The bars and, over them, the lines; the axis covers both. */
+    public byte[] render(List<Bar> bars, List<Line> lines, int width, int height) {
         BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
         Graphics2D g = image.createGraphics();
         try {
@@ -59,6 +68,9 @@ public class DailyBarChart {
             }
 
             double hi = bars.stream().filter(b -> b.value() != null).mapToDouble(Bar::value).max().orElse(1);
+            for (Line line : lines) {
+                hi = Math.max(hi, line.points().stream().filter(b -> b.value() != null).mapToDouble(Bar::value).max().orElse(0));
+            }
             double step = niceStep(Math.max(hi, 1) / 5);
             hi = Math.max(step, Math.ceil(hi / step) * step);
             LocalDate first = bars.get(0).date();
@@ -81,6 +93,24 @@ public class DailyBarChart {
                 int w = Math.max(1, (int) Math.floor(slot * 0.8));
                 g.fillRect((int) Math.round(x + slot * 0.1), TOP + plotH - h, w, h);
             }
+
+            g.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            for (Line line : lines) {
+                g.setColor(line.color());
+                int[] last = null;
+                for (Bar point : line.points()) {
+                    if (point.value() == null) {
+                        last = null;
+                        continue;
+                    }
+                    int x = LEFT + (int) Math.round(slot * (ChronoUnit.DAYS.between(first, point.date()) + 0.5));
+                    int y = TOP + (int) Math.round(plotH * (hi - Math.max(0, point.value())) / hi);
+                    if (last != null) g.drawLine(last[0], last[1], x, y);
+                    else g.fillOval(x - 1, y - 1, 3, 3);
+                    last = new int[] {x, y};
+                }
+            }
+            g.setStroke(new BasicStroke(1f));
 
             g.setColor(AXIS);
             g.drawLine(LEFT, TOP + plotH, LEFT + plotW, TOP + plotH);

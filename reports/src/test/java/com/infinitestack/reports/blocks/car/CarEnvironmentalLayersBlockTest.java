@@ -63,7 +63,9 @@ class CarEnvironmentalLayersBlockTest {
         Map<String, Object> summary = (Map<String, Object>) out.get("summary");
         assertEquals(List.of("propertyAreaHa", "appHa", "legalReserveHa", "nativeVegetationHa", "consolidatedHa",
                 "fallowHa", "hydrographyHa", "restrictedUseHa", "administrativeEasementHa", "appPercent",
-                "legalReservePercent", "nativeVegetationPercent"), List.copyOf(summary.keySet()));
+                "legalReservePercent", "nativeVegetationPercent", "hydrographyCalculated"), List.copyOf(summary.keySet()));
+        assertFalse((Boolean) summary.get("hydrographyCalculated"));
+        assertEquals("declared", app.get("areaSource"));
         assertEquals(100.0, summary.get("propertyAreaHa"));
         assertEquals(46.5079, summary.get("legalReserveHa"));
         assertEquals(0.0, summary.get("consolidatedHa"));
@@ -81,5 +83,27 @@ class CarEnvironmentalLayersBlockTest {
         assertEquals(0.0, summary.get("propertyAreaHa"));
         assertEquals(0.0, summary.get("appPercent"));
         assertFalse((Boolean) out.get("hasLegalReserve"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void featuresWithoutDeclaredAreaAreMarkedCalculated() {
+        List<ThemeRow> rows = List.of(
+                new ThemeRow("HIDROGRAFIA", "Hidrografia", 5, "RIO_ATE_10", "Rio", false, 2, new BigDecimal("3.5"), 2),
+                new ThemeRow("HIDROGRAFIA", "Hidrografia", 5, "NASCENTE", "Nascente", false, 1, new BigDecimal("0.5"), 0),
+                new ThemeRow("APPS", "APP", 1, "APP_TOTAL", "APP total", true, 1, new BigDecimal("2"), 0),
+                new ThemeRow("APPS", "APP", 1, "APP_RIO", "APP rio", false, 1, new BigDecimal("2"), 1));
+        Map<String, Object> out = CarEnvironmentalLayersBlock.result(rows, 100.0);
+        List<Map<String, Object>> layers = (List<Map<String, Object>>) out.get("layers");
+        Map<String, Object> app = layers.get(0);
+        assertEquals("declared", app.get("areaSource"), "only the aggregate counts, and it is declared");
+        Map<String, Object> hydro = layers.get(1);
+        assertEquals("mixed", hydro.get("areaSource"));
+        assertEquals(4.0, hydro.get("declaredAreaHa"));
+        List<Map<String, Object>> themes = (List<Map<String, Object>>) hydro.get("themes");
+        assertEquals("declared", themes.get(0).get("areaSource"));   // NASCENTE
+        assertEquals("calculated", themes.get(1).get("areaSource")); // RIO_ATE_10
+        assertTrue((Boolean) ((Map<String, Object>) out.get("summary")).get("hydrographyCalculated"));
+        assertEquals("calculated", CarEnvironmentalLayersBlock.areaSource(3, 3));
     }
 }

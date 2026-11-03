@@ -16,7 +16,10 @@ import java.util.Map;
 
 import javax.imageio.ImageIO;
 
+import com.infinitestack.reports.blocks.car.CarDataReferenceBlock;
 import com.infinitestack.reports.blocks.car.CarEnvironmentalLayersBlock;
+import com.infinitestack.reports.blocks.car.CarInAreaBlock;
+import com.infinitestack.reports.blocks.car.CarQuarantineBlock;
 import com.infinitestack.reports.blocks.car.CarHistoryBlock;
 import com.infinitestack.reports.blocks.car.CarOverlapsBlock;
 import com.infinitestack.reports.blocks.car.CarPropertyBlock;
@@ -42,7 +45,80 @@ public final class CarBlockContractStubs {
     /** @param bare true for a property with no layer, no legal reserve, no overlap and one version */
     public static List<ReportBlock> all(boolean bare) {
         return List.of(new Property(bare), new Geometry(), new EnvironmentalLayers(bare), new Overlaps(bare),
-                new History(bare), new PropertyMap(bare), new ReportArea());
+                new History(bare), new PropertyMap(bare), new ReportArea(), new DataReference(bare), new Quarantine(bare),
+                new InArea(bare));
+    }
+
+    /** car-data-reference: every layer loaded (full) or the state never loaded (bare). */
+    public static final class DataReference extends Stub {
+        private final boolean bare;
+
+        DataReference(boolean bare) {
+            super("car-data-reference");
+            this.bare = bare;
+        }
+
+        @Override public Map<String, Object> execute(Map<String, Object> inputs, ExecutionMetadata metadata) {
+            Object code = inputs.get("codImovel");
+            String uf = inputs.get("uf") != null ? (String) inputs.get("uf") : code != null ? ((String) code).substring(0, 2) : "MT";
+            List<Object> layers = new ArrayList<>();
+            String[][] names = {{"AREA_IMOVEL", "Área do imóvel"}, {"RESERVA_LEGAL", "Reserva Legal"}, {"APPS", "Áreas de Preservação Permanente"},
+                    {"HIDROGRAFIA", "Hidrografia"}};
+            for (int i = 0; i < names.length; i++) {
+                Map<String, Object> layer = map("layer", names[i][0], "layerLabel", names[i][1], "loaded", !bare);
+                layer.put("publishedAt", bare ? null : i == 3 ? "2026-09-15" : "2026-10-20");
+                layer.put("loadedAt", bare ? null : i == 3 ? "2026-09-16T04:10:00Z" : "2026-10-21T03:22:00Z");
+                layers.add(layer);
+            }
+            Map<String, Object> out = map("uf", uf, "layers", layers, "hasData", !bare, "complete", !bare);
+            out.put("latestPublishedAt", bare ? null : "2026-10-20");
+            out.put("oldestPublishedAt", bare ? null : "2026-09-15");
+            return out;
+        }
+    }
+
+    /** car-quarantine: two records set aside (full) or none (bare). */
+    public static final class Quarantine extends Stub {
+        private final boolean bare;
+
+        Quarantine(boolean bare) {
+            super("car-quarantine");
+            this.bare = bare;
+        }
+
+        @Override public Map<String, Object> execute(Map<String, Object> inputs, ExecutionMetadata metadata) {
+            List<Object> items = bare ? List.of() : List.of(
+                    map("reason", "duplicado", "reasonLabel", "Duplicate record (another record of the code was kept)", "layer", "AREA_IMOVEL",
+                            "layerLabel", "Área do imóvel", "detail", "kept: AT", "publishedAt", "2026-10-20", "recordedAt", "2026-10-21T03:20:00Z"),
+                    map("reason", "geometria_invalida", "reasonLabel", "Invalid geometry that could not be fixed", "layer", "RESERVA_LEGAL",
+                            "layerLabel", "Reserva Legal", "detail", "self-intersection", "publishedAt", "2026-09-15", "recordedAt", "2026-09-16T04:08:00Z"));
+            List<Object> byReason = bare ? List.of() : List.of(
+                    map("reason", "duplicado", "reasonLabel", "Duplicate record (another record of the code was kept)", "count", 1, "lastPublishedAt", "2026-10-20"),
+                    map("reason", "geometria_invalida", "reasonLabel", "Invalid geometry that could not be fixed", "count", 1, "lastPublishedAt", "2026-09-15"));
+            return map("items", items, "count", items.size(), "truncated", false, "hasItems", !bare, "byReason", byReason);
+        }
+    }
+
+    /** car-in-area: two properties cutting the area (full) or none (bare). */
+    public static final class InArea extends Stub {
+        private final boolean bare;
+
+        InArea(boolean bare) {
+            super("car-in-area");
+            this.bare = bare;
+        }
+
+        @Override public Map<String, Object> execute(Map<String, Object> inputs, ExecutionMetadata metadata) {
+            List<Object> properties = bare ? List.of() : List.of(
+                    map("codImovel", COD_IMOVEL, "uf", "MT", "municipality", "Querência", "statusLabel", "Ativo", "typeLabel", "Imóvel Rural",
+                            "declaredAreaHa", 1250.4321, "overlapHa", 1100.2, "overlapPctOfArea", 88.09, "overlapPctOfProperty", 88.09),
+                    map("codImovel", "MT-5107065-0F1E2D3C4B5A69788796A5B4C3D2E1F0", "uf", "MT", "municipality", "Querência",
+                            "statusLabel", "Pendente", "typeLabel", "Imóvel Rural", "declaredAreaHa", 410.0, "overlapHa", 35.21,
+                            "overlapPctOfArea", 2.82, "overlapPctOfProperty", 8.6));
+            return map("properties", properties, "count", properties.size(), "truncated", false, "hasProperties", !bare,
+                    "areaHa", 1248.97, "totalOverlapHa", bare ? 0.0 : 1135.41, "coveredHa", bare ? 0.0 : 1112.3,
+                    "coveragePct", bare ? 0.0 : 89.06);
+        }
     }
 
 
@@ -55,7 +131,8 @@ public final class CarBlockContractStubs {
     /** The real definitions, so a stub can never drift from the Block it stands for. */
     private static final Map<String, BlockDefinition> REAL = java.util.stream.Stream.of(
                     new CarPropertyBlock(null), new CarPropertyGeometryBlock(null), new CarEnvironmentalLayersBlock(null),
-                    new CarOverlapsBlock(null), new CarHistoryBlock(null), new CarPropertyMapBlock(null), new ReportAreaBlock(null))
+                    new CarOverlapsBlock(null), new CarHistoryBlock(null), new CarPropertyMapBlock(null), new ReportAreaBlock(null, null),
+                    new CarDataReferenceBlock(null), new CarQuarantineBlock(null), new CarInAreaBlock(null))
             .map(ReportBlock::definition)
             .collect(java.util.stream.Collectors.toMap(BlockDefinition::id, d -> d));
 
@@ -84,6 +161,10 @@ public final class CarBlockContractStubs {
                     "condition", "Aguardando análise", "fiscalModules", 12.5, "declaredAreaHa", 1250.4321,
                     "registeredAt", "2015-03-12", "updatedAt", "2023-08-30", "versionSince", "2023-09-02");
             out.put("removedAt", bare ? null : "2024-05-10");
+            out.put("removed", !bare);
+            out.put("calculatedAreaHa", 1248.97);
+            out.put("areaDifferencePct", 0.11);
+            out.put("areaMismatch", false);
             return out;
         }
     }
@@ -102,7 +183,7 @@ public final class CarBlockContractStubs {
         }
     }
 
-    /** report-area: the CAR geometry for a code, the polygon itself otherwise; fails like the Block on both or neither. */
+    /** report-area: the CAR geometry for a code, the polygon itself, or a GIS dataset; fails like the Block on more than one or none. */
     public static final class ReportArea extends Stub {
         ReportArea() {
             super("report-area");
@@ -111,13 +192,20 @@ public final class CarBlockContractStubs {
         @Override public Map<String, Object> execute(Map<String, Object> inputs, ExecutionMetadata metadata) {
             Object code = inputs.get("codImovel");
             Object polygon = inputs.get("geometry");
-            if ((code == null) == (polygon == null)) throw new IllegalArgumentException("give a CAR code or a polygon");
+            Object gis = inputs.get("gisDataset");
+            int given = (code != null ? 1 : 0) + (polygon != null ? 1 : 0) + (gis != null ? 1 : 0);
+            if (given != 1) throw new IllegalArgumentException("give a CAR code, a polygon or a GIS dataset");
             Map<String, Object> out = new Geometry().execute(inputs, metadata);
             if (polygon != null) out.put("geometry", polygon);
-            out.put("source", code != null ? "car" : "polygon");
+            out.put("source", code != null ? "car" : gis != null ? "gis" : "polygon");
             out.put("isCar", code != null);
+            out.put("isGis", gis != null);
             out.put("codImovel", code);
-            out.put("label", code != null ? code : inputs.getOrDefault("name", "Área informada"));
+            out.put("label", code != null ? code : gis != null ? "Talhões " + gis : inputs.getOrDefault("name", "Área informada"));
+            out.put("gisDatasetId", gis != null ? 1 : null);
+            out.put("gisDatasetName", gis != null ? "Talhões " + gis : null);
+            out.put("gisFeatureId", inputs.get("gisFeature"));
+            out.put("gisPolygons", gis != null ? 3 : null);
             return out;
         }
     }
@@ -144,16 +232,20 @@ public final class CarBlockContractStubs {
             Map<String, Object> summary = map("propertyAreaHa", 1250.4321, "appHa", bare ? 0 : 88.1, "legalReserveHa", legalReserve,
                     "nativeVegetationHa", bare ? 0 : 640.75, "consolidatedHa", bare ? 0 : 512.3, "fallowHa", 0,
                     "hydrographyHa", bare ? 0 : 12.4, "restrictedUseHa", 0, "administrativeEasementHa", 0,
-                    "appPercent", bare ? 0 : 7.05, "legalReservePercent", bare ? 0 : 20.09, "nativeVegetationPercent", bare ? 0 : 51.24);
+                    "appPercent", bare ? 0 : 7.05, "legalReservePercent", bare ? 0 : 20.09, "nativeVegetationPercent", bare ? 0 : 51.24,
+                    "hydrographyCalculated", !bare);
             return map("layers", layers, "summary", summary, "hasLegalReserve", !bare);
         }
 
         private static Map<String, Object> layer(String layer, String name, double area, double percent, Object... themes) {
-            return map("layer", layer, "layerName", name, "declaredAreaHa", area, "percentOfProperty", percent, "themes", List.of(themes));
+            String source = "HIDROGRAFIA".equals(layer) ? "calculated" : "declared";
+            return map("layer", layer, "layerName", name, "declaredAreaHa", area, "areaSource", source,
+                    "percentOfProperty", percent, "themes", List.of(themes));
         }
 
         private static Map<String, Object> theme(String theme, String name, int count, double area) {
-            return map("theme", theme, "themeName", name, "count", count, "declaredAreaHa", area);
+            String source = theme.startsWith("RIO") || theme.equals("NASCENTE") ? "calculated" : "declared";
+            return map("theme", theme, "themeName", name, "count", count, "declaredAreaHa", area, "areaSource", source);
         }
     }
 
@@ -188,18 +280,25 @@ public final class CarBlockContractStubs {
         @Override public Map<String, Object> execute(Map<String, Object> inputs, ExecutionMetadata metadata) {
             List<Object> versions = new ArrayList<>();
             if (!bare) {
-                versions.add(version("2015-03-12", "2019-06-01", "Pendente", "Aguardando análise", 1262.0, false));
-                versions.add(version("2019-06-01", "2023-09-02", "Ativo", "Aguardando análise", 1250.4321, true));
+                versions.add(version("2015-03-12", "2019-06-01", "Pendente", "Aguardando análise", 1262.0, 1260.12, null, null, false));
+                versions.add(version("2019-06-01", "2023-09-02", "Ativo", "Aguardando análise", 1250.4321, 1248.97, -11.15, -0.88, true));
             }
-            versions.add(version("2023-09-02", null, "Ativo", "Aguardando análise", 1250.4321, false));
-            return map("versions", versions, "count", versions.size());
+            versions.add(version("2023-09-02", null, "Ativo", "Aguardando análise", 1250.4321, 1248.97, bare ? null : 0.0,
+                    bare ? null : 0.0, false));
+            Map<String, Object> out = map("versions", versions, "count", versions.size());
+            out.put("removedAt", null);
+            return out;
         }
 
         private static Map<String, Object> version(String from, String to, String statusLabel, String condition,
-                                                   double area, boolean geometryChanged) {
+                                                   double area, double calculated, Double changeHa, Double changePct,
+                                                   boolean geometryChanged) {
             Map<String, Object> v = new HashMap<>(map("validFrom", from, "status", "AT", "statusLabel", statusLabel,
-                    "condition", condition, "declaredAreaHa", area, "geometryChanged", geometryChanged));
+                    "condition", condition, "declaredAreaHa", area, "calculatedAreaHa", calculated,
+                    "geometryChanged", geometryChanged));
             v.put("validTo", to);
+            v.put("areaChangeHa", changeHa);
+            v.put("areaChangePct", changePct);
             return v;
         }
     }

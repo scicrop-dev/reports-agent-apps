@@ -171,9 +171,7 @@ public class PropertyMapRenderer {
                 g.draw(property);
             }
 
-            drawNorthArrow(g, view);
-            drawScaleBar(g, view);
-            drawCornerCoordinates(g, view);
+            drawDecorations(g, view);
             return new Result(png(image), List.copyOf(legend));
         } finally {
             g.dispose();
@@ -183,7 +181,7 @@ public class PropertyMapRenderer {
     // --- geometry ---------------------------------------------------------------------------
 
     /** All rings of a GeoJSON geometry in one even-odd path (holes stay holes); null when empty. */
-    static Path2D path(Viewport view, String geoJson) {
+    public static Path2D path(Viewport view, String geoJson) {
         if (geoJson == null || geoJson.isBlank()) return null;
         JsonNode node;
         try {
@@ -229,6 +227,13 @@ public class PropertyMapRenderer {
     }
 
     // --- decorations ------------------------------------------------------------------------
+
+    /** North arrow, scale bar and corner coordinates: what every map of the reports carries. */
+    public void drawDecorations(Graphics2D g, Viewport view) {
+        drawNorthArrow(g, view);
+        drawScaleBar(g, view);
+        drawCornerCoordinates(g, view);
+    }
 
     private void drawNorthArrow(Graphics2D g, Viewport view) {
         int size = Math.max(18, Math.min(view.width(), view.height()) / 22);

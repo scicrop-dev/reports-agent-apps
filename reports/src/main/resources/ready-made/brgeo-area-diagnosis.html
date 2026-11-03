@@ -20,6 +20,8 @@
     <tr><td class="flag-label">Embargos do IBAMA ativos</td><td>{{#embargoes.hasActive}}<span class="flag-bad">{{embargoes.activeCount}} termo(s)</span>, {{embargoes.activeOverlapHa}} ha{{/embargoes.hasActive}}{{^embargoes.hasActive}}<span class="flag-good">nenhum encontrado</span>{{/embargoes.hasActive}}</td></tr>
     <tr><td class="flag-label">Alertas DETER</td><td>{{#deter.monitored}}{{#deter.byClass}}{{#-first}}<span class="flag-bad">{{deter.count}} alerta(s)</span>, {{deter.totalOverlapHa}} ha{{/-first}}{{/deter.byClass}}{{^deter.byClass}}<span class="flag-good">nenhum alerta</span>{{/deter.byClass}}{{/deter.monitored}}{{^deter.monitored}}<span class="flag-neutral">não monitorada</span>{{/deter.monitored}}</td></tr>
     <tr><td class="flag-label">Desmatamento PRODES</td><td>{{#prodes.monitored}}{{#prodes.byProduct}}<span class="flag-bad">{{productName}}: {{deforestedHa}} ha</span> ({{firstYear}} a {{lastYear}})<br>{{/prodes.byProduct}}{{^prodes.byProduct}}<span class="flag-good">nenhum incremento</span>{{/prodes.byProduct}}{{/prodes.monitored}}{{^prodes.monitored}}<span class="flag-neutral">não monitorada</span>{{/prodes.monitored}}</td></tr>
+    <tr><td class="flag-label">Solo (IBGE 1:250.000)</td><td>{{#soil.hasUnits}}<span class="flag-neutral">{{soil.mainOrder}}</span>; {{#soil.hasRestrictions}}<span class="flag-bad">há restrições</span>{{/soil.hasRestrictions}}{{^soil.hasRestrictions}}<span class="flag-good">sem restrição mapeada</span>{{/soil.hasRestrictions}}{{/soil.hasUnits}}{{^soil.hasUnits}}<span class="flag-neutral">sem dado</span>{{/soil.hasUnits}}</td></tr>
+    <tr><td class="flag-label">Censo Agro 2017 (presença histórica, não prova)</td><td>{{#census.dataAvailable}}{{#census.routeInside}}<span class="flag-neutral">trajeto de recenseador dentro da área</span>{{/census.routeInside}}{{^census.routeInside}}{{#census.routeEdge}}<span class="flag-neutral">trajeto só na borda da área</span>{{/census.routeEdge}}{{^census.routeEdge}}{{#census.routeNear}}<span class="flag-neutral">trajeto a até {{census.bufferM}} m da área</span>{{/census.routeNear}}{{/census.routeEdge}}{{^census.routeEdge}}{{^census.routeNear}}<span class="flag-neutral">nenhum trajeto a até {{census.bufferM}} m</span>{{/census.routeNear}}{{/census.routeEdge}}{{/census.routeInside}}; {{census.cnefeInside}} endereço(s) agropecuário(s) dentro{{/census.dataAvailable}}{{^census.dataAvailable}}<span class="flag-neutral">sem dado do Censo para a área</span>{{/census.dataAvailable}}</td></tr>
   </table>
 </div>
 
@@ -93,9 +95,50 @@
 </div>
 
 <div class="section">
-  <h2><span class="num">5</span> Fontes e limitações</h2>
+  <h2><span class="num">5</span> Solo</h2>
+  {{#soil.hasUnits}}
+  <p>Ordem de solo predominante: <strong>{{soil.mainOrder}}</strong>. Unidades do mapa de pedologia do IBGE (1:250.000, edição {{soil.edition}}) que a área cruza:</p>
+  {{#soil.units}}{{#-first}}
+  <table class="grid">
+    <thead><tr><th>Unidade</th><th>Legenda</th><th>Relevo</th><th class="r">Área (ha)</th><th class="r">% da área</th></tr></thead>
+    <tbody>
+  {{/-first}}
+      <tr><td class="code">{{symbol}}</td><td>{{legend}}</td><td>{{relief}}</td><td class="r">{{overlapHa}}</td><td class="r">{{percent}}</td></tr>
+  {{#-last}}
+    </tbody>
+  </table>
+  {{/-last}}{{/soil.units}}
+  {{#soil.truncated}}<p class="note">A tabela mostra as maiores unidades; a área cruza {{soil.count}}.</p>{{/soil.truncated}}
+  {{#soil.hasRestrictions}}<p class="alert">Restrições ao uso agrícola nas unidades mapeadas: {{#soil.flags.steepRelief}}relevo forte ondulado, montanhoso ou escarpado; {{/soil.flags.steepRelief}}{{#soil.flags.stony}}fase pedregosa; {{/soil.flags.stony}}{{#soil.flags.rocky}}fase rochosa; {{/soil.flags.rocky}}{{#soil.flags.organosol}}Organossolo (solo orgânico); {{/soil.flags.organosol}}{{#soil.flags.vertisol}}Vertissolo (argila expansiva); {{/soil.flags.vertisol}}veja o relevo e a legenda de cada unidade na tabela.</p>{{/soil.hasRestrictions}}
+  {{^soil.hasRestrictions}}<p class="ok">Nenhuma restrição de relevo, pedregosidade, rochosidade, Organossolo ou Vertissolo nas unidades mapeadas.</p>{{/soil.hasRestrictions}}
+  <p class="note">Escala de 1:250.000: é a associação de solos da região, não o solo de cada talhão.</p>
+  {{/soil.hasUnits}}
+  {{^soil.hasUnits}}
+  <p class="empty">Sem unidade do mapa de pedologia do IBGE para a área (fora do mapa, ou a consulta não respondeu nesta execução).</p>
+  {{/soil.hasUnits}}
+</div>
+
+<div class="section">
+  <h2><span class="num">6</span> Evidências do Censo Agropecuário 2017</h2>
+  <p class="alert">Presença histórica, não prova. O Censo Agro 2017 mostra por onde os recenseadores passaram e onde havia estabelecimentos agropecuários em 2017. Não diz que a área foi recenseada nem que o estabelecimento existe hoje; estrada pública cruza vários imóveis; ausência de trajeto não prova inexistência; estabelecimento censitário não é imóvel do CAR.</p>
+  {{#census.dataAvailable}}
+  <table class="kv">
+    <tr><th>Classificação</th><td><strong>{{#census.routeInside}}trajeto de recenseador dentro da área{{/census.routeInside}}{{^census.routeInside}}{{#census.routeEdge}}trajeto só na borda da área (até {{census.edgeToleranceM}} m dela){{/census.routeEdge}}{{^census.routeEdge}}{{#census.routeNear}}trajeto a até {{census.bufferM}} m da área{{/census.routeNear}}{{^census.routeNear}}nenhum trajeto a até {{census.bufferM}} m{{/census.routeNear}}{{/census.routeEdge}}{{/census.routeInside}}</strong> ({{census.status}})</td></tr>
+    <tr><th>Trajeto dentro da área</th><td>{{census.insideKm}} km ({{census.insideMPerHa}} m por ha), em {{census.routesCrossing}} trecho(s)</td></tr>
+    <tr><th>Trechos a até {{census.bufferM}} m</th><td>{{census.routesNear}}{{#census.minDistanceM}}; o mais próximo a {{census.minDistanceM}} m (0 = cruza a área){{/census.minDistanceM}}</td></tr>
+    <tr><th>Endereços agropecuários do CNEFE</th><td>{{census.cnefeInside}} dentro da área; {{census.cnefeNearCount}} dentro ou a até {{census.bufferM}} m</td></tr>
+  </table>
+  <p class="note">Metodologia F3 do BR Geo: trajeto "dentro" entra mais de {{census.edgeToleranceM}} m além da borda (tolerância exploratória, não validada); "borda" só passa pela faixa da borda; "próximo" fica a até {{census.bufferM}} m.</p>
+  {{/census.dataAvailable}}
+  {{^census.dataAvailable}}
+  <p class="empty">O BR Geo não tem os trajetos do Censo Agro 2017 para os municípios da área (ou a consulta não respondeu nesta execução).</p>
+  {{/census.dataAvailable}}
+</div>
+
+<div class="section">
+  <h2><span class="num">7</span> Fontes e limitações</h2>
   <ul class="sources">
-    <li>IBGE (municípios e biomas), IBAMA (termos de embargo), INPE (DETER e PRODES), mantidos em versões pelo br-geo-agent-app.</li>
+    <li>IBGE (municípios, biomas, pedologia 1:250.000 e Censo Agropecuário 2017), IBAMA (termos de embargo), INPE (DETER e PRODES), mantidos em versões pelo br-geo-agent-app.</li>
     <li>Áreas em SIRGAS 2000 (EPSG:4674), com cálculo geodésico. Só a parte poligonal da geometria é analisada.</li>
     <li>O diagnóstico reúne bases públicas e não substitui vistoria nem a consulta aos órgãos ambientais estaduais.</li>
   </ul>

@@ -1,0 +1,52 @@
+{
+  "id": "area-soil-aptitude",
+  "version": "1.0.0",
+  "name": "Solo e aptidão agrícola (imóvel CAR, polígono ou GIS)",
+  "description": "Para uma cultura num imóvel do CAR, polígono ou dado GIS: solos do mapa do IBGE e suas restrições, granulometria dos perfis de solo próximos, risco do ZARC por classe de solo (AD), cultivares indicadas, água no solo pelo balanço hídrico e a série histórica da cultura no município.",
+  "category": "Agricultura",
+  "inputs": [
+    { "name": "codImovel", "type": "string", "required": false, "label": "Código do imóvel no CAR (ou deixe em branco e informe o polígono ou um dado GIS)" },
+    { "name": "area", "type": "geometry", "required": false, "label": "Polígono da área em GeoJSON, no lugar do código CAR" },
+    { "name": "areaName", "type": "string", "required": false, "label": "Nome da área (só para polígono)" },
+    { "name": "gisDataset", "type": "string", "required": false, "picker": "gis-dataset", "label": "Ou um dado GIS do Data Library (conjunto)" },
+    { "name": "gisFeature", "type": "number", "required": false, "picker": "gis-feature", "label": "Feição do dado GIS (opcional; padrão todos os polígonos)" },
+    { "name": "crop", "type": "string", "required": true, "label": "Cultura, como o ZARC escreve: Soja, Milho 2ª safra, Trigo..." },
+    { "name": "season", "type": "string", "required": false, "label": "Safra do ZARC (opcional, ex.: 2026/2027; padrão a mais recente)" }
+  ],
+  "flow": {
+    "nodes": [
+      { "id": "area", "block": "report-area" },
+      { "id": "property", "block": "car-property", "optional": true },
+      { "id": "municipalities", "block": "brgeo-municipalities" },
+      { "id": "soil", "block": "brgeo-soil-units", "optional": true },
+      { "id": "profiles", "block": "brgeo-soil-profiles", "optional": true },
+      { "id": "zarc", "block": "brgeo-zarc-risk", "values": {"limit": 60}, "optional": true },
+      { "id": "cultivars", "block": "brgeo-zarc-cultivars", "values": {"limit": 20}, "optional": true },
+      { "id": "balance", "block": "brweather-water-balance", "optional": true },
+      { "id": "history", "block": "brgeo-crop-production-history", "optional": true }
+    ],
+    "connections": [
+      { "from": "inputs.codImovel", "to": "area.codImovel" },
+      { "from": "inputs.area", "to": "area.geometry" },
+      { "from": "inputs.areaName", "to": "area.name" },
+      { "from": "inputs.gisDataset", "to": "area.gisDataset" },
+      { "from": "inputs.gisFeature", "to": "area.gisFeature" },
+      { "from": "area.codImovel", "to": "property.codImovel" },
+      { "from": "area.geometry", "to": "municipalities.geometry" },
+      { "from": "area.geometry", "to": "soil.geometry" },
+      { "from": "area.geometry", "to": "profiles.geometry" },
+      { "from": "municipalities.mainIbgeCode", "to": "zarc.municipalityIbge" },
+      { "from": "inputs.crop", "to": "zarc.crop" },
+      { "from": "inputs.season", "to": "zarc.season" },
+      { "from": "inputs.crop", "to": "cultivars.crop" },
+      { "from": "municipalities.mainUf", "to": "cultivars.uf" },
+      { "from": "inputs.season", "to": "cultivars.season" },
+      { "from": "area.geometry", "to": "balance.geometry" },
+      { "from": "municipalities.mainIbgeCode", "to": "history.municipalityIbge" },
+      { "from": "inputs.crop", "to": "history.product" }
+    ]
+  },
+  "templateHtmlFile": "area-soil-aptitude.html",
+  "templateCssFile": "report-base.css",
+  "page": { "size": "A4", "orientation": "portrait", "marginMm": 18 }
+}

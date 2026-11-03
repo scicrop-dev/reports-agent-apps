@@ -24,6 +24,7 @@ import com.infinitestack.reports.blocks.brgeo.BrGeoZarcRiskBlock;
 import com.infinitestack.reports.blocks.brweather.BrWeatherDailyBlock;
 import com.infinitestack.reports.blocks.brweather.BrWeatherRainfallBlockAccess;
 import com.infinitestack.reports.blocks.car.ReportAreaBlock;
+import com.infinitestack.reports.blocks.gis.GisAreas;
 import com.infinitestack.reports.blocks.sathub.SatelliteHubIndexSeriesBlock;
 import com.infinitestack.reports.engine.block.BlockPort;
 import com.infinitestack.reports.engine.block.BlockQueries;
@@ -324,7 +325,7 @@ class SourceBlocksSyntheticDbTest {
 
     @Test
     void reportAreaCleansAPolygonAndRefusesWhatIsNotOne() throws Exception {
-        ReportAreaBlock block = new ReportAreaBlock(queries);
+        ReportAreaBlock block = new ReportAreaBlock(queries, new GisAreas(queries));
         // Two overlapping squares in a FeatureCollection: merged into one area, not counted twice.
         Map<String, Object> collection = Map.of("type", "FeatureCollection", "features", List.of(
                 Map.of("type", "Feature", "properties", Map.of(), "geometry", box(-52.21, -12.64, -52.17, -12.61)),

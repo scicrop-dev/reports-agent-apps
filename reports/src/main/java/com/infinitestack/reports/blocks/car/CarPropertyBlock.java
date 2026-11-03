@@ -18,16 +18,24 @@ import com.infinitestack.reports.engine.block.ReportBlock;
 
 /**
  * {@code car-property}: the registration data of a CAR property, from its current version
- * ({@code valido_ate IS NULL}) with the labels of status, type and condition (BLOCKS.md section 2).
+ * ({@code valido_ate IS NULL}) or, for a property removed from the SICAR, its last version
+ * ({@link CarTables#VERSION_IN_EFFECT}), with the labels of status, type and condition
+ * (BLOCKS.md section 2). It also compares the declared area with the area calculated from the
+ * version's geometry and flags a difference above {@link #AREA_MISMATCH_PCT}.
  */
 @Component
 public class CarPropertyBlock implements ReportBlock {
 
+    /** Above this difference between declared and calculated area, in percent, {@code areaMismatch} is true. */
+    static final double AREA_MISMATCH_PCT = 5.0;
+
     static final String SQL = "SELECT i.cod_imovel, i.uf, i.cod_municipio, i.removido_em, m.nome AS municipio,"
             + " v.ind_status, s.descricao AS status_label, v.ind_tipo, t.descricao AS tipo_label,"
-            + " c.descricao AS condicao, v.mod_fiscal, v.num_area, v.dat_criacao, v.dat_atualizacao, v.valido_de"
+            + " c.descricao AS condicao, v.mod_fiscal, v.num_area, v.dat_criacao, v.dat_atualizacao, v.valido_de,"
+            + " COALESCE(g.area_calc_ha, (ST_Area(g.geom::geography) / 1e4)::numeric) AS area_calc_ha"
             + " FROM " + Q_IMOVEL + " i"
-            + " JOIN " + Q_IMOVEL_VERSAO + " v ON v.imovel_id = i.id AND v.valido_ate IS NULL"
+            + VERSION_IN_EFFECT
+            + " LEFT JOIN " + Q_IMOVEL_GEOMETRIA + " g ON g.id = v.geometria_id"
             + " LEFT JOIN " + Q_MUNICIPIO + " m ON m.cod_ibge = i.cod_municipio"
             + " LEFT JOIN " + Q_STATUS_CADASTRO + " s ON s.codigo = v.ind_status"
             + " LEFT JOIN " + Q_TIPO_IMOVEL + " t ON t.codigo = v.ind_tipo"
@@ -43,7 +51,7 @@ public class CarPropertyBlock implements ReportBlock {
     @Override
     public BlockDefinition definition() {
         return new BlockDefinition("car-property", "CAR property",
-                "Registration data of a CAR property (current SICAR version)", "1.0.0",
+                "Registration data of a CAR property (current SICAR version, or the last one if removed)", "1.1.0",
                 List.of(CarValues.COD_IMOVEL_INPUT),
                 List.of(
                         BlockPort.required("codImovel", DataType.STRING, "SICAR property code"),
@@ -60,11 +68,19 @@ public class CarPropertyBlock implements ReportBlock {
                         BlockPort.optional("registeredAt", DataType.DATE, "registration date"),
                         BlockPort.optional("updatedAt", DataType.DATE, "last update in SICAR"),
                         BlockPort.required("versionSince", DataType.DATE, "date the current version became valid"),
-                        BlockPort.optional("removedAt", DataType.DATE, "date the property left SICAR, null if still there")),
+                        BlockPort.optional("removedAt", DataType.DATE, "date the property left SICAR, null if still there"),
+                        BlockPort.required("removed", DataType.BOOLEAN, "the property left the SICAR (data is its last version)"),
+                        BlockPort.optional("calculatedAreaHa", DataType.NUMBER,
+                                "area calculated from the version's geometry (geodesic), hectares"),
+                        BlockPort.optional("areaDifferencePct", DataType.NUMBER,
+                                "(declared - calculated) / calculated x 100, 2 decimals; null when either is missing"),
+                        BlockPort.required("areaMismatch", DataType.BOOLEAN,
+                                "declared and calculated area differ by more than 5%")),
                 List.of(
                         requirement(IMOVEL, "id", "cod_imovel", "uf", "cod_municipio", "removido_em"),
                         requirement(IMOVEL_VERSAO, "imovel_id", "valido_ate", "valido_de", "ind_status", "ind_tipo",
-                                "condicao_id", "mod_fiscal", "num_area", "dat_criacao", "dat_atualizacao"),
+                                "condicao_id", "mod_fiscal", "num_area", "dat_criacao", "dat_atualizacao", "geometria_id"),
+                        requirement(IMOVEL_GEOMETRIA, "id", "geom", "area_calc_ha"),
                         requirement(MUNICIPIO, "cod_ibge", "nome"),
                         requirement(STATUS_CADASTRO, "codigo", "descricao"),
                         requirement(TIPO_IMOVEL, "codigo", "descricao"),
@@ -81,14 +97,21 @@ public class CarPropertyBlock implements ReportBlock {
                         "Finds the property by its SICAR code (UF-<IBGE>-<32 hex>).",
                         "Reads the current version of the registration (the one with no end date) and resolves the "
                                 + "codes into labels: status, property type, condition and municipality.",
-                        "removedAt is filled when the property left the SICAR; the data is then the last known version."),
+                        "removedAt is filled when the property left the SICAR; the data is then the last known version "
+                                + "(the one closed on that date) and removed is true.",
+                        "Compares the declared area (num_area) with the area calculated from the geometry of the same "
+                                + "version: areaDifferencePct = (declared - calculated) / calculated x 100, and areaMismatch "
+                                + "is true when its absolute value is above 5%."),
                 List.of(
                         "codImovel: connect a report input of type string (the reader types the code).",
                         "municipalityIbge feeds per-municipality Blocks such as brgeo-crop-production.",
-                        "Usually the first node of a CAR report: every other CAR Block takes the same codImovel."),
+                        "Usually the first node of a CAR report: every other CAR Block takes the same codImovel.",
+                        "removed and areaMismatch are booleans for template warnings: {{#<node>.removed}}...{{/<node>.removed}}."),
                 List.of(
                         "Everything here is self-declared by the owner and may not have been analysed by the environmental agency.",
-                        "Fails with 'CAR property ... not found' when the code is not in the base."),
+                        "Fails with 'CAR property ... not found' when the code is not in the base.",
+                        "The 5% threshold is a warning, not a legal criterion: a declared area rounded by the owner or a "
+                                + "drawing in another projection can explain small differences."),
                 "SICAR, collected by car-agent-app into gold.car_agent_app_imovel and _imovel_versao",
                 "{{<node>.codImovel}} - {{<node>.municipality}}/{{<node>.uf}} - {{<node>.statusLabel}}");
     }
@@ -113,9 +136,26 @@ public class CarPropertyBlock implements ReportBlock {
             out.put("updatedAt", CarValues.isoDate(rs, "dat_atualizacao"));
             out.put("versionSince", CarValues.isoDate(rs, "valido_de"));
             out.put("removedAt", CarValues.isoDate(rs, "removido_em"));
+            out.put("removed", rs.getObject("removido_em") != null);
+            Double declared = CarValues.hectares(rs.getBigDecimal("num_area"));
+            Double calculated = CarValues.hectares(rs.getBigDecimal("area_calc_ha"));
+            Double difference = areaDifferencePct(declared, calculated);
+            out.put("calculatedAreaHa", calculated);
+            out.put("areaDifferencePct", difference);
+            out.put("areaMismatch", areaMismatch(difference));
             return out;
         }, codImovel));
         if (rows.isEmpty()) throw CarValues.notFound(codImovel);
         return rows.get(0);
+    }
+
+    /** (declared - calculated) / calculated x 100 with 2 decimals; null when either is missing or calculated is not positive. */
+    static Double areaDifferencePct(Double declaredHa, Double calculatedHa) {
+        if (declaredHa == null || calculatedHa == null || calculatedHa <= 0) return null;
+        return CarValues.round(java.math.BigDecimal.valueOf((declaredHa - calculatedHa) * 100.0 / calculatedHa), 2);
+    }
+
+    static boolean areaMismatch(Double differencePct) {
+        return differencePct != null && Math.abs(differencePct) > AREA_MISMATCH_PCT;
     }
 }

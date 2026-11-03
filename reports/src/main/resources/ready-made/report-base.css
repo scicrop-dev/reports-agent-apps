@@ -129,3 +129,12 @@ table.zarc td.z { padding: 0; height: 9pt; border: 0.5pt solid #ffffff; }
 .z-20 { background-color: #15803d; }
 .z-30 { background-color: #facc15; }
 .z-40 { background-color: #f97316; }
+
+/* ZARC soil class (AD1 to AD6, least to most available water): the soil cell of a row, shaded by class */
+td.ad { font-weight: bold; text-align: center; color: #0c4a6e; }
+.ad-AD1 { background-color: #f0f9ff; }
+.ad-AD2 { background-color: #e0f2fe; }
+.ad-AD3 { background-color: #bae6fd; }
+.ad-AD4 { background-color: #7dd3fc; }
+.ad-AD5 { background-color: #38bdf8; }
+.ad-AD6 { background-color: #0ea5e9; color: #ffffff; }

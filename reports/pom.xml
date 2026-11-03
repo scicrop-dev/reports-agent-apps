@@ -59,6 +59,13 @@
             <version>1.1.22</version>
         </dependency>
 
+        <!-- RFC 8785 (JSON Canonicalization Scheme): request_sha of is-crop-calendar, the same bytes the script hashes -->
+        <dependency>
+            <groupId>io.github.erdtman</groupId>
+            <artifactId>java-json-canonicalization</artifactId>
+            <version>1.1</version>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
